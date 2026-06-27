@@ -9,10 +9,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ResultScreen extends ConsumerWidget {
-  const ResultScreen({super.key, required this.result, required this.arena});
+  const ResultScreen({
+    super.key,
+    required this.result,
+    required this.arena,
+    this.nextRunBuilder,
+    this.nextRunLabel = 'Next Run',
+  });
 
   final GameResult result;
   final ArenaSpec arena;
+  final WidgetBuilder? nextRunBuilder;
+  final String nextRunLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,11 +104,12 @@ class ResultScreen extends ConsumerWidget {
                     _ScoreLine(label: 'Bank', value: progress.coins.toString()),
                     const SizedBox(height: 18),
                     CrashButton(
-                      label: 'Next Run',
+                      label: nextRunLabel,
                       icon: Icons.play_arrow_rounded,
                       onPressed: () => Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
-                          builder: (_) => PlayScreen(arena: arena),
+                          builder:
+                              nextRunBuilder ?? (_) => PlayScreen(arena: arena),
                         ),
                       ),
                     ),
