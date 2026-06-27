@@ -319,6 +319,110 @@ def make_crash_fragments() -> None:
         save(img, ASSETS / "debris" / f"metal_shard_{i:02d}.png")
 
 
+def make_wrecked_variant(source: Path, dest: Path, seed: int, large: bool = False) -> None:
+    if not source.exists():
+        return
+
+    rng = random.Random(seed)
+    img = Image.open(source).convert("RGBA")
+    w, h = img.size
+    alpha = img.getchannel("A")
+    bbox = alpha.getbbox()
+    if bbox is None:
+        return
+
+    damage_mask = Image.new("L", img.size, 0)
+    mask_draw = ImageDraw.Draw(damage_mask)
+
+    # Punch out jagged metal gaps near the front and sides so the wreck is
+    # visibly broken rather than just tinted.
+    gap_count = 3 if large else 4
+    for i in range(gap_count):
+        near_front = i < 2
+        center_x = rng.randint(bbox[0] + 18, bbox[2] - 18)
+        center_y = rng.randint(bbox[1] + 6, bbox[1] + int((bbox[3] - bbox[1]) * (0.32 if near_front else 0.72)))
+        rx = rng.randint(16, 34 if not large else 44)
+        ry = rng.randint(16, 38 if not large else 54)
+        points = []
+        for step in range(7):
+            angle = (math.tau / 7) * step + rng.uniform(-0.22, 0.22)
+            points.append(
+                (
+                    int(center_x + math.cos(angle) * rx * rng.uniform(0.42, 1.0)),
+                    int(center_y + math.sin(angle) * ry * rng.uniform(0.42, 1.0)),
+                )
+            )
+        mask_draw.polygon(points, fill=rng.randint(80, 170))
+
+    new_alpha = Image.composite(Image.new("L", img.size, 0), alpha, damage_mask)
+    img.putalpha(new_alpha)
+
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    def jagged_poly(cx: int, cy: int, rx: int, ry: int, points: int = 8) -> list[tuple[int, int]]:
+        return [
+            (
+                int(cx + math.cos(math.tau * step / points) * rx * rng.uniform(0.45, 1.04)),
+                int(cy + math.sin(math.tau * step / points) * ry * rng.uniform(0.45, 1.04)),
+            )
+            for step in range(points)
+        ]
+
+    # Dark crumple zones.
+    for _ in range(6 if large else 5):
+        cx = rng.randint(bbox[0] + 18, bbox[2] - 18)
+        cy = rng.randint(bbox[1] + 12, bbox[3] - 16)
+        poly = jagged_poly(cx, cy, rng.randint(16, 42), rng.randint(18, 52))
+        draw.polygon(poly, fill=(9, 12, 14, rng.randint(82, 132)))
+        draw.line(poly + [poly[0]], fill=(210, 218, 212, 85), width=2)
+
+    # Broken glass and spider cracks around windshield/window zones.
+    glass_zones = [
+        (int(w * 0.30), int(h * 0.34), int(w * 0.70), int(h * 0.53)),
+        (int(w * 0.31), int(h * 0.60), int(w * 0.69), int(h * 0.76)),
+    ]
+    if large:
+        glass_zones.append((int(w * 0.30), int(h * 0.16), int(w * 0.70), int(h * 0.32)))
+    for gx0, gy0, gx1, gy1 in glass_zones:
+        draw.rectangle((gx0, gy0, gx1, gy1), fill=(9, 24, 31, 92))
+        for _ in range(7):
+            sx = rng.randint(gx0, gx1)
+            sy = rng.randint(gy0, gy1)
+            ex = max(gx0, min(gx1, sx + rng.randint(-34, 34)))
+            ey = max(gy0, min(gy1, sy + rng.randint(-30, 30)))
+            draw.line((sx, sy, ex, ey), fill=(225, 248, 255, 170), width=1)
+
+    # Long scrape marks, exposed metal, and impact dents.
+    for _ in range(15 if large else 11):
+        x0 = rng.randint(bbox[0] + 6, bbox[2] - 8)
+        y0 = rng.randint(bbox[1] + 10, bbox[3] - 12)
+        x1 = x0 + rng.randint(-36, 36)
+        y1 = y0 + rng.randint(-52, 52)
+        draw.line((x0, y0, x1, y1), fill=(235, 238, 226, rng.randint(90, 160)), width=rng.randint(1, 3))
+
+    for _ in range(4 if large else 3):
+        cx = rng.randint(bbox[0] + 18, bbox[2] - 18)
+        cy = rng.randint(bbox[1] + 8, bbox[1] + int((bbox[3] - bbox[1]) * 0.45))
+        draw.polygon(jagged_poly(cx, cy, rng.randint(18, 38), rng.randint(14, 34), 6), fill=(94, 100, 103, 170))
+
+    img.alpha_composite(overlay)
+    save(img, dest)
+
+
+def make_wrecked_vehicles() -> None:
+    vehicle_sources = [
+        (ASSETS / "cars" / "realistic_interceptor_blue.png", ASSETS / "cars" / "wrecked_realistic_interceptor_blue.png", 5101, False),
+        (ASSETS / "cars" / "realistic_rally_green.png", ASSETS / "cars" / "wrecked_realistic_rally_green.png", 5102, False),
+        (ASSETS / "cars" / "realistic_stunt_red.png", ASSETS / "cars" / "wrecked_realistic_stunt_red.png", 5103, False),
+        (ASSETS / "traffic" / "box_truck_red.png", ASSETS / "traffic" / "wrecked_box_truck_red.png", 5201, True),
+        (ASSETS / "traffic" / "delivery_truck_blue.png", ASSETS / "traffic" / "wrecked_delivery_truck_blue.png", 5202, True),
+        (ASSETS / "traffic" / "city_bus.png", ASSETS / "traffic" / "wrecked_city_bus.png", 5203, True),
+    ]
+    for source, dest, seed, large in vehicle_sources:
+        make_wrecked_variant(source, dest, seed, large)
+
+
 def make_icon(name: str, draw_fn) -> None:
     img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -465,6 +569,7 @@ def main() -> None:
     make_shop("market_stall", (84, 91, 63), (110, 190, 80), (250, 198, 51))
     make_debris()
     make_crash_fragments()
+    make_wrecked_vehicles()
     make_icons()
     make_road()
     make_garage_floor()
