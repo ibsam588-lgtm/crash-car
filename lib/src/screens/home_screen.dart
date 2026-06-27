@@ -1,5 +1,6 @@
 import 'package:crash_car/src/screens/arena_select_screen.dart';
 import 'package:crash_car/src/screens/garage_screen.dart';
+import 'package:crash_car/src/screens/ramp_setup_screen.dart';
 import 'package:crash_car/src/screens/shop_screen.dart';
 import 'package:crash_car/src/state/progress_controller.dart';
 import 'package:crash_car/src/widgets/chrome.dart';
@@ -93,7 +94,7 @@ class _HeroTitle extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         const Text(
-          'Smash, crash, and score through a construction yard packed with crates, barrels, cones, and barricades.',
+          'Smash through destructible arenas, or launch off a ramp into city traffic for slow-motion crash chains.',
           style: TextStyle(fontSize: 17, color: Colors.white, height: 1.35),
         ),
         const SizedBox(height: 18),
@@ -103,7 +104,7 @@ class _HeroTitle extends StatelessWidget {
           children: [
             _Metric(label: 'Best', value: highScore.toString()),
             _Metric(label: 'Coins', value: coins.toString()),
-            const _Metric(label: 'Mode', value: 'Arcade'),
+            const _Metric(label: 'Modes', value: '2'),
           ],
         ),
       ],
@@ -117,54 +118,172 @@ class _HomeActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassPanel(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CrashButton(
-            label: 'Play',
-            icon: Icons.play_arrow_rounded,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ArenaSelectScreen()),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ModeButton(
+              title: 'Classic Arena',
+              subtitle: 'Drive through traffic and destructible props.',
+              icon: Icons.sports_motorsports_rounded,
+              asset: 'assets/images/cars/realistic_muscle_orange.png',
+              accent: const Color(0xFFFFC533),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ArenaSelectScreen()),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _ModeButton(
+              title: 'Ramp Launch',
+              subtitle: 'Pick arena, charge speed, then crash into the city.',
+              icon: Icons.speed_rounded,
+              asset: 'assets/images/traffic/realistic_sedan_blue.png',
+              accent: const Color(0xFF42C7FF),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RampSetupScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: CrashButton(
+                    label: 'Garage',
+                    icon: Icons.garage_rounded,
+                    primary: false,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const GarageScreen()),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: CrashButton(
+                    label: 'Shop',
+                    icon: Icons.storefront_rounded,
+                    primary: false,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ShopScreen()),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 14),
+            const _HowItWorksRow(
+              icon: Icons.map_rounded,
+              title: 'Choose arena',
+              body: 'Downtown, docks, market, or construction yard.',
+            ),
+            const _HowItWorksRow(
+              icon: Icons.local_gas_station_rounded,
+              title: 'Build speed',
+              body: 'Hold gas and steer into the best collision line.',
+            ),
+            const _HowItWorksRow(
+              icon: Icons.car_crash_rounded,
+              title: 'Chain impacts',
+              body: 'Realistic cars break apart and keep scoring.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.asset,
+    required this.accent,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final String asset;
+  final Color accent;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onPressed,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: accent.withValues(alpha: 0.45)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SizedBox(
+                    width: 78,
+                    height: 82,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          icon,
+                          color: accent.withValues(alpha: 0.34),
+                          size: 54,
+                        ),
+                        Image.asset(asset, fit: BoxFit.contain),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right_rounded, color: accent),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          CrashButton(
-            label: 'Garage',
-            icon: Icons.garage_rounded,
-            primary: false,
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const GarageScreen())),
-          ),
-          const SizedBox(height: 10),
-          CrashButton(
-            label: 'Shop',
-            icon: Icons.storefront_rounded,
-            primary: false,
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const ShopScreen())),
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 14),
-          const _HowItWorksRow(
-            icon: Icons.local_gas_station_rounded,
-            title: 'Hold gas',
-            body: 'Accelerate into traffic and heavy targets.',
-          ),
-          const _HowItWorksRow(
-            icon: Icons.car_crash_rounded,
-            title: 'Crash',
-            body: 'Shatter cars, props, and shops for combos.',
-          ),
-          const _HowItWorksRow(
-            icon: Icons.emoji_events_rounded,
-            title: 'Upgrade',
-            body: 'Spend coins on faster, tougher cars.',
-          ),
-        ],
+        ),
       ),
     );
   }

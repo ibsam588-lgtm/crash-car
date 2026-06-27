@@ -1,10 +1,14 @@
 Crash Car is a fast arcade driving game where speed, impact, and combo timing decide your score.
 
-Choose a realistic muscle car, race through a construction yard, and smash through crates, barrels, cones, and barricades. Chain crashes to grow your combo, earn coins, unlock new cars, and upgrade speed, handling, and durability for bigger runs.
+Choose a realistic muscle car, race through destructible arenas, or launch off a ramp into a busy city intersection. Hit cars, trucks, buses, shops, and barriers, then keep the crash chain alive as vehicles skid sideways, break apart, and score in slow motion.
+
+Earn coins, unlock new cars, and upgrade speed, handling, and durability for bigger runs.
 
 Features:
-- Realistic generated car art with arcade crash gameplay
-- Flame-powered collision, debris, speed, combo, and damage systems
+- Two play methods: Classic Arena and Ramp Launch
+- Realistic generated cars, trucks, buses, wrecks, and traffic
+- Flame-powered collision, debris, speed, combo, slow-motion, and damage systems
+- Ramp setup with arena, car, and charge-time selection
 - Garage with unlockable cars and upgrades
 - Score summary with coins, max speed, objects hit, damage, and best combo
 - Shop-ready screens for rewarded ads, coin packs, premium cars, and ad removal

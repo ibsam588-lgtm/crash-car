@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets" / "images"
+SOURCE_ASSETS = ROOT / "assets" / "source"
 KEY_ART_SOURCE = Path(
     r"C:\Users\ibsam\.codex\generated_images\019f073b-cc92-7943-8a6c-bac939243d82\ig_0cf86991fb05c983016a3f4bb676a481959ebd9496d838019e.png"
 )
@@ -25,6 +26,7 @@ def ensure_dirs() -> None:
         ASSETS / "traffic",
         ASSETS / "ui",
         ASSETS / "store",
+        SOURCE_ASSETS,
     ]:
         folder.mkdir(parents=True, exist_ok=True)
 
@@ -177,43 +179,164 @@ def make_barricade() -> None:
 
 
 def make_truck(color: tuple[int, int, int], name: str, cargo: tuple[int, int, int]) -> None:
-    w, h = 190, 330
+    w, h = 220, 410
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw_shadow(img, (28, 96, w - 28, h - 24), blur=15, alpha=115)
+    draw_shadow(img, (30, 120, w - 30, h - 22), blur=18, alpha=130)
     draw = ImageDraw.Draw(img)
     tire = (12, 15, 17, 255)
-    for x0, x1 in [(18, 46), (w - 46, w - 18)]:
-        for y0, y1 in [(68, 126), (176, 238), (246, 306)]:
-            draw.rounded_rectangle((x0, y0, x1, y1), radius=8, fill=tire)
-            draw.rectangle((x0 + 6, y0 + 10, x1 - 6, y1 - 10), fill=(42, 45, 47, 255))
+    for x0, x1 in [(12, 42), (w - 42, w - 12)]:
+        for y0, y1 in [(78, 142), (202, 270), (302, 382)]:
+            draw.rounded_rectangle((x0, y0, x1, y1), radius=9, fill=tire)
+            draw.rounded_rectangle((x0 + 6, y0 + 9, x1 - 6, y1 - 9), radius=5, fill=(39, 43, 46, 255))
 
-    draw.rounded_rectangle((47, 24, w - 47, 127), radius=24, fill=color + (255,), outline=(18, 24, 28, 255), width=4)
-    draw.rounded_rectangle((58, 57, w - 58, 105), radius=12, fill=(32, 61, 75, 238), outline=(168, 206, 214, 160), width=3)
-    draw.rounded_rectangle((41, 122, w - 41, h - 23), radius=14, fill=cargo + (255,), outline=(42, 48, 50, 255), width=5)
-    draw.rectangle((53, 144, w - 53, h - 43), fill=tuple(min(255, c + 24) for c in cargo) + (255,))
-    for y in range(152, h - 60, 38):
-        draw.line((51, y, w - 51, y), fill=(255, 255, 255, 34), width=3)
-    draw.rounded_rectangle((62, 14, 84, 28), radius=4, fill=(255, 228, 116, 255))
-    draw.rounded_rectangle((w - 84, 14, w - 62, 28), radius=4, fill=(255, 228, 116, 255))
-    draw.rectangle((61, 134, 75, h - 32), fill=(255, 255, 255, 34))
+    # Cab with windshield, mirrors, hood, and lights.
+    draw.rounded_rectangle((48, 22, w - 48, 146), radius=28, fill=color + (255,), outline=(18, 24, 28, 255), width=5)
+    draw.rounded_rectangle((61, 51, w - 61, 111), radius=13, fill=(28, 60, 74, 242), outline=(180, 218, 226, 165), width=3)
+    draw.rectangle((54, 117, w - 54, 145), fill=tuple(max(0, c - 36) for c in color) + (255,))
+    draw.rounded_rectangle((26, 75, 52, 108), radius=6, fill=(28, 34, 36, 255))
+    draw.rounded_rectangle((w - 52, 75, w - 26, 108), radius=6, fill=(28, 34, 36, 255))
+    draw.rounded_rectangle((63, 12, 90, 29), radius=5, fill=(255, 228, 116, 255))
+    draw.rounded_rectangle((w - 90, 12, w - 63, 29), radius=5, fill=(255, 228, 116, 255))
+
+    # Long cargo box with panel seams and realistic roof ribs.
+    draw.rounded_rectangle((42, 146, w - 42, h - 24), radius=12, fill=cargo + (255,), outline=(38, 45, 48, 255), width=5)
+    draw.rectangle((55, 166, w - 55, h - 45), fill=tuple(min(255, c + 28) for c in cargo) + (255,))
+    for y in range(182, h - 58, 45):
+        draw.line((52, y, w - 52, y), fill=(255, 255, 255, 44), width=3)
+        draw.line((52, y + 4, w - 52, y + 4), fill=(0, 0, 0, 34), width=2)
+    for x in (69, w - 74):
+        draw.line((x, 159, x, h - 42), fill=(255, 255, 255, 42), width=4)
+    draw.rectangle((61, 155, 78, h - 35), fill=(255, 255, 255, 36))
+    draw.rectangle((w - 82, 155, w - 66, h - 35), fill=(0, 0, 0, 28))
     save(img, ASSETS / "traffic" / f"{name}.png")
 
 
 def make_bus() -> None:
-    w, h = 184, 340
+    w, h = 220, 430
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw_shadow(img, (25, 90, w - 25, h - 18), blur=16, alpha=110)
+    draw_shadow(img, (28, 108, w - 28, h - 18), blur=18, alpha=128)
     draw = ImageDraw.Draw(img)
-    for x0, x1 in [(18, 42), (w - 42, w - 18)]:
-        draw.rounded_rectangle((x0, 74, x1, 132), radius=8, fill=(13, 16, 18, 255))
-        draw.rounded_rectangle((x0, 230, x1, 296), radius=8, fill=(13, 16, 18, 255))
-    draw.rounded_rectangle((42, 18, w - 42, h - 18), radius=28, fill=(232, 182, 50, 255), outline=(66, 50, 16, 255), width=5)
-    draw.rounded_rectangle((53, 40, w - 53, 96), radius=14, fill=(28, 57, 72, 245), outline=(255, 255, 255, 85), width=3)
-    for y in range(118, 260, 44):
-        draw.rounded_rectangle((54, y, w - 54, y + 30), radius=8, fill=(31, 65, 81, 238))
-    draw.rectangle((60, h - 66, w - 60, h - 42), fill=(34, 39, 42, 255))
-    draw.line((w // 2, 24, w // 2, h - 24), fill=(255, 255, 255, 60), width=3)
+    for x0, x1 in [(12, 42), (w - 42, w - 12)]:
+        for y0, y1 in [(88, 154), (278, 358)]:
+            draw.rounded_rectangle((x0, y0, x1, y1), radius=9, fill=(13, 16, 18, 255))
+            draw.rectangle((x0 + 6, y0 + 11, x1 - 6, y1 - 11), fill=(38, 42, 45, 255))
+
+    body = (229, 178, 42)
+    dark = (84, 64, 18)
+    draw.rounded_rectangle((42, 18, w - 42, h - 18), radius=34, fill=body + (255,), outline=dark + (255,), width=6)
+    draw.rounded_rectangle((54, 40, w - 54, 108), radius=15, fill=(28, 57, 72, 245), outline=(255, 255, 255, 95), width=3)
+    for y in range(130, 294, 44):
+        draw.rounded_rectangle((55, y, w - 55, y + 31), radius=8, fill=(29, 64, 82, 238), outline=(214, 235, 235, 70), width=2)
+    draw.rounded_rectangle((59, 322, w - 59, h - 46), radius=10, fill=(32, 38, 42, 255))
+    draw.line((w // 2, 24, w // 2, h - 24), fill=(255, 255, 255, 65), width=4)
+    for x in (58, w - 74):
+        draw.rectangle((x, 112, x + 11, h - 45), fill=(255, 255, 255, 36))
+    draw.rounded_rectangle((59, 10, 88, 27), radius=5, fill=(255, 232, 126, 255))
+    draw.rounded_rectangle((w - 88, 10, w - 59, 27), radius=5, fill=(255, 232, 126, 255))
+    draw.rounded_rectangle((66, h - 30, 98, h - 18), radius=4, fill=(230, 60, 45, 255))
+    draw.rounded_rectangle((w - 98, h - 30, w - 66, h - 18), radius=4, fill=(230, 60, 45, 255))
     save(img, ASSETS / "traffic" / "city_bus.png")
+
+
+def remove_chroma_green(img: Image.Image) -> Image.Image:
+    rgba = img.convert("RGBA")
+    pixels = rgba.load()
+    w, h = rgba.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pixels[x, y]
+            green_distance = abs(r) + abs(255 - g) + abs(b)
+            if g > 165 and g > r * 1.35 and g > b * 1.35:
+                alpha = 0 if green_distance < 120 else max(0, min(a, green_distance - 120))
+                pixels[x, y] = (r, g, b, alpha)
+    bbox = rgba.getchannel("A").getbbox()
+    if bbox is None:
+        return rgba
+    pad = 12
+    left = max(0, bbox[0] - pad)
+    top = max(0, bbox[1] - pad)
+    right = min(w, bbox[2] + pad)
+    bottom = min(h, bbox[3] + pad)
+    return rgba.crop((left, top, right, bottom))
+
+
+def scrub_chroma_fringe(img: Image.Image) -> Image.Image:
+    rgba = img.convert("RGBA")
+    pixels = rgba.load()
+    w, h = rgba.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pixels[x, y]
+            if a == 0:
+                continue
+            if g > 112 and r < 88 and b < 88 and g > r * 1.65 and g > b * 1.65:
+                pixels[x, y] = (r, g, b, 0)
+            elif a < 38 and g > 70 and g > r * 1.1 and g > b * 1.1:
+                pixels[x, y] = (r, g, b, 0)
+            elif a < 190 and g > 145 and g - r > 48 and g - b > 48:
+                pixels[x, y] = (r, g, b, 0)
+            elif g > 135 and g - r > 42 and g - b > 46:
+                pixels[x, y] = (r, min(g, max(r, b, 70)), b, max(0, a - 55))
+
+    alpha = rgba.getchannel("A")
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pixels[x, y]
+            if a == 0:
+                continue
+            yellow_trim = r > 145 and b < 95 and g - r < 58
+            green_spill = g > 105 and g - r > 20 and g - b > 20
+            if not green_spill or yellow_trim:
+                continue
+            touches_transparency = False
+            for ny in range(max(0, y - 2), min(h, y + 3)):
+                for nx in range(max(0, x - 2), min(w, x + 3)):
+                    if alpha.getpixel((nx, ny)) == 0:
+                        touches_transparency = True
+                        break
+                if touches_transparency:
+                    break
+            if touches_transparency:
+                pixels[x, y] = (r, g, b, 0)
+    return rgba
+
+
+def make_realistic_traffic_from_sheet() -> None:
+    sheet_path = SOURCE_ASSETS / "realistic_traffic_sheet.png"
+    if not sheet_path.exists():
+        return
+
+    sheet = Image.open(sheet_path).convert("RGBA")
+    w, h = sheet.size
+    regions = {
+        "city_bus": (0, 0, w // 2, h // 2),
+        "delivery_truck_blue": (w // 2, 0, w, h // 2),
+        "box_truck_red": (0, h // 2, w // 2, h),
+        "realistic_sedan_blue": (w // 2, h // 2, w, h),
+    }
+
+    target_sizes = {
+        "city_bus": (220, 430),
+        "delivery_truck_blue": (220, 410),
+        "box_truck_red": (220, 410),
+        "realistic_sedan_blue": (180, 300),
+    }
+
+    for name, box in regions.items():
+        vehicle = remove_chroma_green(sheet.crop(box))
+        max_w, max_h = target_sizes[name]
+        scale = min(max_w / vehicle.width, max_h / vehicle.height)
+        resized = vehicle.resize(
+            (max(1, int(vehicle.width * scale)), max(1, int(vehicle.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+        canvas = Image.new("RGBA", target_sizes[name], (0, 0, 0, 0))
+        canvas.alpha_composite(
+            resized,
+            ((target_sizes[name][0] - resized.width) // 2, (target_sizes[name][1] - resized.height) // 2),
+        )
+        canvas = scrub_chroma_fringe(canvas)
+        save(canvas, ASSETS / "traffic" / f"{name}.png")
 
 
 def make_shop(name: str, wall: tuple[int, int, int], awning: tuple[int, int, int], sign: tuple[int, int, int]) -> None:
@@ -418,6 +541,7 @@ def make_wrecked_vehicles() -> None:
         (ASSETS / "traffic" / "box_truck_red.png", ASSETS / "traffic" / "wrecked_box_truck_red.png", 5201, True),
         (ASSETS / "traffic" / "delivery_truck_blue.png", ASSETS / "traffic" / "wrecked_delivery_truck_blue.png", 5202, True),
         (ASSETS / "traffic" / "city_bus.png", ASSETS / "traffic" / "wrecked_city_bus.png", 5203, True),
+        (ASSETS / "traffic" / "realistic_sedan_blue.png", ASSETS / "traffic" / "wrecked_realistic_sedan_blue.png", 5204, False),
     ]
     for source, dest, seed, large in vehicle_sources:
         make_wrecked_variant(source, dest, seed, large)
@@ -469,6 +593,56 @@ def make_road() -> None:
     for y in range(0, h, 80):
         draw.line((0, y, w, y + 34), fill=(255, 255, 255, 10), width=2)
     save(img, ASSETS / "ui" / "road_lane.png")
+
+
+def make_ramp_lane() -> None:
+    w, h = 512, 1024
+    img = radial_gradient((w, h), (72, 76, 75), (20, 24, 26)).convert("RGBA")
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((0, 0, 78, h), fill=(33, 39, 41, 255))
+    draw.rectangle((w - 78, 0, w, h), fill=(33, 39, 41, 255))
+    for x in (84, w - 84):
+        draw.line((x, 0, x, h), fill=(230, 232, 220, 115), width=5)
+    for y in range(-60, h, 122):
+        draw.rounded_rectangle((w // 2 - 5, y, w // 2 + 5, y + 64), radius=3, fill=(244, 202, 65, 220))
+    for y in range(78, h, 190):
+        draw.rectangle((132, y, w - 132, y + 70), fill=(62, 65, 65, 180))
+        draw.line((144, y + 9, w - 144, y + 61), fill=(255, 255, 255, 24), width=3)
+    for y in range(24, h, 102):
+        draw.rectangle((24, y, 62, y + 34), fill=(211, 92, 45, 210))
+        draw.rectangle((w - 62, y + 45, w - 24, y + 79), fill=(211, 92, 45, 210))
+    save(img, ASSETS / "ui" / "ramp_lane.png")
+
+
+def make_city_intersection() -> None:
+    w, h = 640, 1024
+    img = radial_gradient((w, h), (86, 88, 86), (25, 28, 30)).convert("RGBA")
+    draw = ImageDraw.Draw(img)
+    road = (55, 59, 59, 255)
+    curb = (184, 178, 160, 255)
+    side = (96, 91, 80, 255)
+    draw.rectangle((0, 0, w, h), fill=side)
+    draw.rectangle((142, 0, 498, h), fill=road)
+    draw.rectangle((0, 376, w, 650), fill=road)
+    for rect in ((130, 0, 142, h), (498, 0, 510, h), (0, 364, w, 376), (0, 650, w, 662)):
+        draw.rectangle(rect, fill=curb)
+    for x in (258, 382):
+        for y in range(-90, h, 128):
+            draw.rounded_rectangle((x - 5, y, x + 5, y + 62), radius=3, fill=(236, 200, 72, 220))
+    for y in (452, 574):
+        for x in range(-85, w, 126):
+            draw.rounded_rectangle((x, y - 5, x + 58, y + 5), radius=3, fill=(235, 238, 224, 210))
+    for x in (62, 578):
+        for y in range(56, h - 120, 230):
+            draw.rounded_rectangle((x - 50, y, x + 50, y + 122), radius=8, fill=(49, 56, 58, 255), outline=(26, 30, 31, 255), width=4)
+            for wy in range(y + 20, y + 100, 28):
+                for wx in range(x - 35, x + 40, 30):
+                    draw.rectangle((wx, wy, wx + 14, wy + 10), fill=(231, 186, 83, 105))
+    for i in range(72):
+        x = (i * 137) % w
+        y = (i * 251) % h
+        draw.line((x, y, min(w, x + 42), max(0, y - 20)), fill=(255, 255, 255, 15), width=1)
+    save(img, ASSETS / "ui" / "city_intersection.png")
 
 
 def make_garage_floor() -> None:
@@ -564,6 +738,7 @@ def main() -> None:
     make_truck((219, 76, 46), "box_truck_red", (82, 92, 98))
     make_truck((49, 132, 193), "delivery_truck_blue", (214, 219, 210))
     make_bus()
+    make_realistic_traffic_from_sheet()
     make_shop("corner_shop", (109, 82, 65), (227, 75, 43), (245, 188, 42))
     make_shop("repair_shop", (63, 77, 82), (49, 147, 194), (238, 234, 214))
     make_shop("market_stall", (84, 91, 63), (110, 190, 80), (250, 198, 51))
@@ -572,6 +747,8 @@ def main() -> None:
     make_wrecked_vehicles()
     make_icons()
     make_road()
+    make_ramp_lane()
+    make_city_intersection()
     make_garage_floor()
     copy_key_art()
     icon = make_app_icon()

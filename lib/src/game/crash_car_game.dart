@@ -124,6 +124,8 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
       'cars/wrecked_realistic_rally_green.png',
       'cars/realistic_stunt_red.png',
       'cars/wrecked_realistic_stunt_red.png',
+      'traffic/realistic_sedan_blue.png',
+      'traffic/wrecked_realistic_sedan_blue.png',
       'ui/road_lane.png',
       'obstacles/crate.png',
       'obstacles/red_barrel.png',
@@ -170,6 +172,12 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
         sprite: Sprite(images.fromCache('cars/realistic_stunt_red.png')),
         wreckSprite: Sprite(
           images.fromCache('cars/wrecked_realistic_stunt_red.png'),
+        ),
+      ),
+      VehicleVisual(
+        sprite: Sprite(images.fromCache('traffic/realistic_sedan_blue.png')),
+        wreckSprite: Sprite(
+          images.fromCache('traffic/wrecked_realistic_sedan_blue.png'),
         ),
       ),
     ];

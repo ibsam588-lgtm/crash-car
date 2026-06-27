@@ -11,9 +11,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(RichText), findsWidgets);
-    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    expect(find.text('Classic Arena'), findsOneWidget);
+    expect(find.text('Ramp Launch'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.play_arrow_rounded));
+    await tester.tap(find.text('Classic Arena'));
     await tester.pumpAndSettle();
 
     expect(find.text('Select Arena'), findsOneWidget);
