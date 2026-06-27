@@ -1,0 +1,1 @@
+Initial release: realistic crash-driving gameplay, garage upgrades, unlockable cars, shop placeholders, and score summary.
