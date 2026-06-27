@@ -1,4 +1,5 @@
 import 'package:crash_car/src/game/crash_car_game.dart';
+import 'package:crash_car/src/models/arena_spec.dart';
 import 'package:crash_car/src/models/game_result.dart';
 import 'package:crash_car/src/screens/result_screen.dart';
 import 'package:crash_car/src/state/progress_controller.dart';
@@ -8,7 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PlayScreen extends ConsumerStatefulWidget {
-  const PlayScreen({super.key});
+  const PlayScreen({super.key, required this.arena});
+
+  final ArenaSpec arena;
 
   @override
   ConsumerState<PlayScreen> createState() => _PlayScreenState();
@@ -24,6 +27,7 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
     final progress = ref.read(progressProvider);
     _game = CrashCarGame(
       car: progress.selectedCar,
+      arena: widget.arena,
       upgradeLevel: progress.upgradeLevel(progress.selectedCarId),
       onFinished: _handleFinished,
     );
@@ -39,7 +43,9 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
       return;
     }
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => ResultScreen(result: result)),
+      MaterialPageRoute(
+        builder: (_) => ResultScreen(result: result, arena: widget.arena),
+      ),
     );
   }
 
@@ -72,6 +78,17 @@ class _Hud extends StatelessWidget {
             right: 12,
             child: Column(
               children: [
+                Text(
+                  game.arena.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: game.arena.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -173,6 +190,68 @@ class _Hud extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            top: 160,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: game.slowMotion,
+              builder: (context, active, _) {
+                return ValueListenableBuilder<String>(
+                  valueListenable: game.impactText,
+                  builder: (context, text, _) {
+                    return IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: active ? 1 : 0,
+                        duration: const Duration(milliseconds: 120),
+                        child: Center(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.58),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: game.arena.primary.withValues(
+                                  alpha: 0.72,
+                                ),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 12,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'SLOW MOTION',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  if (text.isNotEmpty)
+                                    Text(
+                                      text,
+                                      style: TextStyle(
+                                        color: game.arena.primary,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
           Positioned(

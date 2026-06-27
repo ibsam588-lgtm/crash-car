@@ -1,5 +1,5 @@
+import 'package:crash_car/src/screens/arena_select_screen.dart';
 import 'package:crash_car/src/screens/garage_screen.dart';
-import 'package:crash_car/src/screens/play_screen.dart';
 import 'package:crash_car/src/screens/shop_screen.dart';
 import 'package:crash_car/src/state/progress_controller.dart';
 import 'package:crash_car/src/widgets/chrome.dart';
@@ -26,7 +26,7 @@ class HomeScreen extends ConsumerWidget {
                   highScore: progress.highScore,
                   coins: progress.coins,
                 );
-                final actions = _HomeActions(progressLoaded: progress.loaded);
+                const actions = _HomeActions();
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -112,9 +112,7 @@ class _HeroTitle extends StatelessWidget {
 }
 
 class _HomeActions extends StatelessWidget {
-  const _HomeActions({required this.progressLoaded});
-
-  final bool progressLoaded;
+  const _HomeActions();
 
   @override
   Widget build(BuildContext context) {
@@ -126,11 +124,9 @@ class _HomeActions extends StatelessWidget {
           CrashButton(
             label: 'Play',
             icon: Icons.play_arrow_rounded,
-            onPressed: progressLoaded
-                ? () => Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (_) => const PlayScreen()))
-                : null,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ArenaSelectScreen()),
+            ),
           ),
           const SizedBox(height: 10),
           CrashButton(

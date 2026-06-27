@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:crash_car/src/models/arena_spec.dart';
 import 'package:crash_car/src/models/car_spec.dart';
 import 'package:crash_car/src/models/game_result.dart';
 import 'package:flame/collisions.dart';
@@ -11,11 +12,13 @@ import 'package:flutter/material.dart';
 class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
   CrashCarGame({
     required this.car,
+    required this.arena,
     required this.upgradeLevel,
     required this.onFinished,
   });
 
   final CarSpec car;
+  final ArenaSpec arena;
   final int upgradeLevel;
   final void Function(GameResult result) onFinished;
 
@@ -26,6 +29,8 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
   final speedKmh = ValueNotifier<int>(0);
   final combo = ValueNotifier<int>(1);
   final levelProgress = ValueNotifier<double>(0);
+  final slowMotion = ValueNotifier<bool>(false);
+  final impactText = ValueNotifier<String>('');
 
   final Random _random = Random();
   late PlayerCar _player;
@@ -34,9 +39,16 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
   late final Sprite _steelBarrelSprite;
   late final Sprite _coneSprite;
   late final Sprite _barricadeSprite;
+  late final List<Sprite> _trafficCarSprites;
+  late final Sprite _boxTruckSprite;
+  late final Sprite _deliveryTruckSprite;
+  late final Sprite _cityBusSprite;
+  late final List<Sprite> _shopSprites;
   late final List<Sprite> _debrisSprites;
 
-  double _spawnTimer = 0;
+  double _breakableTimer = 0;
+  double _trafficTimer = 0.35;
+  double _sceneryTimer = 0.8;
   double _elapsed = 0;
   double _roadScroll = 0;
   double _steering = 0;
@@ -44,14 +56,26 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
   bool _finished = false;
   int _bestCombo = 1;
   double _comboTimer = 0;
+  double _slowMotionTimer = 0;
+  double _impactTextTimer = 0;
 
   double get _carBoost => upgradeLevel * 0.04;
-  double get _roadSpeed =>
-      280 + (car.speed + _carBoost) * 250 + (_boosting ? 130 : 0);
+
+  double get _baseRoadSpeed =>
+      280 +
+      (car.speed + _carBoost + arena.speedBonus) * 250 +
+      (_boosting ? 130 : 0);
+
+  double get _slowFactor => _slowMotionTimer > 0 ? 0.36 : 1;
+
+  double get effectiveRoadSpeed => _baseRoadSpeed * _slowFactor;
+
   double get _steerSpeed => 290 + car.handling * 260 + upgradeLevel * 18;
+
   double get _damageMultiplier =>
       max(0.45, 1.06 - car.durability * 0.42 - upgradeLevel * 0.035);
-  double get _levelLength => 60;
+
+  double get _levelLength => 70;
 
   @override
   Color backgroundColor() => const Color(0xFF071014);
@@ -60,12 +84,21 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
   Future<void> onLoad() async {
     await images.loadAll([
       _assetKey(car.asset),
+      'cars/realistic_interceptor_blue.png',
+      'cars/realistic_rally_green.png',
+      'cars/realistic_stunt_red.png',
       'ui/road_lane.png',
       'obstacles/crate.png',
       'obstacles/red_barrel.png',
       'obstacles/steel_barrel.png',
       'obstacles/cone.png',
       'obstacles/barricade.png',
+      'traffic/box_truck_red.png',
+      'traffic/delivery_truck_blue.png',
+      'traffic/city_bus.png',
+      'traffic/corner_shop.png',
+      'traffic/repair_shop.png',
+      'traffic/market_stall.png',
       'debris/wood_1.png',
       'debris/wood_2.png',
       'debris/metal_1.png',
@@ -77,6 +110,21 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
     _steelBarrelSprite = Sprite(images.fromCache('obstacles/steel_barrel.png'));
     _coneSprite = Sprite(images.fromCache('obstacles/cone.png'));
     _barricadeSprite = Sprite(images.fromCache('obstacles/barricade.png'));
+    _trafficCarSprites = [
+      Sprite(images.fromCache('cars/realistic_interceptor_blue.png')),
+      Sprite(images.fromCache('cars/realistic_rally_green.png')),
+      Sprite(images.fromCache('cars/realistic_stunt_red.png')),
+    ];
+    _boxTruckSprite = Sprite(images.fromCache('traffic/box_truck_red.png'));
+    _deliveryTruckSprite = Sprite(
+      images.fromCache('traffic/delivery_truck_blue.png'),
+    );
+    _cityBusSprite = Sprite(images.fromCache('traffic/city_bus.png'));
+    _shopSprites = [
+      Sprite(images.fromCache('traffic/corner_shop.png')),
+      Sprite(images.fromCache('traffic/repair_shop.png')),
+      Sprite(images.fromCache('traffic/market_stall.png')),
+    ];
     _debrisSprites = [
       Sprite(images.fromCache('debris/wood_1.png')),
       Sprite(images.fromCache('debris/wood_2.png')),
@@ -84,7 +132,12 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
       Sprite(images.fromCache('debris/glass_1.png')),
     ];
 
-    add(RoadLayer(sprite: Sprite(images.fromCache('ui/road_lane.png'))));
+    add(
+      RoadLayer(
+        sprite: Sprite(images.fromCache('ui/road_lane.png')),
+        arena: arena,
+      ),
+    );
     _player = PlayerCar(
       sprite: Sprite(images.fromCache(_assetKey(car.asset))),
       game: this,
@@ -109,10 +162,20 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
     }
 
     _elapsed += dt;
-    _roadScroll = (_roadScroll + _roadSpeed * dt) % max(1, size.y);
-    _spawnTimer -= dt;
+    _roadScroll = (_roadScroll + effectiveRoadSpeed * dt) % max(1, size.y);
+    _breakableTimer -= dt;
+    _trafficTimer -= dt;
+    _sceneryTimer -= dt;
     _comboTimer -= dt;
+    _slowMotionTimer -= dt;
+    _impactTextTimer -= dt;
 
+    if (_slowMotionTimer <= 0 && slowMotion.value) {
+      slowMotion.value = false;
+    }
+    if (_impactTextTimer <= 0 && impactText.value.isNotEmpty) {
+      impactText.value = '';
+    }
     if (_comboTimer <= 0 && combo.value != 1) {
       combo.value = 1;
     }
@@ -123,7 +186,7 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
     _player.x = nextX;
     _player.angle = _steering * 0.08;
 
-    final speed = (_roadSpeed * 0.36).round().clamp(0, 245);
+    final speed = (_baseRoadSpeed * 0.36).round().clamp(0, 260);
     if (speedKmh.value != speed) {
       speedKmh.value = speed;
     }
@@ -133,9 +196,28 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
       levelProgress.value = progress;
     }
 
-    if (_spawnTimer <= 0) {
-      _spawnObstacle();
-      _spawnTimer = max(0.28, 0.78 - min(0.34, _elapsed * 0.006));
+    if (_breakableTimer <= 0) {
+      _spawnBreakable();
+      _breakableTimer = max(
+        0.32,
+        (0.92 - min(0.32, _elapsed * 0.004)) / max(0.7, arena.sceneryDensity),
+      );
+    }
+
+    if (_trafficTimer <= 0) {
+      _spawnTraffic();
+      _trafficTimer = max(
+        0.55,
+        (1.55 - min(0.42, _elapsed * 0.006)) / max(0.65, arena.trafficDensity),
+      );
+    }
+
+    if (_sceneryTimer <= 0) {
+      _spawnRoadsideScenery();
+      _sceneryTimer = max(
+        0.74,
+        (1.8 - min(0.5, _elapsed * 0.005)) / max(0.7, arena.sceneryDensity),
+      );
     }
 
     if (_elapsed >= _levelLength) {
@@ -146,7 +228,7 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.06);
+    final paint = Paint()..color = arena.primary.withValues(alpha: 0.055);
     final horizon = Path()
       ..moveTo(0, size.y * 0.18)
       ..lineTo(size.x, size.y * 0.05)
@@ -179,103 +261,188 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
     _finish(levelComplete: false);
   }
 
-  void smash(ObstacleComponent obstacle) {
-    if (obstacle.hit || _finished) {
+  void smash(ImpactTargetComponent target) {
+    if (target.hit || _finished) {
       return;
     }
-    obstacle.hit = true;
-    obstacle.removeFromParent();
+    target.hit = true;
+    target.removeFromParent();
 
-    final activeCombo = (_comboTimer > 0 ? combo.value + 1 : 1).clamp(1, 9);
+    final activeCombo = (_comboTimer > 0 ? combo.value + 1 : 1).clamp(1, 12);
     combo.value = activeCombo;
     _bestCombo = max(_bestCombo, activeCombo);
-    _comboTimer = 1.35;
+    _comboTimer = 1.45;
 
     objectsHit.value += 1;
-    final damageGain = (obstacle.damage * _damageMultiplier).round().clamp(
-      3,
-      24,
-    );
+    final damageGain = (target.damage * _damageMultiplier).round().clamp(3, 34);
     damage.value = (damage.value + damageGain).clamp(0, 100);
 
+    final speedBonus = (speedKmh.value * target.mass * 2.4).round();
     final points =
-        ((obstacle.points + speedKmh.value * 3) * (1 + activeCombo * 0.18))
+        ((target.points + speedBonus) *
+                arena.scoreBonus *
+                (1 + activeCombo * 0.18))
             .round();
     score.value += points;
-    coins.value += max(1, points ~/ 95);
+    coins.value += max(1, points ~/ 90);
 
-    _burst(obstacle.position.clone(), obstacle.isExplosive);
+    _triggerSlowMotion(target);
+    _burst(target.position.clone(), target.isExplosive || target.isHeavy);
 
     if (damage.value >= 100) {
       _finish(levelComplete: false);
     }
   }
 
-  void _spawnObstacle() {
-    final roadWidth = min(size.x, 520.0);
-    final left = (size.x - roadWidth) / 2 + 54;
-    final right = size.x - left;
-    final lanes = [
-      left,
-      left + (right - left) * 0.33,
-      left + (right - left) * 0.66,
-      right,
-    ];
+  void _triggerSlowMotion(ImpactTargetComponent target) {
+    _slowMotionTimer = max(_slowMotionTimer, target.slowMotionSeconds);
+    slowMotion.value = true;
+    impactText.value = target.impactLabel;
+    _impactTextTimer = max(_impactTextTimer, target.slowMotionSeconds + 0.35);
+  }
+
+  void _spawnBreakable() {
+    final lanes = _lanePositions();
     final roll = _random.nextDouble();
-    final ObstacleKind kind;
-    if (roll < 0.26) {
-      kind = ObstacleKind.crate;
-    } else if (roll < 0.47) {
-      kind = ObstacleKind.redBarrel;
-    } else if (roll < 0.67) {
-      kind = ObstacleKind.steelBarrel;
-    } else if (roll < 0.86) {
-      kind = ObstacleKind.cone;
+    final TargetKind kind;
+    if (roll < 0.25) {
+      kind = TargetKind.crate;
+    } else if (roll < 0.45) {
+      kind = TargetKind.redBarrel;
+    } else if (roll < 0.63) {
+      kind = TargetKind.steelBarrel;
+    } else if (roll < 0.84) {
+      kind = TargetKind.cone;
     } else {
-      kind = ObstacleKind.barricade;
+      kind = TargetKind.barricade;
     }
 
     add(
-      ObstacleComponent(
+      ImpactTargetComponent(
         kind: kind,
         sprite: _spriteFor(kind),
         crashGame: this,
         position: Vector2(lanes[_random.nextInt(lanes.length)], -84),
+        roadSpeedFactor: 1,
+        lateralVelocity: (_random.nextDouble() - 0.5) * 10,
       ),
     );
   }
 
-  Sprite _spriteFor(ObstacleKind kind) {
+  void _spawnTraffic() {
+    final lanes = _lanePositions();
+    final roll = _random.nextDouble();
+    late final TargetKind kind;
+    late final Sprite sprite;
+
+    final truckChance = switch (arena.id) {
+      'industrial_docks' => 0.52,
+      'downtown_strip' => 0.34,
+      _ => 0.24,
+    };
+    final busChance = arena.id == 'downtown_strip' ? 0.18 : 0.07;
+
+    if (roll < truckChance) {
+      kind = TargetKind.truck;
+      sprite = _random.nextBool() ? _boxTruckSprite : _deliveryTruckSprite;
+    } else if (roll < truckChance + busChance) {
+      kind = TargetKind.bus;
+      sprite = _cityBusSprite;
+    } else {
+      kind = TargetKind.trafficCar;
+      sprite = _trafficCarSprites[_random.nextInt(_trafficCarSprites.length)];
+    }
+
+    final oncoming = _random.nextDouble() < 0.34;
+    add(
+      ImpactTargetComponent(
+        kind: kind,
+        sprite: sprite,
+        crashGame: this,
+        position: Vector2(lanes[_random.nextInt(lanes.length)], -120),
+        roadSpeedFactor: oncoming ? 1.28 : 0.64 + _random.nextDouble() * 0.18,
+        lateralVelocity:
+            (_random.nextDouble() - 0.5) * (kind == TargetKind.truck ? 22 : 38),
+        reverseFacing: !oncoming,
+      ),
+    );
+  }
+
+  void _spawnRoadsideScenery() {
+    final bounds = _roadBounds();
+    final onRight = _random.nextBool();
+    final kind = _random.nextDouble() < 0.72
+        ? TargetKind.shop
+        : TargetKind.barricade;
+    final x = onRight ? bounds.right - 46 : bounds.left + 46;
+    final sprite = kind == TargetKind.shop
+        ? _shopSprites[_random.nextInt(_shopSprites.length)]
+        : _barricadeSprite;
+
+    add(
+      ImpactTargetComponent(
+        kind: kind,
+        sprite: sprite,
+        crashGame: this,
+        position: Vector2(x, -86),
+        roadSpeedFactor: 1,
+        lateralVelocity: onRight ? -6 : 6,
+      ),
+    );
+  }
+
+  Sprite _spriteFor(TargetKind kind) {
     return switch (kind) {
-      ObstacleKind.crate => _crateSprite,
-      ObstacleKind.redBarrel => _redBarrelSprite,
-      ObstacleKind.steelBarrel => _steelBarrelSprite,
-      ObstacleKind.cone => _coneSprite,
-      ObstacleKind.barricade => _barricadeSprite,
+      TargetKind.crate => _crateSprite,
+      TargetKind.redBarrel => _redBarrelSprite,
+      TargetKind.steelBarrel => _steelBarrelSprite,
+      TargetKind.cone => _coneSprite,
+      TargetKind.barricade => _barricadeSprite,
+      TargetKind.trafficCar =>
+        _trafficCarSprites[_random.nextInt(_trafficCarSprites.length)],
+      TargetKind.truck => _boxTruckSprite,
+      TargetKind.bus => _cityBusSprite,
+      TargetKind.shop => _shopSprites[_random.nextInt(_shopSprites.length)],
     };
   }
 
-  void _burst(Vector2 at, bool explosive) {
-    final count = explosive ? 16 : 10;
+  List<double> _lanePositions() {
+    final bounds = _roadBounds();
+    return [
+      bounds.left + 55,
+      bounds.left + bounds.width * 0.34,
+      bounds.left + bounds.width * 0.66,
+      bounds.right - 55,
+    ];
+  }
+
+  Rect _roadBounds() {
+    final roadWidth = min(size.x, 520.0);
+    final left = (size.x - roadWidth) / 2;
+    return Rect.fromLTWH(left, 0, roadWidth, size.y);
+  }
+
+  void _burst(Vector2 at, bool heavy) {
+    final count = heavy ? 22 : 12;
     for (var i = 0; i < count; i++) {
-      final angle = -pi / 2 + (_random.nextDouble() - 0.5) * 2.4;
-      final speed = 90 + _random.nextDouble() * (explosive ? 330 : 220);
+      final angle = -pi / 2 + (_random.nextDouble() - 0.5) * 2.6;
+      final speed = 90 + _random.nextDouble() * (heavy ? 390 : 240);
       add(
         DebrisParticle(
           sprite: _debrisSprites[_random.nextInt(_debrisSprites.length)],
           position:
               at +
               Vector2(
-                (_random.nextDouble() - 0.5) * 36,
-                (_random.nextDouble() - 0.5) * 42,
+                (_random.nextDouble() - 0.5) * 50,
+                (_random.nextDouble() - 0.5) * 54,
               ),
           velocity:
               Vector2(cos(angle), sin(angle)) * speed +
-              Vector2(0, _roadSpeed * 0.5),
+              Vector2(0, effectiveRoadSpeed * 0.52),
           spin: (_random.nextDouble() - 0.5) * 10,
-          scale: explosive
-              ? 0.45 + _random.nextDouble() * 0.45
-              : 0.36 + _random.nextDouble() * 0.32,
+          scale: heavy
+              ? 0.48 + _random.nextDouble() * 0.55
+              : 0.35 + _random.nextDouble() * 0.34,
         ),
       );
     }
@@ -288,6 +455,7 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
     _finished = true;
     onFinished(
       GameResult(
+        arenaName: arena.name,
         score: score.value,
         coins: coins.value + (levelComplete ? 80 : 0),
         damagePercent: damage.value,
@@ -306,9 +474,10 @@ class CrashCarGame extends FlameGame with HasCollisionDetection, PanDetector {
 }
 
 class RoadLayer extends PositionComponent with HasGameReference<CrashCarGame> {
-  RoadLayer({required this.sprite});
+  RoadLayer({required this.sprite, required this.arena});
 
   final Sprite sprite;
+  final ArenaSpec arena;
 
   @override
   void render(Canvas canvas) {
@@ -331,11 +500,28 @@ class RoadLayer extends PositionComponent with HasGameReference<CrashCarGame> {
       );
     }
 
-    final sidePaint = Paint()..color = const Color(0xFF10191C);
+    final roadTint = Paint()..color = arena.roadTint.withValues(alpha: 0.18);
+    canvas.drawRect(Rect.fromLTWH(left, 0, roadWidth, gameSize.y), roadTint);
+
+    final sidePaint = Paint()..color = arena.sideTint;
     canvas.drawRect(Rect.fromLTWH(0, 0, left, gameSize.y), sidePaint);
     canvas.drawRect(
       Rect.fromLTWH(left + roadWidth, 0, left, gameSize.y),
       sidePaint,
+    );
+
+    final edgePaint = Paint()
+      ..color = arena.primary.withValues(alpha: 0.18)
+      ..strokeWidth = 3;
+    canvas.drawLine(
+      Offset(left + 36, 0),
+      Offset(left + 36, gameSize.y),
+      edgePaint,
+    );
+    canvas.drawLine(
+      Offset(left + roadWidth - 36, 0),
+      Offset(left + roadWidth - 36, gameSize.y),
+      edgePaint,
     );
   }
 }
@@ -359,62 +545,142 @@ class PlayerCar extends SpriteComponent with CollisionCallbacks {
     PositionComponent other,
   ) {
     super.onCollisionStart(intersectionPoints, other);
-    if (other is ObstacleComponent) {
+    if (other is ImpactTargetComponent) {
       game.smash(other);
     }
   }
 }
 
-enum ObstacleKind { crate, redBarrel, steelBarrel, cone, barricade }
+enum TargetKind {
+  crate,
+  redBarrel,
+  steelBarrel,
+  cone,
+  barricade,
+  trafficCar,
+  truck,
+  bus,
+  shop,
+}
 
-class ObstacleComponent extends SpriteComponent with CollisionCallbacks {
-  ObstacleComponent({
+class ImpactTargetComponent extends SpriteComponent with CollisionCallbacks {
+  ImpactTargetComponent({
     required this.kind,
     required super.sprite,
     required this.crashGame,
     required super.position,
+    required this.roadSpeedFactor,
+    required this.lateralVelocity,
+    this.reverseFacing = false,
   }) : super(anchor: Anchor.center, priority: 10);
 
-  final ObstacleKind kind;
+  final TargetKind kind;
   final CrashCarGame crashGame;
+  final double roadSpeedFactor;
+  final double lateralVelocity;
+  final bool reverseFacing;
   bool hit = false;
 
   int get damage {
     return switch (kind) {
-      ObstacleKind.crate => 9,
-      ObstacleKind.redBarrel => 15,
-      ObstacleKind.steelBarrel => 12,
-      ObstacleKind.cone => 5,
-      ObstacleKind.barricade => 18,
+      TargetKind.crate => 9,
+      TargetKind.redBarrel => 15,
+      TargetKind.steelBarrel => 12,
+      TargetKind.cone => 5,
+      TargetKind.barricade => 18,
+      TargetKind.trafficCar => 20,
+      TargetKind.truck => 30,
+      TargetKind.bus => 28,
+      TargetKind.shop => 24,
     };
   }
 
   int get points {
     return switch (kind) {
-      ObstacleKind.crate => 180,
-      ObstacleKind.redBarrel => 260,
-      ObstacleKind.steelBarrel => 220,
-      ObstacleKind.cone => 90,
-      ObstacleKind.barricade => 340,
+      TargetKind.crate => 180,
+      TargetKind.redBarrel => 260,
+      TargetKind.steelBarrel => 220,
+      TargetKind.cone => 90,
+      TargetKind.barricade => 340,
+      TargetKind.trafficCar => 520,
+      TargetKind.truck => 860,
+      TargetKind.bus => 780,
+      TargetKind.shop => 680,
     };
   }
 
-  bool get isExplosive => kind == ObstacleKind.redBarrel;
+  double get mass {
+    return switch (kind) {
+      TargetKind.crate => 0.7,
+      TargetKind.redBarrel => 0.9,
+      TargetKind.steelBarrel => 1.0,
+      TargetKind.cone => 0.4,
+      TargetKind.barricade => 1.15,
+      TargetKind.trafficCar => 1.45,
+      TargetKind.truck => 2.3,
+      TargetKind.bus => 2.15,
+      TargetKind.shop => 1.9,
+    };
+  }
+
+  double get slowMotionSeconds {
+    return switch (kind) {
+      TargetKind.cone => 0.3,
+      TargetKind.crate ||
+      TargetKind.redBarrel ||
+      TargetKind.steelBarrel => 0.58,
+      TargetKind.barricade => 0.72,
+      TargetKind.trafficCar => 1.08,
+      TargetKind.truck || TargetKind.bus || TargetKind.shop => 1.36,
+    };
+  }
+
+  String get impactLabel {
+    return switch (kind) {
+      TargetKind.trafficCar => 'TRAFFIC HIT',
+      TargetKind.truck => 'TRUCK CRASH',
+      TargetKind.bus => 'BUS IMPACT',
+      TargetKind.shop => 'SHOP SMASH',
+      TargetKind.barricade => 'BARRICADE BREAK',
+      TargetKind.redBarrel => 'BARREL BURST',
+      TargetKind.crate => 'CRATE SMASH',
+      TargetKind.steelBarrel => 'STEEL HIT',
+      TargetKind.cone => 'CONE CLIP',
+    };
+  }
+
+  bool get isExplosive => kind == TargetKind.redBarrel;
+
+  bool get isHeavy =>
+      kind == TargetKind.truck ||
+      kind == TargetKind.bus ||
+      kind == TargetKind.shop ||
+      kind == TargetKind.trafficCar;
 
   @override
   Future<void> onLoad() async {
     final base = switch (kind) {
-      ObstacleKind.crate => Vector2(64, 64),
-      ObstacleKind.redBarrel => Vector2(48, 62),
-      ObstacleKind.steelBarrel => Vector2(48, 62),
-      ObstacleKind.cone => Vector2(42, 52),
-      ObstacleKind.barricade => Vector2(98, 70),
+      TargetKind.crate => Vector2(64, 64),
+      TargetKind.redBarrel => Vector2(48, 62),
+      TargetKind.steelBarrel => Vector2(48, 62),
+      TargetKind.cone => Vector2(42, 52),
+      TargetKind.barricade => Vector2(98, 70),
+      TargetKind.trafficCar => Vector2(62, 134),
+      TargetKind.truck => Vector2(88, 156),
+      TargetKind.bus => Vector2(84, 164),
+      TargetKind.shop => Vector2(126, 82),
     };
-    size = base * (0.88 + crashGame._random.nextDouble() * 0.28);
-    angle = (crashGame._random.nextDouble() - 0.5) * 0.36;
+    size = base * (0.92 + crashGame._random.nextDouble() * 0.18);
+    if (reverseFacing) {
+      angle = pi;
+    } else if (kind == TargetKind.shop || kind == TargetKind.barricade) {
+      angle = (crashGame._random.nextDouble() - 0.5) * 0.14;
+    } else {
+      angle = (crashGame._random.nextDouble() - 0.5) * 0.1;
+    }
     add(
       RectangleHitbox.relative(
-        Vector2(0.72, 0.72),
+        kind == TargetKind.shop ? Vector2(0.82, 0.72) : Vector2(0.72, 0.72),
         parentSize: size,
         anchor: Anchor.center,
       ),
@@ -424,9 +690,14 @@ class ObstacleComponent extends SpriteComponent with CollisionCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
-    y += crashGame._roadSpeed * dt;
-    angle += (crashGame._random.nextDouble() - 0.5) * dt * 0.08;
-    if (y > crashGame.size.y + 120) {
+    y += crashGame.effectiveRoadSpeed * roadSpeedFactor * dt;
+    x += lateralVelocity * dt;
+    if (kind != TargetKind.shop) {
+      angle += lateralVelocity * 0.00045;
+    }
+    final bounds = crashGame._roadBounds();
+    x = x.clamp(bounds.left + 38, bounds.right - 38).toDouble();
+    if (y > crashGame.size.y + 150) {
       removeFromParent();
     }
   }
