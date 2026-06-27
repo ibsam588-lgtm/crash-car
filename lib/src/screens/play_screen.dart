@@ -255,6 +255,42 @@ class _Hud extends StatelessWidget {
             ),
           ),
           Positioned(
+            left: 20,
+            right: 20,
+            top: 252,
+            child: ValueListenableBuilder<String>(
+              valueListenable: game.scorePopupText,
+              builder: (context, text, _) {
+                return IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: text.isEmpty ? 0 : 1,
+                    duration: const Duration(milliseconds: 110),
+                    child: Center(
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFFFC533),
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 12,
+                              offset: Offset(0, 3),
+                            ),
+                            Shadow(color: Color(0xFF42C7FF), blurRadius: 22),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
             left: 18,
             right: 18,
             bottom: 18,
@@ -267,10 +303,10 @@ class _Hud extends StatelessWidget {
                   onUp: () => game.setSteering(0),
                 ),
                 _HoldButton(
-                  icon: Icons.bolt_rounded,
+                  icon: Icons.local_gas_station_rounded,
                   large: true,
-                  onDown: () => game.setBoosting(true),
-                  onUp: () => game.setBoosting(false),
+                  onDown: () => game.setAccelerating(true),
+                  onUp: () => game.setAccelerating(false),
                 ),
                 _HoldButton(
                   icon: Icons.chevron_right_rounded,

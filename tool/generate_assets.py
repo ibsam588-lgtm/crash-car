@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 import shutil
 from pathlib import Path
 
@@ -247,6 +248,77 @@ def make_debris() -> None:
         save(img, ASSETS / "debris" / f"{name}.png")
 
 
+def make_crash_fragments() -> None:
+    rng = random.Random(42)
+    sources = [
+        "realistic_muscle_orange.png",
+        "realistic_interceptor_blue.png",
+        "realistic_rally_green.png",
+        "realistic_stunt_red.png",
+    ]
+    index = 1
+    for source_name in sources:
+        source_path = ASSETS / "cars" / source_name
+        if not source_path.exists():
+            continue
+        src = Image.open(source_path).convert("RGBA")
+        bbox = src.getchannel("A").getbbox()
+        if bbox is None:
+            continue
+        for _ in range(5):
+            for _attempt in range(40):
+                w = rng.randint(68, 130)
+                h = rng.randint(46, 110)
+                x = rng.randint(bbox[0], max(bbox[0], bbox[2] - w))
+                y = rng.randint(bbox[1], max(bbox[1], bbox[3] - h))
+                crop = src.crop((x, y, x + w, y + h))
+                if crop.getchannel("A").getbbox() is not None:
+                    break
+            mask = Image.new("L", crop.size, 0)
+            points = [
+                (rng.randint(0, crop.width // 3), rng.randint(0, crop.height // 3)),
+                (rng.randint(crop.width // 2, crop.width), rng.randint(0, crop.height // 3)),
+                (rng.randint(crop.width // 2, crop.width), rng.randint(crop.height // 2, crop.height)),
+                (rng.randint(0, crop.width // 3), rng.randint(crop.height // 2, crop.height)),
+            ]
+            ImageDraw.Draw(mask).polygon(points, fill=255)
+            alpha = Image.composite(crop.getchannel("A"), Image.new("L", crop.size, 0), mask)
+            crop.putalpha(alpha)
+            crop = crop.rotate(rng.uniform(-34, 34), expand=True, resample=Image.Resampling.BICUBIC)
+            save(crop, ASSETS / "debris" / f"car_fragment_{index:02d}.png")
+            index += 1
+
+    for i in range(1, 11):
+        size = rng.randint(54, 96)
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        points = [
+            (rng.randint(4, size // 2), rng.randint(2, size // 3)),
+            (rng.randint(size // 2, size - 3), rng.randint(5, size // 2)),
+            (rng.randint(size // 2, size - 3), rng.randint(size // 2, size - 4)),
+            (rng.randint(2, size // 2), rng.randint(size // 2, size - 3)),
+        ]
+        draw.polygon(points, fill=(130, 210, 235, 112), outline=(218, 248, 255, 185))
+        draw.line(points[:2], fill=(255, 255, 255, 170), width=2)
+        draw.line((points[0], points[2]), fill=(255, 255, 255, 92), width=1)
+        save(img, ASSETS / "debris" / f"glass_shard_{i:02d}.png")
+
+    for i in range(1, 9):
+        size = rng.randint(54, 94)
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        color = rng.choice([(95, 104, 110), (145, 151, 153), (56, 64, 68)])
+        points = [
+            (rng.randint(5, size // 3), rng.randint(5, size // 2)),
+            (rng.randint(size // 2, size - 4), rng.randint(2, size // 3)),
+            (rng.randint(size // 2, size - 3), rng.randint(size // 2, size - 4)),
+            (rng.randint(3, size // 2), rng.randint(size // 2, size - 3)),
+        ]
+        draw.polygon(points, fill=color + (230,), outline=(220, 226, 224, 130))
+        draw.line(points[:2], fill=(255, 255, 255, 75), width=2)
+        save(img, ASSETS / "debris" / f"metal_shard_{i:02d}.png")
+
+
 def make_icon(name: str, draw_fn) -> None:
     img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -392,6 +464,7 @@ def main() -> None:
     make_shop("repair_shop", (63, 77, 82), (49, 147, 194), (238, 234, 214))
     make_shop("market_stall", (84, 91, 63), (110, 190, 80), (250, 198, 51))
     make_debris()
+    make_crash_fragments()
     make_icons()
     make_road()
     make_garage_floor()
