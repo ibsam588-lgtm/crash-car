@@ -150,14 +150,14 @@ class _HomeActions extends StatelessWidget {
           const Divider(height: 1),
           const SizedBox(height: 14),
           const _HowItWorksRow(
-            icon: Icons.speed_rounded,
-            title: 'Speed up',
-            body: 'Boost through lanes to build score faster.',
+            icon: Icons.local_gas_station_rounded,
+            title: 'Hold gas',
+            body: 'Accelerate into traffic and heavy targets.',
           ),
           const _HowItWorksRow(
             icon: Icons.car_crash_rounded,
             title: 'Crash',
-            body: 'Hit destructible props to chain combos.',
+            body: 'Shatter cars, props, and shops for combos.',
           ),
           const _HowItWorksRow(
             icon: Icons.emoji_events_rounded,
