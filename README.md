@@ -2,7 +2,7 @@
 
 A realistic arcade crash-driving game built with Flutter, Flame, and Riverpod.
 
-Crash Car puts the player in a generated realistic muscle car and sends them through a construction-yard road packed with destructible crates, barrels, cones, and barricades. The playable slice includes scoring, combos, damage, coins, car unlocks, upgrades, a shop-ready screen, and a score summary.
+Crash Car puts the player in a generated realistic muscle car and sends them through arena roads packed with destructible crates, barrels, cones, barricades, moving cars, trucks, buses, and shop fronts. The playable slice includes arena selection, speed and steering controls, impact slow motion, collision scoring, combos, damage, coins, car unlocks, upgrades, a shop-ready screen, and a score summary.
 
 ## Stack
 

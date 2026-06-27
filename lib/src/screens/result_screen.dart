@@ -1,3 +1,4 @@
+import 'package:crash_car/src/models/arena_spec.dart';
 import 'package:crash_car/src/models/game_result.dart';
 import 'package:crash_car/src/screens/garage_screen.dart';
 import 'package:crash_car/src/screens/home_screen.dart';
@@ -8,9 +9,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ResultScreen extends ConsumerWidget {
-  const ResultScreen({super.key, required this.result});
+  const ResultScreen({super.key, required this.result, required this.arena});
 
   final GameResult result;
+  final ArenaSpec arena;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,6 +58,15 @@ class ResultScreen extends ConsumerWidget {
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(color: const Color(0xFFFFC533)),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      result.arenaName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: arena.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                     const SizedBox(height: 18),
                     _ScoreLine(
                       label: 'Total score',
@@ -88,7 +99,9 @@ class ResultScreen extends ConsumerWidget {
                       label: 'Next Run',
                       icon: Icons.play_arrow_rounded,
                       onPressed: () => Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const PlayScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => PlayScreen(arena: arena),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),

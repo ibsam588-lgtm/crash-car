@@ -21,6 +21,7 @@ def ensure_dirs() -> None:
         ASSETS / "obstacles",
         ASSETS / "debris",
         ASSETS / "icons",
+        ASSETS / "traffic",
         ASSETS / "ui",
         ASSETS / "store",
     ]:
@@ -172,6 +173,63 @@ def make_barricade() -> None:
     for x in (37, w - 51):
         draw.rounded_rectangle((x, 69, x + 16, 108), radius=5, fill=(48, 52, 56, 255))
     save(img, ASSETS / "obstacles" / "barricade.png")
+
+
+def make_truck(color: tuple[int, int, int], name: str, cargo: tuple[int, int, int]) -> None:
+    w, h = 190, 330
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw_shadow(img, (28, 96, w - 28, h - 24), blur=15, alpha=115)
+    draw = ImageDraw.Draw(img)
+    tire = (12, 15, 17, 255)
+    for x0, x1 in [(18, 46), (w - 46, w - 18)]:
+        for y0, y1 in [(68, 126), (176, 238), (246, 306)]:
+            draw.rounded_rectangle((x0, y0, x1, y1), radius=8, fill=tire)
+            draw.rectangle((x0 + 6, y0 + 10, x1 - 6, y1 - 10), fill=(42, 45, 47, 255))
+
+    draw.rounded_rectangle((47, 24, w - 47, 127), radius=24, fill=color + (255,), outline=(18, 24, 28, 255), width=4)
+    draw.rounded_rectangle((58, 57, w - 58, 105), radius=12, fill=(32, 61, 75, 238), outline=(168, 206, 214, 160), width=3)
+    draw.rounded_rectangle((41, 122, w - 41, h - 23), radius=14, fill=cargo + (255,), outline=(42, 48, 50, 255), width=5)
+    draw.rectangle((53, 144, w - 53, h - 43), fill=tuple(min(255, c + 24) for c in cargo) + (255,))
+    for y in range(152, h - 60, 38):
+        draw.line((51, y, w - 51, y), fill=(255, 255, 255, 34), width=3)
+    draw.rounded_rectangle((62, 14, 84, 28), radius=4, fill=(255, 228, 116, 255))
+    draw.rounded_rectangle((w - 84, 14, w - 62, 28), radius=4, fill=(255, 228, 116, 255))
+    draw.rectangle((61, 134, 75, h - 32), fill=(255, 255, 255, 34))
+    save(img, ASSETS / "traffic" / f"{name}.png")
+
+
+def make_bus() -> None:
+    w, h = 184, 340
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw_shadow(img, (25, 90, w - 25, h - 18), blur=16, alpha=110)
+    draw = ImageDraw.Draw(img)
+    for x0, x1 in [(18, 42), (w - 42, w - 18)]:
+        draw.rounded_rectangle((x0, 74, x1, 132), radius=8, fill=(13, 16, 18, 255))
+        draw.rounded_rectangle((x0, 230, x1, 296), radius=8, fill=(13, 16, 18, 255))
+    draw.rounded_rectangle((42, 18, w - 42, h - 18), radius=28, fill=(232, 182, 50, 255), outline=(66, 50, 16, 255), width=5)
+    draw.rounded_rectangle((53, 40, w - 53, 96), radius=14, fill=(28, 57, 72, 245), outline=(255, 255, 255, 85), width=3)
+    for y in range(118, 260, 44):
+        draw.rounded_rectangle((54, y, w - 54, y + 30), radius=8, fill=(31, 65, 81, 238))
+    draw.rectangle((60, h - 66, w - 60, h - 42), fill=(34, 39, 42, 255))
+    draw.line((w // 2, 24, w // 2, h - 24), fill=(255, 255, 255, 60), width=3)
+    save(img, ASSETS / "traffic" / "city_bus.png")
+
+
+def make_shop(name: str, wall: tuple[int, int, int], awning: tuple[int, int, int], sign: tuple[int, int, int]) -> None:
+    w, h = 230, 150
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw_shadow(img, (18, 106, w - 18, h - 6), blur=10, alpha=105)
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((16, 30, w - 16, h - 18), radius=8, fill=wall + (255,), outline=(28, 34, 36, 255), width=4)
+    draw.rounded_rectangle((31, 43, w - 31, 73), radius=6, fill=sign + (255,))
+    draw.polygon([(12, 30), (w - 12, 30), (w - 31, 6), (31, 6)], fill=awning + (255,), outline=(39, 35, 25, 255))
+    stripe_w = 24
+    for x in range(32, w - 31, stripe_w * 2):
+        draw.polygon([(x, 7), (x + stripe_w, 7), (x + stripe_w - 9, 30), (x - 9, 30)], fill=(248, 244, 224, 255))
+    draw.rectangle((48, 86, 96, h - 22), fill=(28, 53, 62, 238))
+    draw.rectangle((125, 88, w - 48, h - 30), fill=(36, 69, 82, 230))
+    draw.line((125, 113, w - 48, 113), fill=(255, 255, 255, 55), width=3)
+    save(img, ASSETS / "traffic" / f"{name}.png")
 
 
 def make_debris() -> None:
@@ -327,6 +385,12 @@ def main() -> None:
     make_barrel((54, 87, 99), "steel_barrel")
     make_cone()
     make_barricade()
+    make_truck((219, 76, 46), "box_truck_red", (82, 92, 98))
+    make_truck((49, 132, 193), "delivery_truck_blue", (214, 219, 210))
+    make_bus()
+    make_shop("corner_shop", (109, 82, 65), (227, 75, 43), (245, 188, 42))
+    make_shop("repair_shop", (63, 77, 82), (49, 147, 194), (238, 234, 214))
+    make_shop("market_stall", (84, 91, 63), (110, 190, 80), (250, 198, 51))
     make_debris()
     make_icons()
     make_road()

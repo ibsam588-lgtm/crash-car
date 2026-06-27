@@ -12,5 +12,11 @@ void main() {
 
     expect(find.byType(RichText), findsWidgets);
     expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.play_arrow_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select Arena'), findsOneWidget);
+    expect(find.text('Construction Yard'), findsOneWidget);
   });
 }

@@ -1,5 +1,6 @@
 class GameResult {
   const GameResult({
+    required this.arenaName,
     required this.score,
     required this.coins,
     required this.damagePercent,
@@ -9,6 +10,7 @@ class GameResult {
     required this.levelComplete,
   });
 
+  final String arenaName;
   final int score;
   final int coins;
   final int damagePercent;
