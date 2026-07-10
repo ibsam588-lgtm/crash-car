@@ -28,6 +28,7 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
+.flutter-plugins
 .pub-cache/
 .pub/
 /build/
@@ -46,3 +47,21 @@ app.*.map.json
 /android/key.properties
 /android/app/*.jks
 /android/app/*.keystore
+
+# Unity generated state and builds
+/unity/**/[Ll]ibrary/
+/unity/**/[Tt]emp/
+/unity/**/[Oo]bj/
+/unity/**/[Ll]ogs/
+/unity/**/[Uu]serSettings/
+/unity/**/[Bb]uilds/
+/unity/**/.vs/
+*.blend1
+*.blend1.meta
+
+# Local development output
+tmp_http_*.out.log
+tmp_http_*.err.log
+unity_*_stdout.log
+unity_*_install.out.log
+unity_*_install.err.log
