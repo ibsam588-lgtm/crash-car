@@ -1,6 +1,6 @@
 # Crash Car
 
-A realistic arcade crash-driving game built with Flutter, Flame, and Riverpod.
+A realistic arcade crash-driving game with a Flutter/Flame application shell and a playable Unity 6 impact-driving prototype.
 
 Crash Car puts the player in a generated realistic muscle car and sends them through arena roads packed with destructible crates, barrels, cones, barricades, moving cars, trucks, buses, and shop fronts. The playable slice includes arena selection, accelerator and steering controls, collision speed loss, vehicle shatter debris, impact slow motion, per-hit score popups, combos, damage, coins, car unlocks, upgrades, a shop-ready screen, and a score summary.
 
@@ -11,6 +11,23 @@ Crash Car puts the player in a generated realistic muscle car and sends them thr
 - Riverpod for shared progress state
 - Shared Preferences for local saves
 - Generated PNG assets under `assets/images`
+- Unity 6 for the production 3D driving, traffic, collisions, detachable damage, slow motion, and WebGL build
+- Blender for the editable vehicle source and FBX export pipeline
+
+## Unity Playable Build
+
+Open `unity/CarCrashUnityPrototype` in Unity `6000.0.43f1`, then use:
+
+- `Car Crash > Build Production Impact Run Scene` to regenerate the Unity scene
+- `Car Crash > Build Production WebGL` to create `Builds/WebGL`
+
+The tested production slice includes a modeled sports car with independent WheelColliders, animated wheels and lights, moving traffic, a textured downtown arena, touch/keyboard steering, boost, high-speed collisions, detachable panels, windshield damage, impact slow motion, scoring, and a retryable result screen.
+
+Serve the WebGL output locally from the Unity project:
+
+```powershell
+python -m http.server 8092 --bind 127.0.0.1 --directory Builds/WebGL
+```
 
 ## Run
 
@@ -39,3 +56,5 @@ The current local bundle path after a release build is:
 ```text
 build/app/outputs/bundle/release/app-release.aab
 ```
+
+See `THIRD_PARTY_NOTICES.md` for 3D model attribution.
