@@ -485,19 +485,19 @@ namespace CarCrashEditor
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
             instance.name = "CarCrash_GT650_Visual";
             instance.transform.SetParent(root.transform, false);
-            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
             instance.transform.localScale = Vector3.one;
             SetRenderersEnabled(instance.transform, true);
 
             var body = root.AddComponent<Rigidbody>();
-            body.mass = 1420f;
-            body.centerOfMass = new Vector3(0f, -0.24f, 0.05f);
+            body.mass = 1540f;
+            body.centerOfMass = new Vector3(0f, -0.22f, 0.13f);
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
             var bodyCollider = root.AddComponent<BoxCollider>();
-            bodyCollider.center = new Vector3(0f, 0.44f, 0f);
-            bodyCollider.size = new Vector3(2.06f, 0.78f, 4.18f);
+            bodyCollider.center = new Vector3(0f, 0.50f, 0f);
+            bodyCollider.size = new Vector3(2.04f, 0.90f, 4.38f);
 
             var vehicle = root.AddComponent<ArcadeVehicleController>();
             vehicle.launchDelaySeconds = 1.1f;
@@ -531,8 +531,8 @@ namespace CarCrashEditor
             shellAnimator.tailLightRenderers = taillights;
             shellAnimator.tailLightGlows = new[]
             {
-                CreateTailLightGlow(root.transform, "Tail_Glow_L", new Vector3(-0.58f, 0.50f, -2.03f)),
-                CreateTailLightGlow(root.transform, "Tail_Glow_R", new Vector3(0.58f, 0.50f, -2.03f))
+                CreateTailLightGlow(root.transform, "Tail_Glow_L", new Vector3(-0.62f, 0.70f, -2.24f)),
+                CreateTailLightGlow(root.transform, "Tail_Glow_R", new Vector3(0.62f, 0.70f, -2.24f))
             };
 
             ConfigureDamageParts(instance.transform, scoring);
@@ -687,7 +687,8 @@ namespace CarCrashEditor
             visual.name = $"{name}_Visual";
             visual.transform.SetParent(root.transform, false);
             var baseYaw = velocity.z < 0f ? 180f : 0f;
-            visual.transform.localRotation = Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f);
+            visual.transform.localRotation =
+                Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f) * Quaternion.Euler(-90f, 0f, 0f);
             visual.transform.localScale = Vector3.one * 0.94f;
 
             foreach (var renderer in visual.GetComponentsInChildren<Renderer>(true))
