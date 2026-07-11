@@ -10,8 +10,13 @@ namespace CarCrash
         public float resetAheadZ = 92f;
         public float laneJitter = 0.25f;
         public float swaySpeed = 0.8f;
-        public float releaseImpulse = 0.18f;
+        public float impactVelocityTransfer = 0.68f;
+        public float chainLateralBias;
         public float launchDelaySeconds = 5.6f;
+
+        public bool IsReleased => _released;
+        public int ChainDepth { get; private set; }
+        public Rigidbody Body => _body;
 
         private Rigidbody _body;
         private Vector3 _startPosition;
@@ -61,28 +66,50 @@ namespace CarCrash
             _body.MovePosition(next);
         }
 
-        private void OnCollisionEnter(Collision collision)
+        public bool ReleaseFromImpact(
+            Rigidbody striker,
+            Vector3 contactPoint,
+            Vector3 collisionNormal,
+            float impactKmh,
+            int chainDepth)
         {
             if (_released)
             {
-                return;
-            }
-
-            if (collision.rigidbody == null || collision.rigidbody.GetComponent<ArcadeVehicleController>() == null)
-            {
-                return;
+                return false;
             }
 
             _released = true;
+            ChainDepth = Mathf.Max(0, chainDepth);
             _body.isKinematic = false;
             _body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            _body.AddForce(velocity * _body.mass * releaseImpulse, ForceMode.Impulse);
-            _body.AddTorque(Random.insideUnitSphere * _body.mass * 0.08f, ForceMode.Impulse);
+
+            var strikerVelocity = striker != null
+                ? striker.linearVelocity
+                : -collisionNormal * (impactKmh / 3.6f);
+            var chainTransfer = impactVelocityTransfer * (ChainDepth > 0 ? 0.88f : 1f);
+            var inheritedVelocity = Vector3.Lerp(velocity, strikerVelocity, Mathf.Clamp01(chainTransfer));
+            var impactMetersPerSecond = Mathf.Clamp(impactKmh / 3.6f, 3f, 48f);
+            inheritedVelocity.x += chainLateralBias * impactMetersPerSecond * 0.34f;
+            inheritedVelocity.y = Mathf.Max(inheritedVelocity.y, Mathf.Min(1.5f, impactMetersPerSecond * 0.035f));
+            _body.linearVelocity = Vector3.ClampMagnitude(inheritedVelocity, 48f);
+
+            var impulseDirection = (-collisionNormal + Vector3.right * chainLateralBias * 0.62f + Vector3.up * 0.08f).normalized;
+            var impulse = impulseDirection * (_body.mass * impactMetersPerSecond * 0.105f);
+            _body.AddForceAtPosition(impulse, contactPoint, ForceMode.Impulse);
+
+            var spinSign = Mathf.Abs(chainLateralBias) > 0.05f
+                ? Mathf.Sign(chainLateralBias)
+                : (GetInstanceID() % 2 == 0 ? 1f : -1f);
+            _body.AddTorque(
+                new Vector3(impactMetersPerSecond * 0.018f, spinSign * impactMetersPerSecond * 0.16f, spinSign * impactMetersPerSecond * 0.035f) * _body.mass,
+                ForceMode.Impulse);
+            return true;
         }
 
         public void ResetTraffic()
         {
             _released = false;
+            ChainDepth = 0;
             _body.isKinematic = true;
             _body.linearVelocity = Vector3.zero;
             _body.angularVelocity = Vector3.zero;
