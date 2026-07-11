@@ -74,7 +74,7 @@ namespace CarCrash
                 return;
             }
 
-            _finishAtRealtime = scoring.LastImpactRealtime + 2.15f;
+            _finishAtRealtime = scoring.LastImpactRealtime + 2.75f;
             if (Time.realtimeSinceStartup < _finishAtRealtime)
             {
                 return;
@@ -100,14 +100,17 @@ namespace CarCrash
             _smallLeft.fontSize = Mathf.RoundToInt(17f * scale);
             _smallLeft.normal.textColor = new Color(0.75f, 0.78f, 0.80f);
             GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 105f * scale, panel.width * 0.45f, 28f * scale), "TOTAL SCORE", _smallLeft);
-            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 185f * scale, panel.width * 0.45f, 28f * scale), "VEHICLES HIT", _smallLeft);
+            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 185f * scale, panel.width * 0.40f, 28f * scale), "VEHICLES HIT", _smallLeft);
+            GUI.Label(new Rect(panel.x + panel.width * 0.58f, panel.y + 185f * scale, panel.width * 0.32f, 28f * scale), "PEAK CHAIN", _smallLeft);
 
             _score.fontSize = Mathf.RoundToInt(41f * scale);
             _score.normal.textColor = Color.white;
             GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 130f * scale, panel.width - 72f * scale, 52f * scale), FormatScore(scoring.Score), _score);
             _metric.fontSize = Mathf.RoundToInt(32f * scale);
             _metric.normal.textColor = new Color(0.50f, 1f, 0.28f);
-            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 210f * scale, panel.width - 72f * scale, 42f * scale), scoring.Hits.ToString(), _metric);
+            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 210f * scale, panel.width * 0.40f, 42f * scale), scoring.Hits.ToString(), _metric);
+            _metric.normal.textColor = new Color(1f, 0.82f, 0.04f);
+            GUI.Label(new Rect(panel.x + panel.width * 0.58f, panel.y + 210f * scale, panel.width * 0.32f, 42f * scale), $"x{scoring.PeakChainDepth + 1}", _metric);
 
             var retry = new Rect(panel.x + 30f * scale, panel.y + panel.height - 79f * scale, panel.width - 60f * scale, 54f * scale);
             var oldColor = GUI.color;
@@ -146,10 +149,10 @@ namespace CarCrash
             _metric.normal.textColor = new Color(0.50f, 1f, 0.28f);
             GUI.Label(new Rect(card.x + 15f * scale, card.y + 101f * scale, 65f * scale, 38f * scale), $"{(scoring != null ? scoring.Hits : 0)}", _metric);
 
-            _score.fontSize = Mathf.RoundToInt(29f * scale);
+            _score.fontSize = Mathf.RoundToInt(24f * scale);
             _score.alignment = TextAnchor.MiddleRight;
             _score.normal.textColor = new Color(1f, 0.82f, 0.04f);
-            GUI.Label(new Rect(card.x + 88f * scale, card.y + 95f * scale, 54f * scale, 42f * scale), $"x{ComboValue()}", _score);
+            GUI.Label(new Rect(card.x + 76f * scale, card.y + 95f * scale, 68f * scale, 42f * scale), $"x{ComboValue():0.0}", _score);
             _score.alignment = TextAnchor.MiddleLeft;
         }
 
@@ -180,11 +183,18 @@ namespace CarCrash
             var centerY = height * 0.15f;
             _center.fontSize = Mathf.RoundToInt(51f * scale);
             _center.normal.textColor = new Color(1f, 0.80f, 0.03f);
-            DrawShadowLabel(new Rect(width * 0.5f - 115f * scale, centerY, 230f * scale, 62f * scale), $"x{ComboValue()}", _center, 2f * scale);
+            var chainLabel = scoring.LastChainDepth > 0
+                ? $"CHAIN {scoring.LastChainDepth + 1}"
+                : $"x{ComboValue():0.0}";
+            DrawShadowLabel(new Rect(width * 0.5f - 145f * scale, centerY, 290f * scale, 62f * scale), chainLabel, _center, 2f * scale);
 
             _center.fontSize = Mathf.RoundToInt(23f * scale);
             _center.normal.textColor = Color.white;
-            DrawShadowLabel(new Rect(width * 0.5f - 115f * scale, centerY + 52f * scale, 230f * scale, 32f * scale), "SMASH!", _center, 2f * scale);
+            DrawShadowLabel(
+                new Rect(width * 0.5f - 115f * scale, centerY + 52f * scale, 230f * scale, 32f * scale),
+                scoring.LastChainDepth > 0 ? "CASCADE!" : "SMASH!",
+                _center,
+                2f * scale);
 
             _center.fontSize = Mathf.RoundToInt(33f * scale);
             _center.normal.textColor = new Color(1f, 0.80f, 0.03f);
@@ -296,9 +306,9 @@ namespace CarCrash
             return new Rect(rect.center.x - width * 0.5f, rect.center.y - height * 0.5f, width, height);
         }
 
-        private int ComboValue()
+        private float ComboValue()
         {
-            return Mathf.Clamp(1 + (scoring != null ? scoring.Hits / 2 : 0), 1, 9);
+            return scoring != null ? Mathf.Clamp(scoring.LastMultiplier, 1f, 9f) : 1f;
         }
 
         private int GearValue()

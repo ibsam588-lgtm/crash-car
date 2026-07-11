@@ -47,8 +47,8 @@ def new_material(name, color, metallic=0.0, roughness=0.4, emission=None):
     return material
 
 
-def add_box(name, location, dimensions, material, bevel=0.025):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=location)
+def add_box(name, location, dimensions, material, bevel=0.025, rotation=(0.0, 0.0, 0.0)):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=location, rotation=rotation)
     obj = bpy.context.object
     obj.name = name
     obj.dimensions = dimensions
@@ -56,6 +56,24 @@ def add_box(name, location, dimensions, material, bevel=0.025):
     obj.data.materials.append(material)
     bevel_modifier = obj.modifiers.new("production_bevel", "BEVEL")
     bevel_modifier.width = bevel
+    bevel_modifier.segments = 3
+    bpy.ops.object.shade_smooth()
+    return obj
+
+
+def add_cylinder(name, location, radius, depth, material, rotation=(0.0, 0.0, 0.0), vertices=48):
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=vertices,
+        radius=radius,
+        depth=depth,
+        location=location,
+        rotation=rotation,
+    )
+    obj = bpy.context.object
+    obj.name = name
+    obj.data.materials.append(material)
+    bevel_modifier = obj.modifiers.new("production_bevel", "BEVEL")
+    bevel_modifier.width = min(radius * 0.10, 0.012)
     bevel_modifier.segments = 3
     bpy.ops.object.shade_smooth()
     return obj
@@ -119,6 +137,31 @@ def tune_materials():
 
 def add_car_crash_identity():
     carbon = new_material("M_CarCrash_Carbon", (0.006, 0.008, 0.010, 1.0), metallic=0.25, roughness=0.28)
+    gloss_black = new_material("M_CarCrash_RearGlass", (0.004, 0.007, 0.010, 1.0), metallic=0.38, roughness=0.16)
+    dark_metal = new_material("M_CarCrash_DarkMetal", (0.025, 0.029, 0.033, 1.0), metallic=0.88, roughness=0.20)
+    brushed_metal = new_material("M_CarCrash_BrushedMetal", (0.30, 0.33, 0.35, 1.0), metallic=0.92, roughness=0.24)
+    plate = new_material("M_CarCrash_Plate", (0.62, 0.64, 0.60, 1.0), metallic=0.10, roughness=0.42)
+    tail_red = new_material(
+        "M_CarCrash_TailLED",
+        (0.58, 0.002, 0.001, 1.0),
+        metallic=0.08,
+        roughness=0.12,
+        emission=(1.0, 0.006, 0.001, 1.0),
+    )
+    white_led = new_material(
+        "M_CarCrash_WhiteLED",
+        (0.68, 0.86, 1.0, 1.0),
+        metallic=0.05,
+        roughness=0.10,
+        emission=(0.48, 0.78, 1.0, 1.0),
+    )
+    amber_led = new_material(
+        "M_CarCrash_AmberLED",
+        (0.95, 0.23, 0.006, 1.0),
+        metallic=0.05,
+        roughness=0.12,
+        emission=(1.0, 0.18, 0.002, 1.0),
+    )
     crack = new_material(
         "M_CarCrash_GlassCrack",
         (0.70, 0.90, 1.0, 1.0),
@@ -127,14 +170,77 @@ def add_car_crash_identity():
         emission=(0.34, 0.72, 1.0, 1.0),
     )
 
-    parts = [
+    detachable_parts = [
         add_box("Damage_Active_Rear_Wing", (0.0, 1.86, 1.02), (1.82, 0.28, 0.075), carbon, 0.022),
-        add_box("Rear_Wing_Post_L", (-0.55, 1.75, 0.82), (0.07, 0.11, 0.40), carbon, 0.016),
-        add_box("Rear_Wing_Post_R", (0.55, 1.75, 0.82), (0.07, 0.11, 0.40), carbon, 0.016),
+        add_box("Damage_Rear_Diffuser", (0.0, 1.82, 0.19), (1.82, 0.30, 0.16), carbon, 0.022, rotation=(math.radians(-7), 0.0, 0.0)),
+        add_box("Damage_Front_Splitter", (0.0, -2.17, 0.05), (1.78, 0.28, 0.055), carbon, 0.018, rotation=(math.radians(3), 0.0, 0.0)),
+        add_box("Damage_Rear_Bumper_Insert", (0.0, 1.900, 0.39), (0.78, 0.040, 0.18), gloss_black, 0.022),
     ]
 
+    fixed_parts = [
+        add_box("Rear_Wing_Post_L", (-0.55, 1.75, 0.82), (0.07, 0.11, 0.40), carbon, 0.016),
+        add_box("Rear_Wing_Post_R", (0.55, 1.75, 0.82), (0.07, 0.11, 0.40), carbon, 0.016),
+        add_box("Rear_Wing_Endplate_L", (-0.94, 1.88, 0.99), (0.055, 0.31, 0.20), carbon, 0.018, rotation=(math.radians(-6), 0.0, 0.0)),
+        add_box("Rear_Wing_Endplate_R", (0.94, 1.88, 0.99), (0.055, 0.31, 0.20), carbon, 0.018, rotation=(math.radians(-6), 0.0, 0.0)),
+        add_box("Rear_Wing_Brake_LED", (0.0, 2.007, 1.015), (1.24, 0.025, 0.025), tail_red, 0.008),
+        add_box("Rear_Black_Fascia", (0.0, 1.908, 0.67), (1.65, 0.035, 0.105), gloss_black, 0.024),
+        add_box("Rear_Plate_Recess", (0.0, 1.918, 0.39), (0.58, 0.028, 0.18), carbon, 0.018),
+        add_box("Rear_Plate", (0.0, 1.930, 0.39), (0.46, 0.020, 0.13), plate, 0.012),
+        add_box("Rear_Camera", (0.0, 1.935, 0.52), (0.085, 0.023, 0.045), dark_metal, 0.012),
+        add_box("Rear_Reverse_L", (-0.34, 1.936, 0.47), (0.16, 0.022, 0.040), white_led, 0.012),
+        add_box("Rear_Reverse_R", (0.34, 1.936, 0.47), (0.16, 0.022, 0.040), white_led, 0.012),
+        add_box("Rear_Reflector_L", (-0.73, 1.914, 0.30), (0.27, 0.021, 0.032), amber_led, 0.010),
+        add_box("Rear_Reflector_R", (0.73, 1.914, 0.30), (0.27, 0.021, 0.032), amber_led, 0.010),
+        add_box("Rear_Diffuser_Fin_L", (-0.56, 1.88, 0.10), (0.055, 0.30, 0.20), carbon, 0.014, rotation=(math.radians(-8), 0.0, 0.0)),
+        add_box("Rear_Diffuser_Fin_C", (0.0, 1.89, 0.085), (0.055, 0.31, 0.23), carbon, 0.014, rotation=(math.radians(-8), 0.0, 0.0)),
+        add_box("Rear_Diffuser_Fin_R", (0.56, 1.88, 0.10), (0.055, 0.30, 0.20), carbon, 0.014, rotation=(math.radians(-8), 0.0, 0.0)),
+        add_box("Front_Lower_Intake", (0.0, -2.175, 0.31), (1.22, 0.045, 0.23), gloss_black, 0.045),
+        add_box("Side_Intake_L", (-0.965, 0.48, 0.44), (0.035, 0.68, 0.28), gloss_black, 0.028, rotation=(0.0, 0.0, math.radians(-6))),
+        add_box("Side_Intake_R", (0.965, 0.48, 0.44), (0.035, 0.68, 0.28), gloss_black, 0.028, rotation=(0.0, 0.0, math.radians(6))),
+    ]
+
+    tail_signature = add_curve(
+        "BodyTaillights_CurvedSignature",
+        [
+            (-0.82, 1.918, 0.67),
+            (-0.60, 1.930, 0.70),
+            (-0.28, 1.936, 0.685),
+            (0.0, 1.938, 0.675),
+            (0.28, 1.936, 0.685),
+            (0.60, 1.930, 0.70),
+            (0.82, 1.918, 0.67),
+        ],
+        tail_red,
+        0.024,
+    )
+    front_signature_l = add_curve(
+        "Front_LED_Signature_L",
+        [(-0.86, -2.194, 0.61), (-0.67, -2.225, 0.67), (-0.42, -2.235, 0.65)],
+        white_led,
+        0.021,
+    )
+    front_signature_r = add_curve(
+        "Front_LED_Signature_R",
+        [(0.42, -2.235, 0.65), (0.67, -2.225, 0.67), (0.86, -2.194, 0.61)],
+        white_led,
+        0.021,
+    )
+
+    exhaust_parts = []
+    for index, x in enumerate((-0.72, -0.49, 0.49, 0.72)):
+        exhaust_parts.append(
+            add_cylinder(
+                f"Rear_Exhaust_{index + 1:02d}",
+                (x, 1.928, 0.22),
+                0.058,
+                0.12,
+                brushed_metal,
+                rotation=(math.radians(90), 0.0, 0.0),
+            )
+        )
+
     body = bpy.data.objects.get("BodyUnderside")
-    for part in parts:
+    for part in detachable_parts + fixed_parts + exhaust_parts + [tail_signature, front_signature_l, front_signature_r]:
         part.parent = body
         part.matrix_parent_inverse = body.matrix_world.inverted()
 
