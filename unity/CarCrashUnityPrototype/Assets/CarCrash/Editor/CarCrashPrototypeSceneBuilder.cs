@@ -507,6 +507,7 @@ namespace CarCrashEditor
             vehicle.collisionVelocityCapKmh = 225f;
             vehicle.downforce = 118f;
             vehicle.boostMultiplier = 1.55f;
+            vehicle.autoAccelerate = false;
             vehicle.frontLeftCollider = CreateWheelCollider(root.transform, "WC_FL", new Vector3(-0.975f, 0.39f, 1.49f), 0.385f, false);
             vehicle.frontRightCollider = CreateWheelCollider(root.transform, "WC_FR", new Vector3(0.975f, 0.39f, 1.49f), 0.385f, false);
             vehicle.rearLeftCollider = CreateWheelCollider(root.transform, "WC_RL", new Vector3(-0.985f, 0.39f, -1.31f), 0.385f, true);

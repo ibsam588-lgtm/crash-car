@@ -11,6 +11,8 @@ namespace CarCrash
         private Texture2D _panel;
         private Texture2D _buttonCircle;
         private Texture2D _boostGlow;
+        private Texture2D _gasPedal;
+        private Texture2D _brakePedal;
         private Texture2D _gauge;
         private Texture2D _shade;
         private GUIStyle _smallLeft;
@@ -20,6 +22,10 @@ namespace CarCrash
         private GUIStyle _button;
         private bool _paused;
         private bool _runComplete;
+        private bool _acceleratorLatched;
+        private float _brakeUntilRealtime = -1f;
+        private float _steerUntilRealtime = -1f;
+        private float _touchSteer;
         private float _finishAtRealtime = -1f;
 
         private void Awake()
@@ -203,59 +209,122 @@ namespace CarCrash
 
         private void DrawControls(float width, float height, float scale)
         {
-            var buttonSize = 96f * scale;
-            var bottom = 26f * scale;
-            var left = new Rect(28f * scale, height - bottom - buttonSize, buttonSize, buttonSize);
-            var boostSize = 108f * scale;
+            var controlScale = Mathf.Clamp(width / 576f, 0.72f, 1f);
+            var buttonSize = 78f * controlScale;
+            var gap = 12f * controlScale;
+            var bottom = 18f * controlScale;
+            var left = new Rect(20f * controlScale, height - bottom - buttonSize, buttonSize, buttonSize);
+            var right = new Rect(left.xMax + gap, left.y, buttonSize, buttonSize);
+            var boostSize = 94f * controlScale;
             var boost = new Rect(width * 0.5f - boostSize * 0.5f, height - bottom - boostSize, boostSize, boostSize);
-            var gaugeSize = 148f * scale;
-            var gauge = new Rect(width - 22f * scale - gaugeSize, height - 18f * scale - gaugeSize, gaugeSize, gaugeSize);
+            var gaugeSize = 136f * controlScale;
+            var gauge = new Rect(width - 16f * controlScale - gaugeSize, height - bottom - gaugeSize, gaugeSize, gaugeSize);
+            var gasSize = new Vector2(64f * controlScale, 112f * controlScale);
+            var brakeSize = new Vector2(58f * controlScale, 78f * controlScale);
+            Rect gas;
+            Rect brake;
+            if (width < 660f)
+            {
+                var pedalY = gauge.y - 10f * controlScale - gasSize.y;
+                gas = new Rect(width - 16f * controlScale - gasSize.x, pedalY, gasSize.x, gasSize.y);
+                brake = new Rect(gas.x - 10f * controlScale - brakeSize.x, pedalY + gasSize.y - brakeSize.y, brakeSize.x, brakeSize.y);
+            }
+            else
+            {
+                gas = new Rect(gauge.x - gap - gasSize.x, height - bottom - gasSize.y, gasSize.x, gasSize.y);
+                brake = new Rect(gas.x - 10f * controlScale - brakeSize.x, height - bottom - brakeSize.y, brakeSize.x, brakeSize.y);
+            }
 
             GUI.DrawTexture(left, _buttonCircle, ScaleMode.StretchToFill, true);
-            _button.fontSize = Mathf.RoundToInt(48f * scale);
+            GUI.DrawTexture(right, _buttonCircle, ScaleMode.StretchToFill, true);
+            _button.fontSize = Mathf.RoundToInt(42f * controlScale);
             _button.normal.textColor = Color.white;
             GUI.Label(left, "<", _button);
+            GUI.Label(right, ">", _button);
 
             var steer = Input.GetAxisRaw("Horizontal");
             if (GUI.RepeatButton(left, string.Empty, GUIStyle.none))
             {
-                steer = -1f;
+                _touchSteer = -1f;
+                _steerUntilRealtime = Time.realtimeSinceStartup + 0.16f;
+            }
+            if (GUI.RepeatButton(right, string.Empty, GUIStyle.none))
+            {
+                _touchSteer = 1f;
+                _steerUntilRealtime = Time.realtimeSinceStartup + 0.16f;
+            }
+            if (Mathf.Abs(steer) < 0.05f && Time.realtimeSinceStartup < _steerUntilRealtime)
+            {
+                steer = _touchSteer;
             }
 
-            var rightSteerZone = new Rect(width * 0.56f, height * 0.40f, width * 0.42f, height * 0.30f);
-            if (GUI.RepeatButton(rightSteerZone, string.Empty, GUIStyle.none))
+            var verticalInput = Input.GetAxisRaw("Vertical");
+            var throttle = Mathf.Clamp01(verticalInput);
+            var brakeInput = Mathf.Clamp01(-verticalInput);
+            if (Input.GetKey(KeyCode.Space))
             {
-                steer = 1f;
+                brakeInput = 1f;
             }
-            var leftSteerZone = new Rect(width * 0.02f, height * 0.40f, width * 0.40f, height * 0.30f);
-            if (GUI.RepeatButton(leftSteerZone, string.Empty, GUIStyle.none))
+
+            var gasActive = _acceleratorLatched || throttle > 0.05f;
+            GUI.DrawTexture(gas, gasActive ? _gasPedal : _panel, ScaleMode.StretchToFill, true);
+            _button.fontSize = Mathf.RoundToInt(17f * controlScale);
+            _button.normal.textColor = gasActive ? new Color(0.52f, 1f, 0.34f) : Color.white;
+            GUI.Label(gas, "GAS", _button);
+            if (GUI.Button(gas, string.Empty, GUIStyle.none))
             {
-                steer = -1f;
+                _acceleratorLatched = true;
+                _brakeUntilRealtime = -1f;
+                Debug.Log("[Controls] accelerator engaged");
+            }
+
+            var brakeActive = brakeInput > 0.05f || Time.realtimeSinceStartup < _brakeUntilRealtime;
+            GUI.DrawTexture(brake, brakeActive ? _brakePedal : _panel, ScaleMode.StretchToFill, true);
+            _button.fontSize = Mathf.RoundToInt(13f * controlScale);
+            _button.normal.textColor = brakeActive ? new Color(1f, 0.30f, 0.18f) : Color.white;
+            GUI.Label(brake, "BRAKE", _button);
+            if (GUI.RepeatButton(brake, string.Empty, GUIStyle.none))
+            {
+                _acceleratorLatched = false;
+                _brakeUntilRealtime = Time.realtimeSinceStartup + 0.85f;
+                brakeInput = 1f;
             }
 
             var boostPulse = 1f + Mathf.Sin(Time.unscaledTime * 5.8f) * 0.035f;
             var glowRect = ScaleAroundCenter(boost, boostPulse);
             GUI.DrawTexture(glowRect, _boostGlow, ScaleMode.StretchToFill, true);
-            _button.fontSize = Mathf.RoundToInt(48f * scale);
+            _button.fontSize = Mathf.RoundToInt(17f * controlScale);
             _button.normal.textColor = new Color(0.22f, 0.82f, 1f);
-            GUI.Label(boost, "!", _button);
+            GUI.Label(boost, "BOOST", _button);
             if (GUI.Button(boost, string.Empty, GUIStyle.none))
             {
                 vehicle.Boost(1.55f);
             }
 
             GUI.DrawTexture(gauge, _gauge, ScaleMode.StretchToFill, true);
-            _center.fontSize = Mathf.RoundToInt(43f * scale);
+            _center.fontSize = Mathf.RoundToInt(39f * controlScale);
             _center.normal.textColor = Color.white;
-            GUI.Label(new Rect(gauge.x, gauge.y + 35f * scale, gauge.width, 55f * scale), $"{vehicle.SpeedKmh:0}", _center);
-            _center.fontSize = Mathf.RoundToInt(16f * scale);
-            GUI.Label(new Rect(gauge.x, gauge.y + 84f * scale, gauge.width, 25f * scale), "KM/H", _center);
-            _center.fontSize = Mathf.RoundToInt(20f * scale);
-            GUI.Label(new Rect(gauge.x, gauge.y + 108f * scale, gauge.width, 24f * scale), GearValue().ToString(), _center);
+            GUI.Label(new Rect(gauge.x, gauge.y + 31f * controlScale, gauge.width, 50f * controlScale), $"{vehicle.SpeedKmh:0}", _center);
+            _center.fontSize = Mathf.RoundToInt(14f * controlScale);
+            GUI.Label(new Rect(gauge.x, gauge.y + 77f * controlScale, gauge.width, 23f * controlScale), "KM/H", _center);
+            _center.fontSize = Mathf.RoundToInt(18f * controlScale);
+            GUI.Label(new Rect(gauge.x, gauge.y + 99f * controlScale, gauge.width, 22f * controlScale), GearValue().ToString(), _center);
 
             if (!_paused)
             {
-                vehicle.SetMobileInput(Mathf.Clamp(steer, -1f, 1f), 1f, 0f);
+                if (_acceleratorLatched)
+                {
+                    throttle = 1f;
+                }
+                if (Time.realtimeSinceStartup < _brakeUntilRealtime)
+                {
+                    brakeInput = 1f;
+                }
+                if (brakeInput > 0.05f)
+                {
+                    throttle = 0f;
+                }
+                vehicle.SetMobileInput(Mathf.Clamp(steer, -1f, 1f), throttle, brakeInput);
             }
         }
 
@@ -269,6 +338,8 @@ namespace CarCrash
             _panel = MakeRoundedPanel(96, new Color(0.015f, 0.018f, 0.021f, 0.72f), 17f);
             _buttonCircle = MakeCircleTexture(192, new Color(0.015f, 0.018f, 0.022f, 0.67f), new Color(0.86f, 0.66f, 0.27f, 0.76f), 5f);
             _boostGlow = MakeCircleTexture(192, new Color(0.02f, 0.12f, 0.21f, 0.80f), new Color(0.14f, 0.74f, 1f, 1f), 8f);
+            _gasPedal = MakeRoundedPanel(96, new Color(0.025f, 0.20f, 0.08f, 0.90f), 14f);
+            _brakePedal = MakeRoundedPanel(96, new Color(0.28f, 0.035f, 0.018f, 0.92f), 14f);
             _gauge = MakeGaugeTexture(256);
             _shade = new Texture2D(1, 1, TextureFormat.RGBA32, false);
             _shade.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.76f));
