@@ -1,0 +1,20 @@
+[
+  {
+    "name": "maya",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/relaxed-walk-maya-3d-person-animated-2c6669a2",
+    "license": "CC0-1.0",
+    "sha256": "3c22e60a599526d264f7cbb744e5bc1f6b1e93a79daade322942c49e7aac6ab3"
+  },
+  {
+    "name": "sam",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/relaxed-walk-sam-3d-person-animated-732f1206",
+    "license": "CC0-1.0",
+    "sha256": "fbf6558ff408b6c5d12c82a5aaa506e07ec796f963a9ac1d4b9c88a39b0fd429"
+  },
+  {
+    "name": "harper",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/brisk-walk-harper-3d-person-animated-0efea8f3",
+    "license": "CC0-1.0",
+    "sha256": "ab3fa8b1580c6ccf8bfe8bc7d4422bb483f04d4cf4d2f82f215b9bbe713bfcf9"
+  }
+]

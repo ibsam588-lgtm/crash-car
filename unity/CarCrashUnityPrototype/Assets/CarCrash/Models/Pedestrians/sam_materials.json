@@ -1,0 +1,186 @@
+{
+  "materials": [
+    {
+      "name": "Ped_sam_00",
+      "sourceName": "Accessory detail",
+      "color": [
+        0.054999999701976776,
+        0.0949999988079071,
+        0.11999999731779099,
+        1.0
+      ],
+      "roughness": 0.23999999463558197,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_01",
+      "sourceName": "Original accessory body",
+      "color": [
+        0.02500000037252903,
+        0.019999999552965164,
+        0.017999999225139618,
+        1.0
+      ],
+      "roughness": 0.47999998927116394,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_02",
+      "sourceName": "Original dark ankle lining",
+      "color": [
+        0.017999999225139618,
+        0.01600000075995922,
+        0.020999999716877937,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_03",
+      "sourceName": "Sam | anatomical body.body",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.5400000214576721,
+      "cutout": false,
+      "baseTexture": "sam_00.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_04",
+      "sourceName": "Sam | anatomical body.eyebrow001",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "sam_01.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_05",
+      "sourceName": "Sam | anatomical body.eyelashes01",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "sam_02.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_06",
+      "sourceName": "Sam | anatomical body.low-poly",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "sam_03.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_07",
+      "sourceName": "Sam | anatomical body.shoes01",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "sam_04.png",
+      "normalTexture": "sam_05.png"
+    },
+    {
+      "name": "Ped_sam_08",
+      "sourceName": "Sam | anatomical body.short01",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "sam_06.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_09",
+      "sourceName": "Sam | anatomical body.teeth_base",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "sam_07.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_10",
+      "sourceName": "Sam | fine hair roots",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "sam_08.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_sam_11",
+      "sourceName": "Sam | original bottom",
+      "color": [
+        0.02500000037252903,
+        0.039000000804662704,
+        0.06499999761581421,
+        1.0
+      ],
+      "roughness": 0.6800000071525574,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": "sam_09.png"
+    },
+    {
+      "name": "Ped_sam_12",
+      "sourceName": "Sam | original top",
+      "color": [
+        0.10499999672174454,
+        0.17000000178813934,
+        0.12999999523162842,
+        1.0
+      ],
+      "roughness": 0.6800000071525574,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": "sam_09.png"
+    }
+  ]
+}

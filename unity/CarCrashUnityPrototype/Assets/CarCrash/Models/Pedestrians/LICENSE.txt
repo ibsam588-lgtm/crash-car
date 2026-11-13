@@ -1,0 +1,11 @@
+Maya, Sam, Harper walking figures
+Source: Innerscene, adapted from MakeHuman/MPFB CC0 assets.
+License: Creative Commons CC0 1.0 Universal, public domain dedication.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+https://www.innerscene.com/tools/library/3d-parts/relaxed-walk-maya-3d-person-animated-2c6669a2
+https://www.innerscene.com/tools/library/3d-parts/relaxed-walk-sam-3d-person-animated-732f1206
+https://www.innerscene.com/tools/library/3d-parts/brisk-walk-harper-3d-person-animated-0efea8f3
+
+Modified for this game: mesh reduction, texture resizing, FBX conversion,
+Unity material setup and sidewalk movement/collision behavior.

@@ -85,8 +85,15 @@ namespace CarCrashEditor
                             "The game opens at a real home screen with the city safely paused");
                         Check(GameObject.Find("Free Drive") != null && GameObject.Find("Impact Run") != null && GameObject.Find("Open garage") != null,
                             "Home offers untimed driving, an explicit timed challenge, and the garage");
+                        var clearShowcase = true;
+                        foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+                            if (Vector3.Distance(traffic.transform.position, _session.vehicle.transform.position) < 12f)
+                                foreach (var renderer in traffic.GetComponentsInChildren<MeshRenderer>()) clearShowcase &= !renderer.enabled;
+                        Check(clearShowcase, "Nearby traffic cannot obstruct the Home or garage vehicle preview");
                         _session.Hud.ShowHelp(true);
                         Check(_session.Hud.HelpVisible, "The driving guide opens from Home");
+                        _session.Hud.SendMessage("RebuildLayout");
+                        Check(_session.Hud.HelpVisible, "The driving guide survives a screen layout rebuild");
                         _session.Hud.ShowHelp(false);
                         _session.OpenGarage();
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && !_session.Hud.HelpVisible,
@@ -174,6 +181,12 @@ namespace CarCrashEditor
                     case 1:
                         if (_session.Phase != CarCrashHudInput.RunPhase.Driving) return;
                         Check(Time.timeScale == 1f && !_session.CameraRig.Showcasing, "Countdown transitions into live driving");
+                        var trafficRestored = true;
+                        foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+                            if (Vector3.Distance(traffic.transform.position, _session.vehicle.transform.position) < 12f)
+                                foreach (var renderer in traffic.GetComponentsInChildren<MeshRenderer>())
+                                    if (!renderer.name.StartsWith("Damage_Windshield_Crack", StringComparison.Ordinal)) trafficRestored &= renderer.enabled;
+                        Check(trafficRestored, "Starting a drive restores the nearby traffic bodywork and wheels");
                         Pointer("Accelerator pedal", true, 101);
                         Pointer("Steer left", true, 102);
                         _nextAt = EditorApplication.timeSinceStartup + 1.3;
@@ -204,6 +217,13 @@ namespace CarCrashEditor
                         _session.CycleCamera();
                         Check(_session.CameraRig.View != view, "Camera control changes the live driving view");
                         var target = Object.FindFirstObjectByType<TrafficImpactTarget>();
+                        var panelsBeforeBump = _session.vehicle.GetComponentsInChildren<Transform>().Length;
+                        var hitsBeforeBump = _session.scoring.Hits;
+                        _session.scoring.RegisterTrafficImpact(target, _session.vehicle.transform.position,
+                            Vector3.forward * 12.5f, 45f, 0);
+                        Check(_session.scoring.Hits == hitsBeforeBump + 1 && _session.scoring.Damage >= 3f &&
+                            _session.vehicle.GetComponentsInChildren<Transform>().Length == panelsBeforeBump,
+                            "Moderate bumps register meaningful damage without detaching whole body panels");
                         _session.scoring.RegisterTrafficImpact(target, _session.vehicle.transform.position,
                             Vector3.forward * 25f, 90f, 0);
                         var looseParts = 0;
@@ -269,6 +289,12 @@ namespace CarCrashEditor
                         foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
                             trafficStable &= !traffic.IsReleased;
                         Check(trafficStable, "Traffic brakes and recycles past a stationary player without phantom high-speed impacts");
+                        var pedestriansStaySafe = true;
+                        foreach (var person in Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None))
+                            pedestriansStaySafe &= person.DistanceWalked > 20f && Mathf.Abs(person.transform.position.x) > 9.1f &&
+                                Mathf.Abs(person.transform.position.x) < 12.1f && person.transform.position.z > person.pointA.z - 0.6f &&
+                                person.transform.position.z < person.pointB.z + 0.6f;
+                        Check(pedestriansStaySafe, "Pedestrians complete a sustained walk without leaving their sidewalk blocks");
                         _session.scoring.RegisterTrafficImpact(Object.FindFirstObjectByType<TrafficImpactTarget>(),
                             _session.vehicle.transform.position, Vector3.forward * 25, 90f, 0);
                         _nextAt = EditorApplication.timeSinceStartup + 6;

@@ -41,3 +41,14 @@ Asset license: https://polyhaven.com/license. Original download URLs and SHA-256
 ## UI Fonts
 
 Barlow Condensed and Archivo Black are distributed through the Google Fonts repository under the SIL Open Font License 1.1. Their license notices are included with the font files in `Assets/CarCrash/Resources/Fonts` within the Unity project.
+
+## Animated Human Pedestrians
+
+Maya, Sam, and Harper are Innerscene character adaptations of MakeHuman/MPFB CC0 body, rig, skin, and clothing assets, with original Innerscene walking motion. Each asset page dedicates its model and animation to CC0 1.0:
+
+- Maya: https://www.innerscene.com/tools/library/3d-parts/relaxed-walk-maya-3d-person-animated-2c6669a2
+- Sam: https://www.innerscene.com/tools/library/3d-parts/relaxed-walk-sam-3d-person-animated-732f1206
+- Harper: https://www.innerscene.com/tools/library/3d-parts/brisk-walk-harper-3d-person-animated-0efea8f3
+- License: https://creativecommons.org/publicdomain/zero/1.0/
+
+The local conversion preserves skinning and walk clips, reduces each figure to approximately 25,000–28,000 triangles, downsizes textures, and creates Unity Standard materials. The download helper verifies source SHA-256 hashes; converted assets and provenance are included under `Assets/CarCrash/Models/Pedestrians`.

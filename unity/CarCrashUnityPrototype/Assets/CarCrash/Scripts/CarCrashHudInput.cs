@@ -33,6 +33,7 @@ namespace CarCrash
         private MaterialPropertyBlock _paintBlock;
         private bool _focused = true;
         private ImpactRunLoopDirector _recovery;
+        private float _reverseHoldSeconds;
 
         private void Awake()
         {
@@ -106,10 +107,17 @@ namespace CarCrash
                 if (Input.GetKeyDown(KeyCode.C)) CycleCamera();
                 if (Input.GetKeyDown(KeyCode.B) || Input.GetKeyDown(KeyCode.LeftControl)) ActivateBoost();
                 if (Input.GetKeyDown(KeyCode.R)) RecoverVehicle();
-                var steer = Mathf.Clamp(Input.GetAxisRaw("Horizontal") + (Hud.RightHeld ? 1f : 0f) - (Hud.LeftHeld ? 1f : 0f), -1f, 1f);
-                var throttle = Hud.GasHeld ? 1f : Mathf.Clamp01(Input.GetAxisRaw("Vertical"));
-                var brake = Hud.BrakeHeld || Input.GetKey(KeyCode.Space) ? 1f : Mathf.Clamp01(-Input.GetAxisRaw("Vertical"));
-                vehicle.SetMobileInput(steer, brake > 0f ? 0f : throttle, brake);
+                var left = Hud.LeftHeld || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow);
+                var right = Hud.RightHeld || Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow);
+                var gas = Hud.GasHeld || Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow);
+                var brakeReverse = Hud.BrakeHeld || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow);
+                var hardBrake = Input.GetKey(KeyCode.Space);
+                _reverseHoldSeconds = brakeReverse && !gas && !hardBrake && vehicle.ForwardSpeedKmh < 2f
+                    ? _reverseHoldSeconds + Time.deltaTime : 0f;
+                var reverse = _reverseHoldSeconds >= 0.35f;
+                var brake = hardBrake || (brakeReverse && !reverse) || (gas && vehicle.ForwardSpeedKmh < -2f);
+                var throttle = brake ? 0f : reverse ? -1f : gas ? 1f : 0f;
+                vehicle.SetMobileInput((right ? 1f : 0f) - (left ? 1f : 0f), throttle, brake ? 1f : 0f);
                 // Only the challenge owns a time limit. Stopping after a collision
                 // never ends a drive, and Free Drive stays open until the player exits.
                 if (IsTimed && (ElapsedSeconds >= RunDuration || scoring.Damage >= 100f)) FinishRun();
@@ -186,6 +194,12 @@ namespace CarCrash
             Phase = RunPhase.Results;
             ReleaseInput();
             scoring.SetSimulationPaused(true);
+            SaveBestScore();
+            Hud.RefreshPhase();
+        }
+
+        private void SaveBestScore()
+        {
             NewBest = scoring.Score > BestScore;
             if (NewBest)
             {
@@ -193,7 +207,6 @@ namespace CarCrash
                 PlayerPrefs.SetInt("CarCrash.BestImpactScore", BestScore);
                 PlayerPrefs.Save();
             }
-            Hud.RefreshPhase();
         }
 
         public void EndSession()
@@ -265,12 +278,14 @@ namespace CarCrash
         }
         private void ReloadScene()
         {
+            SaveBestScore();
             ReleaseInput();
             scoring.SetSimulationPaused(false);
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
         private void ReleaseInput()
         {
+            _reverseHoldSeconds = 0f;
             Hud?.ReleaseControls();
             vehicle?.SetMobileInput(0f, 0f, 0f);
         }

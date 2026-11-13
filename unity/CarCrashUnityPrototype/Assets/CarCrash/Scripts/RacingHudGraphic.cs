@@ -81,6 +81,7 @@ namespace CarCrash
                 {
                     if (building == null) continue;
                     var bounds = building.bounds;
+                    if (bounds.size.y < 4f) continue;
                     var a = Map(bounds.min); var b = Map(bounds.max);
                     var min = new Vector2(Mathf.Max(inner.xMin, a.x), Mathf.Max(inner.yMin, a.y));
                     var max = new Vector2(Mathf.Min(inner.xMax, b.x), Mathf.Min(inner.yMax, b.y));

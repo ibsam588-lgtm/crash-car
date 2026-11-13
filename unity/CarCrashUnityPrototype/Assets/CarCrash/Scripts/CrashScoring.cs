@@ -64,7 +64,7 @@ namespace CarCrash
             LastChainDepth = Mathf.Clamp(chainDepth, 0, 8);
             PeakChainDepth = Mathf.Max(PeakChainDepth, LastChainDepth);
             LastMultiplier = 1f + Mathf.Min(LastChainDepth, 6) * 0.48f + Mathf.Min(Hits - 1, 8) * 0.10f;
-            Damage = Mathf.Clamp(Damage + impactKmh * 0.011f * (1f + LastChainDepth * 0.10f), 0f, 100f);
+            Damage = Mathf.Clamp(Damage + impactKmh * 0.08f * (1f + LastChainDepth * 0.10f), 0f, 100f);
             LastImpactKmh = impactKmh;
             LastImpactScore = Mathf.RoundToInt(impactKmh * scorePerKmh * LastMultiplier + LastChainDepth * 520f);
             Score += LastImpactScore;
@@ -87,6 +87,8 @@ namespace CarCrash
 
         private void KickLooseParts(Vector3 point, Vector3 direction, float impactKmh)
         {
+            // Fender bumps can score and scuff the car without shedding a whole panel.
+            if (impactKmh < 65f) return;
             var detachable = new List<Transform>();
             foreach (var part in GetComponentsInChildren<Transform>(true))
             {

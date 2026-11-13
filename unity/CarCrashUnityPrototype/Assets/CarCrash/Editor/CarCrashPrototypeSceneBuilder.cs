@@ -32,6 +32,7 @@ namespace CarCrashEditor
             RealisticCityBuilder.CreateLighting();
             RealisticCityBuilder.CreateCity();
             var player = CreatePlayerVehicle();
+            CityPedestrianBuilder.Create(player.root.transform);
             CreateTraffic(player.model, player.scoring);
             CreateCameraAndGameSystems(player.root, player.body, player.vehicle, player.scoring);
 
@@ -934,9 +935,9 @@ namespace CarCrashEditor
             }
             html = html.Replace("canvas.style.width = \"960px\";", "canvas.style.width = \"100vw\";");
             html = html.Replace("canvas.style.height = \"600px\";", "canvas.style.height = \"100vh\";");
-            html = html.Replace("<title>Unity Web Player | Car Crash</title>", "<title>Crash Car | Street Impact</title>");
+            html = html.Replace("<title>Unity Web Player | Car Crash</title>", "<title>Elysian | Drive the City</title>");
             html = html.Replace("createUnityInstance(canvas, config,", "createUnityInstance(canvas, { ...config, autoSyncPersistentDataPath: true },");
-            html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas aria-label=\"Crash Car. Enter to start. W and S for pedals, A and D to steer, B for nitro, C for camera, P to pause.\" id=\"unity-canvas\"");
+            html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas tabindex=\"0\" aria-label=\"Elysian. Enter for Free Drive, G for garage. Hold W with A or D to turn. S brakes then reverses, Space brakes, B nitro, C camera, R recover, P pause.\" id=\"unity-canvas\"");
             var buildVersion = File.GetLastWriteTimeUtc(Path.Combine(WebGlBuildPath, "Build", "WebGL.data")).Ticks.ToString("x");
             html = Regex.Replace(html, @"/WebGL\.(data|framework\.js|wasm|loader\.js)(\?v=[a-z0-9]+)?",
                 match => match.Value.Split('?')[0] + "?v=" + buildVersion);

@@ -143,9 +143,9 @@ namespace CarCrashEditor
                 var end = CrossStreets[i] - 7;
                 foreach (var x in new[] { -10.7f, 10.7f })
                 {
-                    Box("Sidewalk foundation", new Vector3(x, 0.045f, (start + end) * 0.5f), new Vector3(3.35f, 0.20f, end - start), _stone);
+                    Box("Sidewalk foundation", new Vector3(x, 0.045f, (start + end) * 0.5f), new Vector3(3.35f, 0.20f, end - start), _stone, true);
                     Plane($"Walkway {i} {x}", new Vector3(x, 0.151f, (start + end) * 0.5f), 3.35f, end - start, _concrete);
-                    Box("Raised curb", new Vector3(x + (x < 0 ? 1.63f : -1.63f), 0.12f, (start + end) * 0.5f), new Vector3(0.20f, 0.27f, end - start), _trim);
+                    Box("Raised curb", new Vector3(x + (x < 0 ? 1.63f : -1.63f), 0.12f, (start + end) * 0.5f), new Vector3(0.20f, 0.27f, end - start), _trim, true);
                 }
             }
             for (var z = -115f; z < 320; z += 5.6f)
@@ -260,16 +260,16 @@ namespace CarCrashEditor
                     var x = side * 10.7f;
                     Palm(new Vector3(x, 0.15f, z), i % 3);
                     var lampZ = z + 6;
-                    Tube("Streetlight column", new Vector3(side * 9.9f, 0.15f, lampZ), new Vector3(side * 9.9f, 6.8f, lampZ), 0.075f, _metal);
+                    Tube("Streetlight column", new Vector3(side * 9.9f, 0.15f, lampZ), new Vector3(side * 9.9f, 6.8f, lampZ), 0.075f, _metal, true);
                     Tube("Streetlight outreach", new Vector3(side * 9.9f, 6.8f, lampZ), new Vector3(side * 7.8f, 6.6f, lampZ), 0.07f, _metal);
                     Box("Streetlight housing", new Vector3(side * 7.75f, 6.55f, lampZ), new Vector3(0.65f, 0.14f, 0.35f), _metal);
                     Box("Streetlight lens", new Vector3(side * 7.75f, 6.45f, lampZ), new Vector3(0.5f, 0.025f, 0.25f), _light);
                     if (i % 3 == 0)
                     {
-                        Box("Sidewalk bench seat", new Vector3(x, 0.58f, z + 3), new Vector3(0.58f, 0.12f, 1.75f), _bark);
-                        Box("Sidewalk bench back", new Vector3(x + side * 0.25f, 0.95f, z + 3), new Vector3(0.10f, 0.60f, 1.75f), _bark);
+                        Box("Sidewalk bench seat", new Vector3(x, 0.58f, z + 3), new Vector3(0.58f, 0.12f, 1.75f), _bark, true);
+                        Box("Sidewalk bench back", new Vector3(x + side * 0.25f, 0.95f, z + 3), new Vector3(0.10f, 0.60f, 1.75f), _bark, true);
                         foreach (var dz in new[] { -0.65f, 0.65f }) Box("Bench support", new Vector3(x, 0.32f, z + 3 + dz), new Vector3(0.48f, 0.5f, 0.08f), _metal);
-                        Cylinder("Litter bin", new Vector3(x, 0.65f, z - 3), 0.34f, 1.05f, _metal);
+                        Cylinder("Litter bin", new Vector3(x, 0.65f, z - 3), 0.34f, 1.05f, _metal, true);
                     }
                 }
             }
@@ -277,7 +277,7 @@ namespace CarCrashEditor
             {
                 foreach (var side in new[] { -1f, 1f })
                 {
-                    Tube("Traffic signal pole", new Vector3(side * 9.6f, 0.2f, z - side * 6.5f), new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), 0.10f, _metal);
+                    Tube("Traffic signal pole", new Vector3(side * 9.6f, 0.2f, z - side * 6.5f), new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), 0.10f, _metal, true);
                     Tube("Traffic signal arm", new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), new Vector3(side * 4.8f, 5.8f, z - side * 6.5f), 0.075f, _metal);
                     var signal = Box("Three lens traffic signal", new Vector3(side * 4.8f, 5.25f, z - side * 6.5f), new Vector3(0.40f, 1.0f, 0.28f), _metal);
                     var green = RealismMaterialLibrary.Standard("M_Signal_Green", new Color(0.12f, 0.63f, 0.29f), 0, 0.6f, 1.4f);
@@ -292,8 +292,8 @@ namespace CarCrashEditor
             for (var i = 0; i < 12; i++)
             {
                 var z = -24f + i * 25f;
-                Cylinder("Fire hydrant", new Vector3(-9.7f, 0.5f, z), 0.14f, 0.68f, hydrant);
-                Tube("Hydrant valve", new Vector3(-10f, 0.6f, z), new Vector3(-9.4f, 0.6f, z), 0.085f, hydrant);
+                Cylinder("Fire hydrant", new Vector3(-9.7f, 0.5f, z), 0.14f, 0.68f, hydrant, true);
+                Tube("Hydrant valve", new Vector3(-10f, 0.6f, z), new Vector3(-9.4f, 0.6f, z), 0.085f, hydrant, true);
             }
         }
 
@@ -304,11 +304,12 @@ namespace CarCrashEditor
                 for (var i = 0; i < 22; i++)
                 {
                     var height = 24f + (i * 17 % 57);
-                    var x = side * (38f + i % 3 * 14f);
+                    // Keep towers outside the connected avenues and cross streets.
+                    var x = side * (112f + i % 3 * 20f);
                     var z = -60f + i * 20f;
                     var facade = RealismMaterialLibrary.Standard("M_Skyline_" + i % 4,
                         Color.Lerp(new Color(0.27f, 0.32f, 0.35f), new Color(0.46f, 0.44f, 0.39f), i % 4 / 3f), 0.3f, 0.5f);
-                    Box("Distant office tower", new Vector3(x, height * 0.5f, z), new Vector3(12 + i % 3 * 2, height, 14), facade);
+                    Box("Distant office tower", new Vector3(x, height * 0.5f, z), new Vector3(12 + i % 3 * 2, height, 14), facade, true);
                     for (var y = 5f; y < height - 2; y += 3.2f)
                         Box("Office ribbon glazing", new Vector3(x - side * (6.1f + i % 3), y, z), new Vector3(0.07f, 1.45f, 12.2f), _glass);
                     Box("Tower roof plant", new Vector3(x, height + 1, z), new Vector3(7, 2, 8), _metal);
@@ -319,7 +320,7 @@ namespace CarCrashEditor
         private static void Palm(Vector3 position, int variant)
         {
             var height = 7.7f + variant * 0.9f;
-            Box("Palm planter", position + Vector3.up * 0.10f, new Vector3(1.45f, 0.2f, 1.45f), _trim);
+            Box("Palm planter", position + Vector3.up * 0.10f, new Vector3(1.45f, 0.2f, 1.45f), _trim, true);
             var last = position;
             for (var i = 1; i <= 8; i++)
             {
@@ -328,6 +329,8 @@ namespace CarCrashEditor
                 Tube("Palm trunk", last, next, Mathf.Lerp(0.17f, 0.105f, t), _bark);
                 last = next;
             }
+            // One tapered-trunk approximation avoids seams between eight capsules.
+            SolidCapsule("Palm trunk collision", position, last, 0.19f);
             var leafMesh = PalmLeaf();
             for (var i = 0; i < 15; i++)
             {
@@ -379,16 +382,17 @@ namespace CarCrashEditor
             return obj;
         }
 
-        private static void Cylinder(string name, Vector3 position, float radius, float height, Material material)
+        private static void Cylinder(string name, Vector3 position, float radius, float height, Material material, bool collision = false)
         {
             var obj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             obj.name = name; obj.transform.SetParent(_city, false);
             obj.transform.position = position; obj.transform.localScale = new Vector3(radius * 2, height * 0.5f, radius * 2);
             obj.GetComponent<MeshRenderer>().sharedMaterial = material;
             Object.DestroyImmediate(obj.GetComponent<Collider>());
+            if (collision) SolidCapsule(name + " collision", position - Vector3.up * height * 0.5f, position + Vector3.up * height * 0.5f, radius);
         }
 
-        private static void Tube(string name, Vector3 from, Vector3 to, float radius, Material material)
+        private static void Tube(string name, Vector3 from, Vector3 to, float radius, Material material, bool collision = false)
         {
             var obj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             obj.name = name; obj.transform.SetParent(_city, false);
@@ -397,6 +401,18 @@ namespace CarCrashEditor
             obj.transform.localScale = new Vector3(radius * 2, Vector3.Distance(from, to) * 0.5f, radius * 2);
             obj.GetComponent<MeshRenderer>().sharedMaterial = material;
             Object.DestroyImmediate(obj.GetComponent<Collider>());
+            if (collision) SolidCapsule(name + " collision", from, to, radius);
+        }
+
+        private static void SolidCapsule(string name, Vector3 from, Vector3 to, float radius)
+        {
+            var obj = new GameObject(name, typeof(CapsuleCollider));
+            obj.transform.SetParent(_city, false);
+            obj.transform.SetPositionAndRotation((from + to) * 0.5f, Quaternion.FromToRotation(Vector3.up, to - from));
+            obj.isStatic = true;
+            var collider = obj.GetComponent<CapsuleCollider>();
+            collider.radius = radius;
+            collider.height = Vector3.Distance(from, to);
         }
 
         private static void Plane(string name, Vector3 position, float width, float length, Material material, bool collision = false)

@@ -33,6 +33,8 @@ namespace CarCrash
         public float uprightAssist = 4.2f;
 
         public float SpeedKmh { get; private set; }
+        public float ForwardSpeedKmh => _body != null ? Vector3.Dot(_body.linearVelocity, transform.forward) * 3.6f : 0f;
+        public bool Reversing => CurrentThrottle < -0.01f || ForwardSpeedKmh < -1f;
         public float CurrentSteer { get; private set; }
         public float CurrentThrottle { get; private set; }
         public float CurrentBrake { get; private set; }
@@ -47,6 +49,7 @@ namespace CarCrash
         private bool _useMobileInput;
         private float _boostTimer;
         private float _launchAt;
+        private float _wheelResetUntil;
         private Vector3 _spawnPosition;
         private Quaternion _spawnRotation;
         private Quaternion _frontLeftRotationOffset = Quaternion.identity;
@@ -114,6 +117,8 @@ namespace CarCrash
             _mobileThrottle = 0f;
             _mobileBrake = 0f;
             _launchAt = Time.time + delaySeconds;
+            _wheelResetUntil = Time.time + 0.18f;
+            ResetWheelSpin();
         }
 
         public void RecoverAt(Vector3 position, Quaternion rotation)
@@ -129,6 +134,12 @@ namespace CarCrash
             if (!LaunchReady)
             {
                 HoldAtLaunch();
+                return;
+            }
+            if (Time.time < _wheelResetUntil)
+            {
+                ResetWheelSpin();
+                _body.linearVelocity = Vector3.zero;
                 return;
             }
 
@@ -152,7 +163,7 @@ namespace CarCrash
             CurrentThrottle = throttle;
             CurrentBrake = brake;
 
-            var speedLimit = _boostTimer > 0f ? maxSpeedKmh * 1.10f : maxSpeedKmh;
+            var speedLimit = throttle < 0f ? 32f : _boostTimer > 0f ? maxSpeedKmh * 1.10f : maxSpeedKmh;
             var torqueFalloff = Mathf.Clamp01(1f - Mathf.InverseLerp(speedLimit * 0.82f, speedLimit, SpeedKmh));
             var torque = throttle * maxMotorTorque * torqueFalloff;
             if (_boostTimer > 0f && throttle > 0.1f)
@@ -160,9 +171,9 @@ namespace CarCrash
                 torque *= boostMultiplier;
             }
 
-            if (arcadeDriveAcceleration > 0f && throttle > 0.01f)
+            if (arcadeDriveAcceleration > 0f && Mathf.Abs(throttle) > 0.01f)
             {
-                var boostForce = _boostTimer > 0f ? 1.18f : 1f;
+                var boostForce = _boostTimer > 0f && throttle > 0f ? 1.18f : throttle < 0f ? 0.65f : 1f;
                 _body.AddForce(transform.forward * (throttle * arcadeDriveAcceleration * torqueFalloff * boostForce), ForceMode.Acceleration);
             }
 
@@ -213,6 +224,7 @@ namespace CarCrash
 
         private void HoldAtLaunch()
         {
+            ResetWheelSpin();
             SpeedKmh = 0f;
             CurrentSteer = 0f;
             CurrentThrottle = 0f;
@@ -221,6 +233,12 @@ namespace CarCrash
             _body.angularVelocity = Vector3.zero;
             _body.MovePosition(_spawnPosition);
             _body.MoveRotation(_spawnRotation);
+        }
+
+        private void ResetWheelSpin()
+        {
+            frontLeftCollider.motorTorque = frontRightCollider.motorTorque = rearLeftCollider.motorTorque = rearRightCollider.motorTorque = 0f;
+            frontLeftCollider.brakeTorque = frontRightCollider.brakeTorque = rearLeftCollider.brakeTorque = rearRightCollider.brakeTorque = 30000f;
         }
 
         private void ApplyStability(float speedLimit)

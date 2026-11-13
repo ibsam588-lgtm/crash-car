@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -19,17 +20,34 @@ namespace CarCrash
 
         private Camera _camera;
         private ArcadeVehicleController _vehicle;
-        private float _orbit = 142f;
+        private float _orbit = 38f;
         private Vector3 _pointer;
         private bool _orbitDragging;
         private float _transitionUntil;
         private float _orbitDirection = 1f;
         private bool _autoOrbit = true;
+        private readonly RaycastHit[] _obstructions = new RaycastHit[64];
+        private readonly List<Renderer> _showcaseHiddenTraffic = new();
 
         private void Awake() => _camera = GetComponent<Camera>();
 
         public void SetShowcase(bool enabled)
         {
+            foreach (var renderer in _showcaseHiddenTraffic) if (renderer != null) renderer.enabled = true;
+            _showcaseHiddenTraffic.Clear();
+            if (enabled && target != null)
+            {
+                foreach (var traffic in FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+                {
+                    if (Vector3.Distance(traffic.transform.position, target.position) > 12f) continue;
+                    foreach (var renderer in traffic.GetComponentsInChildren<Renderer>())
+                    {
+                        if (!renderer.enabled) continue;
+                        _showcaseHiddenTraffic.Add(renderer);
+                        renderer.enabled = false;
+                    }
+                }
+            }
             Showcasing = enabled;
             if (!enabled) HomeScreen = false;
             _orbitDragging = false;
@@ -63,7 +81,8 @@ namespace CarCrash
                 localOffset.z *= Mathf.Clamp(0.8f / _camera.aspect, 1f, 2f);
                 localOffset.y *= 1.25f;
             }
-            transform.position = Vector3.Lerp(transform.position, target.TransformPoint(localOffset), blend);
+            var desired = ClearCameraPosition(target.TransformPoint(localOffset));
+            transform.position = ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend));
             LookAt(target.position + target.forward * lookAhead + Vector3.up * 1.1f, blend);
             var speed = _vehicle != null ? Mathf.Clamp01(_vehicle.SpeedKmh / 200f) : 0f;
             var boost = _vehicle != null && _vehicle.BoostActive ? 6f : 0f;
@@ -74,6 +93,7 @@ namespace CarCrash
             var decay = 1f - sinceImpact / 0.52f;
             var strength = Mathf.Clamp01(scoring.LastImpactKmh / 150f) * 0.16f * decay;
             transform.position += new Vector3(Mathf.Sin(Time.unscaledTime * 67f), Mathf.Cos(Time.unscaledTime * 83f) * 0.55f, 0f) * strength;
+            transform.position = ClearCameraPosition(transform.position);
         }
 
         private void UpdateShowcase(float dt, float blend)
@@ -95,8 +115,8 @@ namespace CarCrash
             }
             else if (_autoOrbit)
             {
-                if (_orbit > 214f) _orbitDirection = -1f;
-                if (_orbit < 136f) _orbitDirection = 1f;
+                if (_orbit > 68f) _orbitDirection = -1f;
+                if (_orbit < 24f) _orbitDirection = 1f;
                 _orbit += dt * 1.5f * _orbitDirection;
             }
 
@@ -105,12 +125,38 @@ namespace CarCrash
             // Keep the whole body in the much narrower horizontal field of view on phones.
             var radius = portrait ? Mathf.Clamp(6.6f / _camera.aspect, 8.5f, 20f) : HomeScreen ? 8.6f : 7.4f;
             var radial = new Vector3(Mathf.Sin(angle) * radius, portrait ? 2.5f : 1.95f, Mathf.Cos(angle) * radius);
-            transform.position = Vector3.Lerp(transform.position, target.position + radial, blend * 0.45f);
+            var desired = ClearCameraPosition(target.position + radial);
+            transform.position = ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend * 0.45f));
             var focus = target.position + Vector3.up * (portrait ? -0.10f : HomeScreen ? 0.35f : 0.75f);
             // Place the live car beside the menu on wide screens.
-            focus -= transform.right * (portrait ? 0f : 1.65f);
-            LookAt(focus, blend * 0.5f);
-            _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView, portrait ? 46f : 43f, blend);
+            var framingRight = Vector3.Cross(Vector3.up, (focus - transform.position).normalized).normalized;
+            focus -= framingRight * (portrait ? 0f : 1.65f);
+            // Position already eases around the orbit; aim at the car throughout
+            // fast drags so it cannot leave the frame while rotation catches up.
+            LookAt(focus, 1f);
+            var clearDistance = Vector3.Distance(transform.position, target.position);
+            var baseFov = portrait ? 46f : 43f;
+            var framingFov = 2f * Mathf.Atan(Mathf.Tan(baseFov * Mathf.Deg2Rad * 0.5f) * radius / Mathf.Max(3f, clearDistance)) * Mathf.Rad2Deg;
+            _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView, Mathf.Clamp(framingFov, baseFov, 75f), blend);
+        }
+
+        private Vector3 ClearCameraPosition(Vector3 desired)
+        {
+            var origin = target.position + Vector3.up * 1.05f;
+            var delta = desired - origin;
+            var distance = delta.magnitude;
+            if (distance < 0.05f) return desired;
+            var count = Physics.SphereCastNonAlloc(origin, 0.28f, delta / distance, _obstructions,
+                distance, ~0, QueryTriggerInteraction.Ignore);
+            var clearance = distance;
+            for (var i = 0; i < count; i++)
+            {
+                var hit = _obstructions[i];
+                // Player, traffic and detached bodywork should not pull the camera in.
+                if (hit.collider.attachedRigidbody != null || hit.collider.transform.IsChildOf(target)) continue;
+                clearance = Mathf.Min(clearance, Mathf.Max(0.55f, hit.distance - 0.1f));
+            }
+            return origin + delta / distance * clearance;
         }
 
         private void LookAt(Vector3 point, float blend)

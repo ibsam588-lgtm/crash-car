@@ -23,18 +23,24 @@ namespace CarCrash
         {
             if (vehicle == null || player == null) return;
             CityRoadNetwork.NearestRoadPose(player.position, player.forward, out var position, out var rotation);
-            for (var attempt = 0; attempt < 8; attempt++)
+            var roadPosition = position;
+            for (var attempt = 0; attempt < 32; attempt++)
             {
+                var offset = attempt == 0 ? 0 : ((attempt + 1) / 2) * 6f * (attempt % 2 == 0 ? 1f : -1f);
+                position = roadPosition + rotation * Vector3.forward * offset;
+                if (Mathf.Abs((rotation * Vector3.forward).z) > 0.5f && (position.z < -112f || position.z > 310f)) continue;
+                if (Mathf.Abs(position.x) > 86f) continue;
                 var occupied = false;
                 foreach (var collider in Physics.OverlapBox(position + Vector3.up * 0.7f,
-                    new Vector3(1.2f, 0.65f, 2.5f), rotation, ~0, QueryTriggerInteraction.Ignore))
-                    if (collider.attachedRigidbody != playerBody && collider.GetComponent<MeshCollider>() == null)
+                    new Vector3(1.25f, 0.55f, 5f), rotation, ~0, QueryTriggerInteraction.Ignore))
+                    if (collider.attachedRigidbody != playerBody && collider.bounds.max.y > position.y + 0.3f)
                         occupied = true;
-                if (!occupied) break;
-                position -= rotation * Vector3.forward * 6f;
+                if (occupied) continue;
+                vehicle.RecoverAt(position, rotation);
+                RecoverySuggested = false;
+                return;
             }
-            vehicle.RecoverAt(position, rotation);
-            RecoverySuggested = false;
+            RecoverySuggested = true;
         }
     }
 }

@@ -71,6 +71,7 @@ namespace CarCrash
 
         private void RebuildLayout()
         {
+            var helpWasVisible = HelpVisible;
             ReleaseControls();
             if (_safe != null)
             {
@@ -107,7 +108,7 @@ namespace CarCrash
             BuildResults(_results.transform);
             _help = Group(_safe, "Driving guide");
             BuildHelp(_help.transform);
-            _help.SetActive(false);
+            _help.SetActive(helpWasVisible);
             RefreshPaint();
             RefreshPhase();
         }
@@ -162,8 +163,8 @@ namespace CarCrash
                 width, 510, RacingHudGraphic.Shape.Panel, new Color(0.018f, 0.03f, 0.04f, 0.99f));
             Label(panel.transform, "YOUR FIRST DRIVE", 28, 24, width - 56, 24, 11, Lime);
             Label(panel.transform, "TAKE THE WHEEL.", 28, 61, width - 56, 42, 29, White);
-            Label(panel.transform, "W / S     ACCELERATE / BRAKE\nA / D      STEER\nB           NITRO\nC           CHANGE CAMERA\nR           RECOVER YOUR CAR\nP / ESC   PAUSE", 28, 125, width - 56, 170, 17, White);
-            Label(panel.transform, "On a phone, hold the steering and pedal buttons.\nFree Drive has no timer. Recovery keeps your session.",
+            Label(panel.transform, "W          ACCELERATE\nS           BRAKE / REVERSE\nA / D      STEER WHILE MOVING\nB   NITRO     C   CAMERA\nR           RECOVER YOUR CAR\nP / ESC   PAUSE", 28, 125, width - 56, 170, 17, White);
+            Label(panel.transform, "Hold GAS + a steering button to turn on a phone.\nHold BRAKE to stop, then reverse out of tight spots.",
                 28, 314, width - 56, 68, 14, Muted);
             ActionButton(panel.transform, "Close driving guide", "GOT IT  >", 28, 420, width - 56, 54,
                 () => ShowHelp(false), Lime, new Color(0.04f, 0.06f, 0.07f), 15);
@@ -281,12 +282,12 @@ namespace CarCrash
             _right = HoldButton(c, "Steer right", ">", controlX + controlSize + 10, controlY, controlSize, controlSize, PanelColor, _portrait ? 28 : 22);
             if (_portrait)
             {
-                _brake = HoldButton(c, "Brake pedal", "BRAKE", right - 141, controlY + 6, 61, 59, PanelColor, 11);
+                _brake = HoldButton(c, "Brake pedal", "BRAKE / R", right - 141, controlY + 6, 61, 59, PanelColor, 11);
                 _gas = HoldButton(c, "Accelerator pedal", "GAS", right - 68, controlY - 12, 68, 77, PanelColor, 14);
             }
             else
             {
-                _brake = HoldButton(c, "Brake pedal", "BRAKE", right - speedWidth - 146, controlY, 54, 47, PanelColor, 10);
+                _brake = HoldButton(c, "Brake pedal", "BRAKE / R", right - speedWidth - 146, controlY, 54, 47, PanelColor, 10);
                 _gas = HoldButton(c, "Accelerator pedal", "GAS", right - speedWidth - 79, controlY - 7, 56, 54, PanelColor, 13);
             }
             var boostX = _portrait ? pad : _width * 0.48f - 55;
@@ -403,7 +404,7 @@ namespace CarCrash
             }
             _timer.color = _session.IsTimed && seconds <= 10 ? new Color(1f, 0.36f, 0.22f) : White;
             SetText(_speed, Mathf.RoundToInt(_displaySpeed).ToString("000"));
-            SetText(_gear, car.SpeedKmh < 1f ? "N" : Mathf.Clamp(Mathf.FloorToInt(car.SpeedKmh / 38f) + 1, 1, 6).ToString());
+            SetText(_gear, car.Reversing ? "R" : car.SpeedKmh < 1f ? "N" : Mathf.Clamp(Mathf.FloorToInt(car.SpeedKmh / 38f) + 1, 1, 6).ToString());
             SetText(_cameraLabel, "CAM / " + _session.CameraRig.View.ToString().ToUpperInvariant());
             SetText(_boostLabel, car.BoostActive ? "NITRO ACTIVE" : car.BoostCharge >= 0.35f ? $"NITRO {car.BoostCharge * 100f:0}%" : "RECHARGING");
             SetText(_integrity, $"VEHICLE {100f - score.Damage:0}%");

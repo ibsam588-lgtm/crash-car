@@ -25,6 +25,8 @@ The tested production slice includes a modeled sports car with independent Wheel
 
 The Unity home screen offers untimed Free Drive, an optional 60 second Impact Run, a driving guide, and the live 3D garage. Nearby lane traffic uses detailed car meshes with proper bodywork, glass, tires, wheels, and lights. Driving adds compact instruments, a live street minimap, nitro and damage meters, three camera views, impact feedback, pause/resume, and personal-best results. The Elysian city scene includes a sunset HDR sky, textured roads and brickwork, intersections, palms, storefronts, and skyline towers. Press `Enter` for Free Drive, `G` for the garage, `W/A/S/D` to drive, `B` for nitro, `C` for the camera, `R` for manual recovery, and `P` to pause. Free Drive does not end after a minute or a stopped crash, and driving beyond the old camera boundaries never teleports the player. Touch controls work while held. See the [Unity UI and validation guide](unity/CarCrashUnityPrototype/README.md#dynamic-racing-ui).
 
+Hold `W` with `A` or `D` to turn from rest. Hold `S` to brake and then reverse out of tight spots; `Space` brakes without reversing. Trees and street furniture have solid collision, cameras avoid walls, and 24 textured human pedestrians walk animated sidewalk routes. The physical QA suite measures actual turning and reverse travel and tests six street objects with 80 km/h car impacts.
+
 Serve the WebGL output locally from the Unity project:
 
 ```powershell
