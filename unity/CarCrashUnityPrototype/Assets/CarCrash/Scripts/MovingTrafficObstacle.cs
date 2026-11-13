@@ -74,8 +74,8 @@ namespace CarCrash
             var next = _body.position + heading * (CurrentCruiseSpeed * Time.fixedDeltaTime);
             next.x = _startPosition.x + Mathf.Sin(Time.time * swaySpeed + _phase) * laneJitter;
 
-            var behind = observer != null ? Mathf.Max(-115f, observer.position.z - 85f) : resetBehindZ;
-            var ahead = observer != null ? Mathf.Min(320f, observer.position.z + 150f) : resetAheadZ;
+            var behind = observer != null ? Mathf.Max(CityRoadNetwork.MinZ+20, observer.position.z - 85f) : resetBehindZ;
+            var ahead = observer != null ? Mathf.Min(CityRoadNetwork.MaxZ-20, observer.position.z + 150f) : resetAheadZ;
             if (next.z < behind)
             {
                 next.z = ahead - Random.Range(0f, 16f);
@@ -138,6 +138,17 @@ namespace CarCrash
                 new Vector3(impactMetersPerSecond * 0.008f, spinSign * impactMetersPerSecond * 0.08f, spinSign * impactMetersPerSecond * 0.018f) * _body.mass,
                 ForceMode.Impulse);
             return true;
+        }
+
+        public void ReleaseForNudge(Rigidbody striker)
+        {
+            if(_released)return;
+            _released=true;ChainDepth=0;_body.isKinematic=false;
+            _body.collisionDetectionMode=CollisionDetectionMode.ContinuousDynamic;
+            // A gentle push should roll a car, rather than drag a flat chassis box.
+            var contact=GetComponent<BoxCollider>();
+            if(striker.TryGetComponent<BoxCollider>(out var chassis))contact.sharedMaterial=chassis.sharedMaterial;
+            _body.linearVelocity=striker.linearVelocity*.65f;
         }
 
         public void ResetTraffic()

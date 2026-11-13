@@ -8,13 +8,18 @@ namespace CarCrash
         public Transform player;
         public Rigidbody playerBody;
         public bool RecoverySuggested { get; private set; }
+        private Vector3 _lastPosition;
+        private float _blockedSeconds;
 
         private void LateUpdate()
         {
             if (player == null) return;
             var position = player.position;
-            RecoverySuggested = position.y < -2f || Vector3.Dot(player.up, Vector3.up) < 0.3f ||
-                Mathf.Abs(position.x) > 145f || position.z < -150f || position.z > 350f;
+            var trying=vehicle!=null&&Mathf.Abs(vehicle.CurrentThrottle)>.2f&&vehicle.CurrentBrake<.1f;
+            var travel=Vector3.Distance(position,_lastPosition);
+            _blockedSeconds=Time.timeScale>0&&trying&&travel<.35f*Time.deltaTime ? _blockedSeconds+Time.deltaTime : Mathf.Max(0,_blockedSeconds-Time.deltaTime*2f);
+            _lastPosition=position;
+            RecoverySuggested=position.y < -2f||Vector3.Dot(player.up,Vector3.up)<.3f||!CityRoadNetwork.InsideWorld(position)||_blockedSeconds>2.5f;
         }
 
         // There are no automatic shot-boundary resets. Recovery is an explicit
@@ -28,16 +33,17 @@ namespace CarCrash
             {
                 var offset = attempt == 0 ? 0 : ((attempt + 1) / 2) * 6f * (attempt % 2 == 0 ? 1f : -1f);
                 position = roadPosition + rotation * Vector3.forward * offset;
-                if (Mathf.Abs((rotation * Vector3.forward).z) > 0.5f && (position.z < -112f || position.z > 310f)) continue;
-                if (Mathf.Abs(position.x) > 86f) continue;
+                if (!CityRoadNetwork.InsideWorld(position,12f)) continue;
                 var occupied = false;
-                foreach (var collider in Physics.OverlapBox(position + Vector3.up * 0.7f,
-                    new Vector3(1.25f, 0.55f, 5f), rotation, ~0, QueryTriggerInteraction.Ignore))
-                    if (collider.attachedRigidbody != playerBody && collider.bounds.max.y > position.y + 0.3f)
+                var chassis=vehicle.GetComponent<BoxCollider>();
+                var halfSize=chassis.size*.5f+new Vector3(.3f,.08f,.6f);
+                foreach (var collider in Physics.OverlapBox(position+rotation*chassis.center,halfSize,rotation,~0,QueryTriggerInteraction.Ignore))
+                    if (collider.attachedRigidbody != playerBody && collider.bounds.max.y > position.y + 0.28f)
                         occupied = true;
                 if (occupied) continue;
                 vehicle.RecoverAt(position, rotation);
                 RecoverySuggested = false;
+                _blockedSeconds=0;_lastPosition=position;
                 return;
             }
             RecoverySuggested = true;

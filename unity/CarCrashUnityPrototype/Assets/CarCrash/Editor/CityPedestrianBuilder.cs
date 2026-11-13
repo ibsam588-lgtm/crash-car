@@ -111,10 +111,11 @@ namespace CarCrashEditor
             foreach (var avenue in CityRoadNetwork.AvenueX)
             for (var block = 1; block < CityRoadNetwork.CrossStreetZ.Length; block++)
             foreach (var side in new[] { -1f, 1f })
-            for (var lane = 0; lane < (avenue == 0 ? 2 : 1); lane++)
+            for (var lane = 0; lane < 1; lane++)
             {
+                if(avenue!=0 && block%2!=Array.IndexOf(CityRoadNetwork.AvenueX,avenue)%2)continue;
                 var type = index % names.Length;
-                var x = avenue + side * (lane == 0 ? 9.5f : 11.75f);
+                var x = avenue + side * 11.8f;
                 var a = new Vector3(x, 0.16f, CityRoadNetwork.CrossStreetZ[block - 1] + 12f);
                 var b = new Vector3(x, 0.16f, CityRoadNetwork.CrossStreetZ[block] - 12f);
                 var person = (GameObject)PrefabUtility.InstantiatePrefab(templates[type], root);

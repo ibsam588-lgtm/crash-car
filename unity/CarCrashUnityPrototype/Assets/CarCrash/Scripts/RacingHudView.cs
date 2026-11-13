@@ -26,14 +26,16 @@ namespace CarCrash
         private float _height;
         private float _displaySpeed;
         private float _displayScore;
-        private GameObject _home, _help, _showroom, _race, _controls, _pause, _results, _countdown;
+        private GameObject _home, _help, _showroom, _race, _controls, _pause, _results, _countdown, _map;
         private Text _timerCaption, _modeCaption, _runTitle, _runSubtitle;
         private Text _score, _hits, _combo, _timer, _speed, _gear, _boostLabel, _integrity, _cameraLabel, _eventLabel;
         private Text _paintLabel, _countdownText, _impactTitle, _impactScore;
         private Text _vehicleName, _vehicleSpecs;
         private readonly Graphic[] _vehicleCards = new Graphic[6];
         private CanvasGroup _impact;
-        private RacingHudGraphic _dial, _radar, _atmosphere;
+        private RacingHudGraphic _dial, _radar, _atmosphere, _worldMap;
+        private Text _mapStatus;
+        private GameObject _eventBacking;
         private RectTransform _boostFill, _damageFill, _rpmFill;
         private Graphic _boostButton;
         private HudHoldButton _left, _right, _gas, _brake, _reverse;
@@ -111,6 +113,7 @@ namespace CarCrash
             BuildPause(_pause.transform);
             _results = Group(_safe, "Run results");
             BuildResults(_results.transform);
+            _map=Group(_safe,"Explore city map");BuildCityMap(_map.transform);
             _help = Group(_safe, "Driving guide");
             BuildHelp(_help.transform);
             _help.SetActive(helpWasVisible);
@@ -170,7 +173,7 @@ namespace CarCrash
             Label(panel.transform, "YOUR FIRST DRIVE", 28, 24, width - 56, 24, 11, Lime);
             Label(panel.transform, "TAKE THE WHEEL.", 28, 61, width - 56, 42, 29, White);
             Label(panel.transform, "W          ACCELERATE\nS           BRAKE / REVERSE\nQ / REV   REVERSE\nA / D      STEER WHILE MOVING\nB   NITRO     C   CAMERA\nR           RECOVER YOUR CAR\nP / ESC   PAUSE", 28, 125, width - 56, 170, 17, White);
-            Label(panel.transform, "Hold GAS + a steering button to turn on a phone.\nHold REV to back up. Moving forward? It brakes first.",
+            Label(panel.transform, "Hold GAS + steering to turn. Hold REV to back up.\nM opens the city map. R frees a stuck vehicle.",
                 28, 314, width - 56, 68, 14, Muted);
             ActionButton(panel.transform, "Close driving guide", "GOT IT  >", 28, 420, width - 56, 54,
                 () => ShowHelp(false), Lime, new Color(0.04f, 0.06f, 0.07f), 15);
@@ -267,6 +270,8 @@ namespace CarCrash
                 _session.CycleCamera, PanelColor, White, 10).GetComponentInChildren<Text>();
             ActionButton(root, "Recover vehicle", "RECOVER [R]", pad, 88+hudButtonHeight, 150, hudButtonHeight,
                 _session.RecoverVehicle, PanelColor, White, 10);
+            ActionButton(root,"Open city map","MAP [M]",_portrait ? right-118 : pad+158,_portrait ? 166 : 80,118,hudButtonHeight,
+                _session.ToggleMap,PanelColor,White,12);
             if (!_portrait)
             {
                 _runTitle = Label(root, "FREE DRIVE", _width * 0.5f - 170, 24, 340, 27, 15, White, TextAnchor.MiddleCenter);
@@ -280,9 +285,10 @@ namespace CarCrash
             _radar = Shape(root, "Live city minimap", pad, mapY, mapWidth, mapHeight, RacingHudGraphic.Shape.Radar,
                 new Color(0.11f, 0.13f, 0.13f, 0.92f));
             _radar.player = _session.vehicle.transform;
+            _radar.navigation=_session.Navigation;
             _radar.traffic = _traffic;
             var network = FindFirstObjectByType<CityRoadNetwork>();
-            _radar.cityBuildings = network != null ? network.GetComponentsInChildren<BoxCollider>() : System.Array.Empty<BoxCollider>();
+            _radar.cityBuildings = network != null ? System.Array.FindAll(network.GetComponentsInChildren<BoxCollider>(),box=>box.bounds.size.y>4) : System.Array.Empty<BoxCollider>();
             Label(root, "N", pad + mapWidth - 20, mapY + 6, 15, 18, 11, White, TextAnchor.MiddleCenter);
             _integrity = Label(root, "VEHICLE 100%", pad, mapY + mapHeight + 8, mapWidth, 17, 10, White);
             _damageFill = Meter(root, "Body integrity", pad, mapY + mapHeight + 29, mapWidth, 5, new Color(0.42f, 0.72f, 0.40f));
@@ -300,7 +306,7 @@ namespace CarCrash
             _gear = Label(root, "N", speedX + 15, speedY + 65, 25, 24, 18, White);
             _rpmFill = Meter(root, "Engine revs", speedX + 86, speedY + 75, speedWidth - 99, 3, Lime);
             if (!_portrait)
-                Label(root, "Elysian Boulevard", right - 280, _height - 45, 280, 25, 19, White, TextAnchor.MiddleRight);
+                Label(root, "Elysian / Open World", right - 280, _height - 45, 280, 25, 17, White, TextAnchor.MiddleRight).name="Current district";
 
             _controls = Group(root, "Touch driving controls");
             var c = _controls.transform;
@@ -328,7 +334,10 @@ namespace CarCrash
             _boostButton = boost.targetGraphic;
             if (!_portrait)
                 Label(c, "W  GAS    S  BRAKE    Q  REVERSE    A / D  STEER    B  NITRO    C  CAMERA    P  PAUSE", _width * 0.5f - 300, _height - 24, 600, 16, 10, Muted, TextAnchor.MiddleCenter);
-            _eventLabel = Label(root, "", _width * 0.5f - 170, _height - (_portrait ? 433 : 188), 340, 21, 11, White, TextAnchor.MiddleCenter);
+            var eventY=_height-(_portrait ? 433 : 188);
+            var eventWidth=Mathf.Min(_width-28,540);
+            _eventBacking=Solid(root,"Navigation hint background",(_width-eventWidth)*.5f,eventY-5,eventWidth,34,PanelColor).gameObject;
+            _eventLabel=Label(root,"",(_width-eventWidth)*.5f+6,eventY,eventWidth-12,25,11,White,TextAnchor.MiddleCenter);
             var impactRoot = Group(root, "Impact feedback");
             _impact = impactRoot.AddComponent<CanvasGroup>();
             var impactY = _portrait ? 185f : 120f;
@@ -344,7 +353,7 @@ namespace CarCrash
             Label(panel.transform, "TAKE A BREATHER.", 28, 61, w - 56, 45, 29, White);
             Label(panel.transform, "Your run is paused. The street can wait.", 28, 112, w - 56, 42, 14, Muted);
             ActionButton(panel.transform, "Resume driving", "BACK TO THE STREET   >", 28, 182, w - 56, 55, _session.ResumeRun, Lime, new Color(0.06f, 0.09f, 0.02f), 15);
-            ActionButton(panel.transform, "Recover and resume", "RECOVER & RESUME", 28, 252, (w - 68) * 0.5f, 47, _session.RecoverVehicle, new Color(0.12f, 0.17f, 0.19f), White, 11);
+            ActionButton(panel.transform, "Recover and resume", "UNSTUCK", 28, 252, (w - 68) * 0.5f, 47, _session.RecoverVehicle, new Color(0.12f, 0.17f, 0.19f), White, 11);
             ActionButton(panel.transform, "Return to garage", "GARAGE", 40 + (w - 68) * 0.5f, 252, (w - 68) * 0.5f, 47, _session.ReturnToShowroom, new Color(0.12f, 0.17f, 0.19f), White, 11);
             ActionButton(panel.transform, "Pause to home", "HOME", 28, 315, (w - 68) * 0.5f, 47, _session.ReturnHome, new Color(0.12f, 0.17f, 0.19f), White, 11);
             ActionButton(panel.transform, "End driving session", "END SESSION", 40 + (w - 68) * 0.5f, 315, (w - 68) * 0.5f, 47, _session.EndSession, new Color(0.12f, 0.17f, 0.19f), White, 11);
@@ -372,6 +381,46 @@ namespace CarCrash
             ActionButton(panel.transform, "Results to home", "HOME", 40 + (w - 68) * 0.5f, 422, (w - 68) * 0.5f, 42, _session.ReturnHome, new Color(0.12f, 0.17f, 0.19f), White, 11);
         }
 
+        private void BuildCityMap(Transform root)
+        {
+            Dim(root);
+            var w=Mathf.Min(_width-32,1100);var h=Mathf.Min(_height-32,860);
+            var panel=Shape(root,"City map panel",(_width-w)*.5f,(_height-h)*.5f,w,h,RacingHudGraphic.Shape.Panel,PanelColor);
+            Label(panel.transform,"ELYSIAN / FREE EXPLORATION",22,20,w-44,24,13,Lime);
+            Label(panel.transform,"CITY MAP",22,52,w-44,45,33,White);
+            _mapStatus=Label(panel.transform,"",22,99,w-44,24,12,Muted);
+            var mapX=22f;var mapY=139f;var mapW=_portrait ? w-44 : w*.48f;var mapH=_portrait ? 298 : h-218;
+            _worldMap=Shape(panel.transform,"Full city road map",mapX,mapY,mapW,mapH,RacingHudGraphic.Shape.CityMap,new Color(.08f,.14f,.15f,1));
+            _worldMap.player=_session.vehicle.transform;_worldMap.navigation=_session.Navigation;
+            _worldMap.cityBuildings=_radar.cityBuildings;
+            var scale=Mathf.Min((mapW-8)/(CityRoadNetwork.MaxX-CityRoadNetwork.MinX),(mapH-8)/(CityRoadNetwork.MaxZ-CityRoadNetwork.MinZ));
+            for(var i=0;i<CityRoadNetwork.Places.Length;i++)
+            {
+                var point=CityRoadNetwork.Places[i].position;
+                var x=mapX+mapW*.5f+point.x*scale;
+                var y=mapY+mapH*.5f-(point.z-(CityRoadNetwork.MinZ+CityRoadNetwork.MaxZ)*.5f)*scale;
+                Label(panel.transform,(i+1).ToString(),x-8,y-10,16,20,12,PanelColor,TextAnchor.MiddleCenter);
+            }
+            var choicesX=_portrait ? 22 : mapX+mapW+22;
+            var choicesY=_portrait ? mapY+mapH+28 : 155;
+            var choiceWidth=(_portrait ? w-44 : w-choicesX-22)-8;
+            choiceWidth*=.5f;
+            var choiceHeight=_portrait ? 61 : _compactWide ? 60 : 86;
+            for(var i=0;i<CityRoadNetwork.Places.Length;i++)
+            {
+                var index=i;var place=CityRoadNetwork.Places[i];
+                ActionButton(panel.transform,"Explore destination "+i,place.name,choicesX+i%2*(choiceWidth+8),choicesY+i/2*(choiceHeight+10),choiceWidth,choiceHeight,
+                    ()=>_session.ExploreDestination(index),new Color(.11f,.19f,.21f,1),White,13);
+            }
+            var afterChoices=choicesY+3*(choiceHeight+10)+5;
+            if(!_compactWide)Label(panel.transform,"Choose a place for a road route.\nExplore freely. No timer, no forced reset.",choicesX,afterChoices,_portrait ? w-44 : w-choicesX-22,46,12,Muted);
+            var bottom=h-68;
+            ActionButton(panel.transform,"Clear navigation route","CLEAR ROUTE",22,bottom,(w-52)*.5f,48,
+                ()=>{_session.Navigation.ClearRoute();_session.CloseMap();},new Color(.12f,.17f,.19f),White,13);
+            ActionButton(panel.transform,"Close city map","KEEP DRIVING",30+(w-52)*.5f,bottom,(w-52)*.5f,48,
+                _session.CloseMap,Lime,new Color(.04f,.06f,.07f),13);
+        }
+
         public void RefreshPhase()
         {
             ReleaseControls();
@@ -383,7 +432,8 @@ namespace CarCrash
             _race.SetActive(!menu);
             _controls.SetActive(phase == CarCrashHudInput.RunPhase.Driving);
             _countdown.SetActive(phase == CarCrashHudInput.RunPhase.Countdown);
-            _pause.SetActive(phase == CarCrashHudInput.RunPhase.Paused);
+            _pause.SetActive(phase == CarCrashHudInput.RunPhase.Paused&&!_session.MapVisible);
+            _map.SetActive(_session.MapVisible);
             _results.SetActive(phase == CarCrashHudInput.RunPhase.Results);
             if (phase == CarCrashHudInput.RunPhase.Results)
             {
@@ -468,7 +518,9 @@ namespace CarCrash
             _atmosphere.boosting = car.BoostActive;
             _atmosphere.SetVerticesDirty();
             _boostButton.color = car.BoostActive ? new Color(0.1f, 0.45f, 0.58f, 0.95f) : new Color(0.08f, 0.16f, 0.19f, 0.94f);
-            SetText(_eventLabel, _session.RecoverySuggested ? "STUCK?  PRESS R TO RECOVER" : car.BoostActive ? "NITRO ACTIVE" : score.SlowMotionActive ? "IMPACT CAM" : "");
+            var hint=_session.RecoverySuggested ? "STUCK? TAP RECOVER / R" : car.BoostActive ? "NITRO ACTIVE" : score.SlowMotionActive ? "IMPACT CAM" : _session.Navigation.Hint;
+            SetText(_eventLabel,hint);_eventBacking.SetActive(!string.IsNullOrEmpty(hint));
+            if(_map.activeSelf){_worldMap.SetVerticesDirty();SetText(_mapStatus,"7 AVENUES / 13 STREETS / "+_session.Navigation.VisitedCount+" OF 6 FOUND");}
 
             var sinceImpact = Time.realtimeSinceStartup - score.LastImpactRealtime;
             _impact.alpha = _session.Phase == CarCrashHudInput.RunPhase.Driving && sinceImpact < 2.2f

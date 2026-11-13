@@ -49,7 +49,7 @@ namespace CarCrashEditor
             RenderSettings.reflectionIntensity = 1f;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogDensity = 0.0022f;
+            RenderSettings.fogDensity = 0.0032f;
             RenderSettings.fogColor = new Color(0.54f, 0.53f, 0.51f);
 
             var sun = new GameObject("Golden hour sun").AddComponent<Light>();
@@ -86,6 +86,7 @@ namespace CarCrashEditor
             _city = new GameObject("Elysian downtown district").transform;
             _city.gameObject.AddComponent<CityRoadNetwork>();
             _city.gameObject.AddComponent<CityLightingRig>();
+            _city.gameObject.AddComponent<CityVisibility>();
             _signFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             const string signPath = "Assets/CarCrash/Materials/Realism/M_World_Sign_Text.mat";
             _signMaterial = AssetDatabase.LoadAssetAtPath<Material>(signPath);
@@ -117,11 +118,12 @@ namespace CarCrashEditor
                 var neighborhood = new GameObject(avenue < 0 ? "Westside neighborhood" : avenue > 0 ? "Pacific neighborhood" : "Elysian neighborhood").transform;
                 neighborhood.SetParent(district, false);
                 _city = neighborhood;
-                Buildings();
-                StreetDetails(avenue < 0 ? "WESTSIDE AVE" : avenue > 0 ? "PACIFIC AVE" : "ELYSIAN BLVD");
+                Buildings(avenue);
+                StreetDetails(CityRoadNetwork.AvenueName(avenue));
                 neighborhood.position = Vector3.right * avenue;
             }
             _city = district;
+            ExplorationPlaces();
             Skyline();
             CombineStaticGeometry();
             BakeStreetReflection();
@@ -156,88 +158,103 @@ namespace CarCrashEditor
 
         private static void Ground()
         {
-            Plane("District ground", new Vector3(0, -0.16f, 100), 320, 720, _stone, true);
-            Plane("Elysian Boulevard", new Vector3(0, 0, 100), 18f, 460, _asphalt, true);
-            foreach (var x in new[] { -54f, 54f }) Plane("Parallel avenue", new Vector3(x, 0, 110), 18f, 460, _asphalt);
-            foreach (var z in CrossStreets) Plane("Cross street", new Vector3(0, 0.006f, z), 190, 14, _asphalt);
-            for (var i = 0; i < CrossStreets.Length; i++)
+            var grass=RealismMaterialLibrary.Standard("M_District_Grass",new Color(.23f,.29f,.16f),0,.15f);
+            var centerZ=(CityRoadNetwork.MinZ+CityRoadNetwork.MaxZ)*.5f;
+            var length=CityRoadNetwork.MaxZ-CityRoadNetwork.MinZ;
+            var width=CityRoadNetwork.MaxX-CityRoadNetwork.MinX;
+            Plane("District ground",new Vector3(-140,-.07f,centerZ),width+280,length+300,grass,true);
+            foreach(var avenue in CityRoadNetwork.AvenueX)
             {
-                var start = i == 0 ? -125 : CrossStreets[i - 1] + 7;
-                var end = CrossStreets[i] - 7;
-                foreach (var avenue in CityRoadNetwork.AvenueX)
-                foreach (var side in new[] { -1f, 1f })
+                Plane("Connected avenue",new Vector3(avenue,0,centerZ),18,length,_asphalt,true);
+                var previous=CityRoadNetwork.MinZ+1;
+                foreach(var crossing in CrossStreets)
                 {
-                    var x = avenue + side * 10.7f;
-                    Box("Sidewalk foundation", new Vector3(x, 0.045f, (start + end) * 0.5f), new Vector3(3.35f, 0.20f, end - start), _stone, true);
-                    Plane($"Walkway {i} {x}", new Vector3(x, 0.151f, (start + end) * 0.5f), 3.35f, end - start, _concrete);
-                    Box("Raised curb", new Vector3(x - side * 1.63f, 0.12f, (start + end) * 0.5f), new Vector3(0.20f, 0.27f, end - start), _trim, true);
+                    foreach(var side in new[]{-1f,1f})
+                        BeveledSlab("Sidewalk foundation",new Vector3(avenue+side*10.7f,0,(previous+crossing-7)*.5f),3.35f,crossing-7-previous,_concrete,side<0 ? .15f : .85f,side<0 ? .85f : .15f);
+                    previous=crossing+7;
                 }
+                foreach(var side in new[]{-1f,1f})
+                    BeveledSlab("Sidewalk foundation",new Vector3(avenue+side*10.7f,0,(previous+CityRoadNetwork.MaxZ-1)*.5f),3.35f,CityRoadNetwork.MaxZ-1-previous,_concrete,side<0 ? .15f : .85f,side<0 ? .85f : .15f);
+                foreach(var z in new[]{CityRoadNetwork.MinZ+15,CityRoadNetwork.MaxZ-15})
+                    Plane("Street turnaround",new Vector3(avenue,.009f,z),30,28,_asphalt,true);
             }
-            for (var z = -115f; z < 320; z += 5.6f)
+            var segments=new List<Vector2>();var left=CityRoadNetwork.MinX;
+            foreach(var avenue in CityRoadNetwork.AvenueX){if(avenue-12.4f>left)segments.Add(new Vector2(left,avenue-12.4f));left=avenue+12.4f;}
+            segments.Add(new Vector2(left,CityRoadNetwork.MaxX));
+            foreach(var z in CrossStreets)
             {
-                if (NearCrossStreet(z, 9f)) continue;
-                foreach (var avenue in CityRoadNetwork.AvenueX)
+                Plane("Connected cross street",new Vector3(0,.006f,z),width,14,_asphalt,true);
+                foreach(var segment in segments)
                 {
-                    foreach (var x in new[] { -3.3f, 3.3f })
-                        Box("Worn lane paint", new Vector3(avenue+x, 0.012f, z), new Vector3(0.085f, 0.018f, 2.5f), _white);
-                    foreach (var x in new[] { -0.12f, 0.12f })
-                        Box("Double yellow centerline", new Vector3(avenue+x, 0.014f, z), new Vector3(0.07f, 0.016f, 5.65f), _yellow);
-                }
-            }
-            foreach (var z in CrossStreets)
-            {
-                foreach (var avenue in CityRoadNetwork.AvenueX)
-                foreach (var side in new[] { -1, 1 })
-                {
-                    for (var x = -7.8f; x < 8.5f; x += 1.45f)
-                        Box("Zebra crossing", new Vector3(avenue+x, 0.018f, z + side * 8.9f), new Vector3(0.8f, 0.015f, 2.5f), _white);
-                    Box("Stop line", new Vector3(avenue+side * 4.6f, 0.019f, z + side * 11f), new Vector3(7.9f, 0.016f, 0.22f), _white);
-                }
-                foreach (var side in new[] {-1f,1f})
-                foreach (var segment in new[] {new Vector2(12.4f,41.6f),new Vector2(66.4f,93.5f)})
-                {
-                    var center = side * (segment.x+segment.y)*.5f;
-                    var length = segment.y-segment.x;
-                    foreach (var edge in new[] {-1f,1f})
+                    var x=(segment.x+segment.y)*.5f;var span=segment.y-segment.x;
+                    foreach(var side in new[]{-1f,1f})
                     {
-                        var walkZ = z+edge*8.7f;
-                        Box("Cross street sidewalk",new Vector3(center,.045f,walkZ),new Vector3(length,.20f,3.35f),_stone,true);
-                        Plane("Cross street paving",new Vector3(center,.151f,walkZ),length,3.35f,_concrete);
-                        Box("Cross street curb",new Vector3(center,.12f,z+edge*7.07f),new Vector3(length,.27f,.20f),_trim,true);
-                        Palm(new Vector3(center,.15f,walkZ),0);
+                        var hasDriveway=false;var drivewayX=0f;
+                        if(segment.x<296&&segment.y>296){hasDriveway=true;drivewayX=296;}
+                        if(side<0&&Mathf.Abs(z-510)<.1f&&segment.x<108&&segment.y>108){hasDriveway=true;drivewayX=108;}
+                        if(side<0&&Mathf.Abs(z-610)<.1f&&segment.x < -216&&segment.y > -216){hasDriveway=true;drivewayX=-216;}
+                        if(side>0)foreach(var place in CityRoadNetwork.Places)
+                            if(Mathf.Abs(place.entrance.z-z)<.1f&&place.position.z>z+10&&place.entrance.x>segment.x&&place.entrance.x<segment.y)
+                            {hasDriveway=true;drivewayX=place.entrance.x;break;}
+                        if(hasDriveway)
+                        {
+                            var a=Mathf.Max(segment.x,drivewayX-7);var b=Mathf.Min(segment.y,drivewayX+7);
+                            BeveledSlab("Driveway sidewalk left",new Vector3((segment.x+a)*.5f,0,z+side*8.7f),a-segment.x,3.35f,_concrete);
+                            BeveledSlab("Driveway sidewalk right",new Vector3((b+segment.y)*.5f,0,z+side*8.7f),segment.y-b,3.35f,_concrete);
+                            Plane("Destination driveway",new Vector3(drivewayX,.012f,z+side*10),14,10,_asphalt,true);
+                            if(span>45)Palm(new Vector3(drivewayX-14,.14f,z+side*8.7f),0);
+                        }
+                        else
+                        {
+                            BeveledSlab("Cross street sidewalk",new Vector3(x,0,z+side*8.7f),span,3.35f,_concrete);
+                            if(span>23)Palm(new Vector3(x,.14f,z+side*8.7f),0);
+                        }
                     }
-                    foreach (var lane in new[] {-.12f,.12f})
-                        Box("Cross street centerline",new Vector3(center,.014f,z+lane),new Vector3(length,.016f,.07f),_yellow);
+                    foreach(var line in new[]{-.12f,.12f})Box("Cross street centerline",new Vector3(x,.018f,z+line),new Vector3(span,.012f,.07f),_yellow);
                 }
-                foreach (var side in new[] {-1f,1f})
+                foreach(var avenue in CityRoadNetwork.AvenueX)
+                foreach(var side in new[]{-1f,1f})
                 {
-                    Box("District edge safety barrier",new Vector3(side*94f,.65f,z),new Vector3(.65f,1.3f,14f),_stone,true);
-                    Box("District edge reflective stripe",new Vector3(side*93.66f,.93f,z),new Vector3(.04f,.19f,14f),_yellow);
-                    Sign("CITY LOOP / TURN",new Vector3(side*93.5f,2.45f,z),Quaternion.Euler(0,side*90f,0),.16f,new Color(.94f,.82f,.5f));
+                    for(var x=-7.8f;x<8.5f;x+=1.45f)Box("Zebra crossing",new Vector3(avenue+x,.018f,z+side*8.9f),new Vector3(.8f,.015f,2.5f),_white);
+                    Box("Stop line",new Vector3(avenue+side*4.6f,.019f,z+side*11),new Vector3(7.9f,.016f,.22f),_white);
                 }
             }
-            foreach (var avenue in CityRoadNetwork.AvenueX)
+            for(var z=CityRoadNetwork.MinZ+6;z<CityRoadNetwork.MaxZ-6;z+=5.6f)
             {
-                const float width = 18f;
-                var south = avenue == 0 ? -128f : -119f;
-                var north = avenue == 0 ? 328f : 338f;
-                foreach (var z in new[] { south, north })
+                if(NearCrossStreet(z,10))continue;
+                foreach(var avenue in CityRoadNetwork.AvenueX)
                 {
-                    Box("Street end safety barrier", new Vector3(avenue, 0.65f, z), new Vector3(width, 1.3f, 0.65f), _stone, true);
-                    Box("Street end reflective stripe", new Vector3(avenue, 0.93f, z - 0.34f), new Vector3(width, 0.19f, 0.04f), _yellow);
-                    var signPosition = new Vector3(avenue, 2.45f, z + (z < 0 ? 0.4f : -0.4f));
-                    Sign("CITY LOOP  /  TURN", signPosition, Quaternion.Euler(0, z < 0 ? 180 : 0, 0), 0.16f, new Color(0.94f, 0.82f, 0.5f));
+                    foreach(var x in new[]{-3.3f,3.3f})Box("Worn lane paint",new Vector3(avenue+x,.012f,z),new Vector3(.085f,.018f,2.5f),_white);
+                    foreach(var x in new[]{-.12f,.12f})Box("Double yellow centerline",new Vector3(avenue+x,.014f,z),new Vector3(.07f,.016f,5.65f),_yellow);
                 }
             }
-            for (var i = 0; i < 24; i++)
+            foreach(var x in new[]{CityRoadNetwork.MinX,CityRoadNetwork.MaxX})
+                Box("District perimeter wall",new Vector3(x,.4f,centerZ),new Vector3(.5f,.8f,length),_stone,true);
+            foreach(var z in new[]{CityRoadNetwork.MinZ,CityRoadNetwork.MaxZ})
+                Box("District perimeter wall",new Vector3(0,.4f,z),new Vector3(width,.8f,.5f),_stone,true);
+        }
+
+        private static void BeveledSlab(string name,Vector3 position,float width,float length,Material material,float leftBevel=-1,float rightBevel=-1)
+        {
+            if(width<.2f||length<.2f)return;
+            var key="Beveled_"+width.ToString("F2",System.Globalization.CultureInfo.InvariantCulture)+"x"+length.ToString("F2",System.Globalization.CultureInfo.InvariantCulture)+"_"+leftBevel+"_"+rightBevel;
+            if(!Meshes.TryGetValue(key,out var mesh))
             {
-                var z = -55f + i * 14.4f;
-                foreach (var x in new[] { -8.1f, 8.1f })
-                {
-                    Box("Storm drain", new Vector3(x, 0.022f, z), new Vector3(0.56f, 0.025f, 0.9f), _metal);
-                    for (var n = 0; n < 5; n++) Box("Drain slot", new Vector3(x - 0.22f + n * 0.11f, 0.04f, z), new Vector3(0.03f, 0.015f, 0.75f), _stone);
-                }
+                var w=width*.5f;var l=length*.5f;var bevel=Mathf.Min(.85f,w*.8f,l*.8f);
+                var left=leftBevel<0 ? bevel : Mathf.Min(leftBevel,w*.8f);
+                var right=rightBevel<0 ? bevel : Mathf.Min(rightBevel,w*.8f);
+                var vertices=new[]{new Vector3(-w,.005f,-l),new Vector3(w,.005f,-l),new Vector3(w,.005f,l),new Vector3(-w,.005f,l),
+                    new Vector3(-w+left,.145f,-l+bevel),new Vector3(w-right,.145f,-l+bevel),new Vector3(w-right,.145f,l-bevel),new Vector3(-w+left,.145f,l-bevel)};
+                var triangles=new List<int>{4,6,5,4,7,6,0,1,2,0,2,3};
+                for(var i=0;i<4;i++){var j=(i+1)%4;triangles.AddRange(new[]{i,i+4,j+4,i,j+4,j});}
+                mesh=new Mesh{name=key,vertices=vertices,triangles=triangles.ToArray()};
+                var uv=new Vector2[8];for(var i=0;i<8;i++)uv[i]=new Vector2(vertices[i].x/2,vertices[i].z/2);
+                mesh.uv=uv;mesh.RecalculateNormals();mesh.RecalculateTangents();mesh=SaveMesh(key,mesh);Meshes[key]=mesh;
             }
+            var obj=new GameObject(name,typeof(MeshFilter),typeof(MeshRenderer),typeof(MeshCollider));
+            obj.transform.SetParent(_city,false);obj.transform.position=position;obj.isStatic=true;
+            obj.GetComponent<MeshFilter>().sharedMesh=mesh;obj.GetComponent<MeshCollider>().sharedMesh=mesh;
+            obj.GetComponent<MeshRenderer>().sharedMaterial=material;
         }
 
         private static bool NearCrossStreet(float z, float radius)
@@ -246,18 +263,22 @@ namespace CarCrashEditor
             return false;
         }
 
-        private static void Buildings()
+        private static void Buildings(float avenue)
         {
             var shopNames = new[] { "ELYSIAN MOTORS", "SUNDOWN COFFEE", "PACIFIC MARKET", "HOTEL PALOMA", "VINYL & CO.", "WESTSIDE DINER" };
             for (var side = -1; side <= 1; side += 2)
             {
-                for (var i = 0; i < 20; i++)
+                for (var i = 0; i < 48; i++)
                 {
-                    var z = -100f + i * 21f;
+                    var z = -360f + i * 21f;
+                    if(Mathf.Abs(avenue)>100 && i%2==1)continue;
+                    if(avenue==270 && side>0)continue;
+                    if(((avenue==54 && side>0)||(avenue==162 && side<0)) && z>410 && z<510)continue;
+                    if(((avenue==-270 && side>0)||(avenue==-162 && side<0)) && ((z>187 && z<266)||(z>510 && z<610)))continue;
                     if (NearCrossStreet(z, 16f)) continue;
                     var width = 10f + i % 3 * 1.3f;
                     var depth = 15.5f + i % 2 * 1.5f;
-                    var height = 10.8f + i % 5 * 3.3f;
+                    var height = Mathf.Abs(avenue)>100 ? 6.4f+i%3*2.8f : 10.8f+i%5*3.3f;
                     var centerX = side * (12.6f + width * 0.5f);
                     var facade = side * 12.6f;
                     var tint = i % 3 == 0 ? new Color(0.80f, 0.62f, 0.47f) : i % 3 == 1 ? new Color(0.70f, 0.70f, 0.65f) : new Color(0.51f, 0.44f, 0.37f);
@@ -285,7 +306,7 @@ namespace CarCrashEditor
                         Box("Shop window frame", new Vector3(facade - side * 0.30f, 1.6f, z + column * 4.3f + 1.72f), new Vector3(0.14f, 2.75f, 0.08f), _metal);
                     }
                     var awning = RealismMaterialLibrary.Standard("M_Awning_" + i % 3, i % 3 == 0 ? new Color(0.22f, 0.31f, 0.25f) : i % 3 == 1 ? new Color(0.40f, 0.16f, 0.12f) : new Color(0.20f, 0.23f, 0.29f));
-                    Box("Shop canopy", new Vector3(facade - side * 0.62f, 3.38f, z), new Vector3(1.35f, 0.17f, depth * 0.84f), awning);
+                    Box("Shop canopy", new Vector3(facade - side * 0.62f, 3.38f, z), new Vector3(1.35f, 0.17f, depth * 0.84f), awning, true);
                     var sign = Box("Shop fascia", new Vector3(facade - side * 0.38f, 3.92f, z), new Vector3(0.15f, 0.71f, depth * 0.82f), _metal);
                     Sign(shopNames[(i + (side > 0 ? 2 : 0)) % shopNames.Length], sign.transform.position - Vector3.right * side * 0.10f,
                         Quaternion.Euler(0, side * 90f, 0), 0.20f, new Color(0.90f, 0.85f, 0.67f));
@@ -302,9 +323,9 @@ namespace CarCrashEditor
 
         private static void StreetDetails(string streetName)
         {
-            for (var i = 0; i < 22; i++)
+            for (var i = 0; i < 44; i++)
             {
-                var z = -78f + i * 17.5f;
+                var z = -355f + i * 22.5f;
                 if (NearCrossStreet(z, 10f)) continue;
                 foreach (var side in new[] { -1f, 1f })
                 {
@@ -348,16 +369,144 @@ namespace CarCrashEditor
             }
         }
 
+        private static void ExplorationPlaces()
+        {
+            var grass=RealismMaterialLibrary.Standard("M_Park_Grass",new Color(.21f,.34f,.13f),0,.14f);
+            var water=RealismMaterialLibrary.Standard("M_Coastal_Water",new Color(.07f,.29f,.34f),.35f,.88f);
+            water.shader=Shader.Find("CarCrash/CoastalWater");water.color=new Color(.045f,.24f,.30f);EditorUtility.SetDirty(water);
+            var sand=RealismMaterialLibrary.Standard("M_Beach_Sand",new Color(.73f,.63f,.43f),0,.13f);
+            var red=RealismMaterialLibrary.Standard("M_Warehouse_Container_Red",new Color(.45f,.15f,.10f),.3f,.38f);
+            var blue=RealismMaterialLibrary.Standard("M_Warehouse_Container_Blue",new Color(.10f,.24f,.32f),.35f,.38f);
+            var park=_city;
+            _city=new GameObject("Explorable landmarks").transform;_city.SetParent(park,false);
+            Plane("Coastal access drive",new Vector3(296,.009f,115),26,1000,_asphalt,true);
+            Plane("Coastal sand",new Vector3(330,-.055f,120),40,1130,sand);
+            Plane("Ocean water",new Vector3(515,-.075f,120),330,1600,water);
+            for(var z=-350f;z<620;z+=37)
+            {
+                Palm(new Vector3(307,.14f,z),0);
+                Box("Coast parking stripe",new Vector3(299,.022f,z+9),new Vector3(8,.015f,.12f),_white);
+            }
+            Plane("Marina forecourt",new Vector3(296,.017f,555),25,76,_concrete,true);
+            Plane("Marina water basin",new Vector3(354,-.045f,566),88,145,water);
+            Box("Marina office",new Vector3(286,2.2f,578),new Vector3(10,4.4f,12),_stone,true);
+            Box("Marina office glazing",new Vector3(291.1f,2.2f,578),new Vector3(.1f,2.8f,8),_glass);
+            LandmarkSign("SUNSET MARINA",new Vector3(285,4.6f,540),12);
+            foreach(var z in new[]{530f,565f,598f})
+            {
+                Box("Timber marina pier",new Vector3(333,.12f,z),new Vector3(48,.35f,4),_bark);
+                for(var x=313f;x<357;x+=10)Cylinder("Pier piling",new Vector3(x,-.4f,z),.19f,1.8f,_bark);
+                for(var i=0;i<3;i++)
+                {
+                    var boat=new Vector3(320+i*14,-.02f,z+7);
+                    BoatHull(boat);
+                    Box("Launch cabin",boat+new Vector3(0,1.05f,-.3f),new Vector3(2.7f,1.1f,3.2f),_trim);
+                    Box("Launch windshield",boat+new Vector3(0,1.2f,1.34f),new Vector3(2.5f,.7f,.05f),_glass);
+                    foreach(var side in new[]{-1f,1f})
+                    {
+                        Box("Launch side glazing",boat+new Vector3(side*1.37f,1.2f,-.3f),new Vector3(.05f,.65f,2.5f),_glass);
+                        Tube("Launch deck rail",boat+new Vector3(side*1.6f,.9f,-3),boat+new Vector3(side*1.6f,.9f,1.7f),.028f,_metal);
+                    }
+                    Tube("Launch aerial",boat+Vector3.up*1.5f,boat+Vector3.up*3.9f,.025f,_metal);
+                }
+            }
+            Plane("Vista boardwalk",new Vector3(296,.018f,-235),25,75,_bark,true);
+            LandmarkSign("VISTA BEACH",new Vector3(286,3.8f,-258),11);
+            for(var i=0;i<4;i++)
+            {
+                var z=-254+i*15f;
+                Box("Beach kiosk",new Vector3(305,1.4f,z),new Vector3(4,2.8f,4.5f),i%2==0 ? blue : red,true);
+                Box("Kiosk canopy",new Vector3(303.8f,3,z),new Vector3(6.5f,.16f,5.2f),_trim);
+                Cylinder("Beach shade pole",new Vector3(336,.9f,z),.045f,2.1f,_metal);
+                var shade=Box("Beach sunshade",new Vector3(336,2,z),new Vector3(4,.15f,3.2f),_white);
+                shade.transform.rotation=Quaternion.Euler(0,i*24,8);
+            }
+            Plane("Paloma park drive",new Vector3(108,.014f,455),78,80,_concrete,true);
+            Plane("Paloma park lawn",new Vector3(108,.024f,467),51,43,grass,true);
+            Box("Park fountain basin",new Vector3(108,.2f,470),new Vector3(9,.4f,9),_trim,true);
+            Plane("Fountain water",new Vector3(108,.415f,470),8.2f,8.2f,water);
+            Cylinder("Fountain monument",new Vector3(108,1.7f,470),.55f,2.9f,_stone,true);
+            LandmarkSign("PALOMA PARK",new Vector3(93,3.6f,425),12);
+            for(var i=0;i<8;i++)
+            {
+                var angle=i*Mathf.PI/4;
+                Palm(new Vector3(108+Mathf.Cos(angle)*31,.14f,459+Mathf.Sin(angle)*29),i%3);
+            }
+            foreach(var x in new[]{88f,128f})foreach(var z in new[]{444f,480f})
+            {
+                Box("Park bench seat",new Vector3(x,.55f,z),new Vector3(3,.18f,.65f),_bark,true);
+                Box("Park bench back",new Vector3(x,.95f,z+.33f),new Vector3(3,.65f,.12f),_metal,true);
+            }
+            Plane("Freight service yard",new Vector3(-216,.015f,225),82,57,_asphalt,true);
+            Box("Freight warehouse",new Vector3(-216,4.2f,250),new Vector3(65,8.4f,17),_stone,true);
+            Box("Freight warehouse roof",new Vector3(-216,8.6f,250),new Vector3(67,.4f,19),_metal);
+            for(var i=0;i<4;i++)
+            {
+                Box("Warehouse loading shutter",new Vector3(-238+i*14,2.2f,241.4f),new Vector3(9,4.2f,.08f),blue);
+                Box("Cargo container",new Vector3(-247,1.35f,202+i*11),new Vector3(10,2.7f,5),i%2==0 ? blue : red,true);
+                for(var rib=0;rib<11;rib++)Box("Container corrugation",new Vector3(-252.1f,1.4f,200+i*11+rib*.4f),new Vector3(.08f,2.4f,.07f),_metal);
+            }
+            Sign("FOUNDRY FREIGHT / DEPOT 04",new Vector3(-216,6.9f,241.3f),Quaternion.identity,.19f,new Color(1,.84f,.45f));
+            Plane("Motor park circuit",new Vector3(-216,.014f,555),84,80,_asphalt,true);
+            Plane("Motor park grass infield",new Vector3(-216,.024f,555),52,40,grass,true);
+            foreach(var x in new[]{-253f,-179f})Box("Circuit edge marking",new Vector3(x,.031f,555),new Vector3(.16f,.014f,65),_white);
+            foreach(var z in new[]{521f,589f})Box("Circuit edge marking",new Vector3(-216,.031f,z),new Vector3(73,.014f,.16f),_white);
+            for(var i=0;i<12;i++)Box("Circuit start stripe",new Vector3(-241+i*4,.035f,529),new Vector3(2,.014f,1.8f),i%2==0 ? _white : _metal);
+            foreach(var x in new[]{-244f,-188f})Box("Motor park entrance post",new Vector3(x,3.4f,519),new Vector3(.5f,6.8f,.5f),_metal,true);
+            Box("Motor park entrance gantry",new Vector3(-216,6.8f,519),new Vector3(56,.6f,.5f),_metal);
+            Sign("APEX MOTOR PARK",new Vector3(-216,6.8f,518.65f),Quaternion.identity,.25f,Color.white);
+            Box("Paddock control cabin",new Vector3(-243,1.9f,597),new Vector3(11,3.8f,5),blue,true);
+            foreach(var place in CityRoadNetwork.Places)
+            {
+                Box("Destination arrival marking",place.position+Vector3.up*.025f,new Vector3(5,.018f,.12f),_yellow);
+            }
+            _city=park;
+        }
+
+        private static void LandmarkSign(string text,Vector3 center,float width)
+        {
+            Box("Landmark sign board",center,new Vector3(width,1.25f,.18f),_metal);
+            foreach(var side in new[]{-1f,1f})Tube("Landmark sign post",new Vector3(center.x+side*(width*.5f-.4f),0,center.z),
+                new Vector3(center.x+side*(width*.5f-.4f),center.y,center.z),.065f,_metal,true);
+            Sign(text,center+Vector3.back*.11f,Quaternion.identity,.13f,new Color(1,.88f,.57f));
+        }
+
+        private static void BoatHull(Vector3 position)
+        {
+            const string key="CurvedMarinaLaunch";
+            if(!Meshes.TryGetValue(key,out var mesh))
+            {
+                var sections=new[]{new Vector2(-4.1f,1.45f),new Vector2(-2.5f,1.85f),new Vector2(0,2f),new Vector2(2.5f,1.45f),new Vector2(4.6f,.08f)};
+                var vertices=new List<Vector3>();var triangles=new List<int>();
+                foreach(var section in sections)
+                {
+                    vertices.Add(new Vector3(-section.y,.42f,section.x));vertices.Add(new Vector3(section.y,.42f,section.x));
+                    vertices.Add(new Vector3(section.y*.65f,-.12f,section.x));vertices.Add(new Vector3(-section.y*.65f,-.12f,section.x));
+                }
+                for(var ring=0;ring<sections.Length-1;ring++)for(var side=0;side<4;side++)
+                {
+                    var a=ring*4+side;var b=ring*4+(side+1)%4;
+                    triangles.AddRange(new[]{a,b+4,b,a,a+4,b+4});
+                }
+                triangles.AddRange(new[]{0,1,2,0,2,3,16,18,17,16,19,18});
+                mesh=new Mesh{name=key};mesh.SetVertices(vertices);mesh.SetTriangles(triangles,0);mesh.RecalculateNormals();
+                mesh=SaveMesh(key,mesh);Meshes[key]=mesh;
+            }
+            var hull=new GameObject("Curved marina launch",typeof(MeshFilter),typeof(MeshRenderer));
+            hull.transform.SetParent(_city,false);hull.transform.position=position;
+            hull.GetComponent<MeshFilter>().sharedMesh=mesh;hull.GetComponent<MeshRenderer>().sharedMaterial=_white;
+        }
+
         private static void Skyline()
         {
-            for (var side = -1; side <= 1; side += 2)
+            foreach (var side in new[] { -1 })
             {
                 for (var i = 0; i < 22; i++)
                 {
                     var height = 24f + (i * 17 % 57);
                     // Keep towers outside the connected avenues and cross streets.
-                    var x = side * (112f + i % 3 * 20f);
-                    var z = -60f + i * 20f;
+                    var x = side * (350f + i % 3 * 20f);
+                    var z = -330f + i * 45f;
                     var facade = RealismMaterialLibrary.Standard("M_Skyline_" + i % 4,
                         Color.Lerp(new Color(0.27f, 0.32f, 0.35f), new Color(0.46f, 0.44f, 0.39f), i % 4 / 3f), 0.3f, 0.5f);
                     Box("Distant office tower", new Vector3(x, height * 0.5f, z), new Vector3(12 + i % 3 * 2, height, 14), facade, true);
@@ -487,7 +636,7 @@ namespace CarCrashEditor
             }
             mesh.SetVertices(vertices); mesh.SetUVs(0, uv); mesh.SetTriangles(indices, 0);
             mesh.RecalculateNormals(); mesh.RecalculateTangents();
-            mesh = SaveMesh(name.Replace(' ', '_'), mesh);
+            mesh = SaveMesh(name.Replace(' ', '_')+"_"+width.ToString("F2",System.Globalization.CultureInfo.InvariantCulture)+"x"+length.ToString("F2",System.Globalization.CultureInfo.InvariantCulture), mesh);
             obj.GetComponent<MeshFilter>().sharedMesh = mesh;
             obj.GetComponent<MeshRenderer>().sharedMaterial = material;
             if (collision) obj.AddComponent<MeshCollider>().sharedMesh = mesh;
@@ -515,27 +664,29 @@ namespace CarCrashEditor
 
         private static void CombineStaticGeometry()
         {
-            var groups = new Dictionary<Material, List<CombineInstance>>();
+            var groups = new Dictionary<(Material material,int x,int z), List<CombineInstance>>();
             var originals = new List<GameObject>();
             foreach (var filter in _city.GetComponentsInChildren<MeshFilter>())
             {
                 var renderer = filter.GetComponent<MeshRenderer>();
                 if (renderer == null || filter.sharedMesh == null || renderer.sharedMaterials.Length != 1) continue;
                 var material = renderer.sharedMaterial;
-                if (!groups.TryGetValue(material, out var list)) { list = new List<CombineInstance>(); groups[material] = list; }
+                var center=renderer.bounds.center;
+                var key=(material,Mathf.FloorToInt(center.x/160),Mathf.FloorToInt(center.z/160));
+                if (!groups.TryGetValue(key, out var list)) { list = new List<CombineInstance>(); groups[key] = list; }
                 list.Add(new CombineInstance { mesh = filter.sharedMesh, transform = filter.transform.localToWorldMatrix, subMeshIndex = 0 });
                 originals.Add(filter.gameObject);
             }
             foreach (var group in groups)
             {
-                var mesh = new Mesh { name = "CityBatch_" + group.Key.name, indexFormat = IndexFormat.UInt32 };
+                var mesh = new Mesh { name = "CityBatch_" + group.Key.material.name+"_"+group.Key.x+"_"+group.Key.z, indexFormat = IndexFormat.UInt32 };
                 mesh.CombineMeshes(group.Value.ToArray(), true, true);
                 mesh.RecalculateBounds();
-                mesh = SaveMesh("CityBatch_" + group.Key.name, mesh);
+                mesh = SaveMesh(mesh.name, mesh);
                 var obj = new GameObject(mesh.name, typeof(MeshFilter), typeof(MeshRenderer));
                 obj.transform.SetParent(_city, false);
                 obj.GetComponent<MeshFilter>().sharedMesh = mesh;
-                obj.GetComponent<MeshRenderer>().sharedMaterial = group.Key;
+                obj.GetComponent<MeshRenderer>().sharedMaterial = group.Key.material;
             }
             foreach (var obj in originals)
             {

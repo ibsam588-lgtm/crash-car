@@ -6,7 +6,7 @@ namespace CarCrash
     // Resolution-independent HUD art; no baked gauge or mock telemetry textures.
     public sealed class RacingHudGraphic : MaskableGraphic
     {
-        public enum Shape { Panel, Gauge, Radar, Atmosphere }
+        public enum Shape { Panel, Gauge, Radar, Atmosphere, CityMap }
         public Shape shape;
         public float value;
         public bool boosting;
@@ -14,6 +14,7 @@ namespace CarCrash
         public Transform player;
         public MovingTrafficObstacle[] traffic;
         public BoxCollider[] cityBuildings;
+        public CityNavigator navigation;
         public Color accent = new(0.78f, 1f, 0.22f);
 
         protected override void OnPopulateMesh(VertexHelper vh)
@@ -24,6 +25,7 @@ namespace CarCrash
             {
                 case Shape.Gauge: Gauge(vh, r); break;
                 case Shape.Radar: Radar(vh, r); break;
+                case Shape.CityMap: Radar(vh,r);break;
                 case Shape.Atmosphere: Atmosphere(vh, r); break;
                 default: Panel(vh, r); break;
             }
@@ -72,9 +74,13 @@ namespace CarCrash
             var inner = new Rect(r.xMin + 4, r.yMin + 4, r.width - 8, r.height - 8);
             Quad(vh, inner.min, inner.max, new Color(0.27f, 0.29f, 0.27f, 0.95f));
             if (player == null) return;
-            const float range = 120f;
-            Vector2 Map(Vector3 world) => new(inner.center.x + (world.x - player.position.x) / (range * 2) * inner.width,
-                inner.center.y + (world.z - player.position.z) / (range * 2) * inner.height);
+            var overview=shape==Shape.CityMap;
+            var spanX=overview ? CityRoadNetwork.MaxX-CityRoadNetwork.MinX : 240f;
+            var spanZ=overview ? CityRoadNetwork.MaxZ-CityRoadNetwork.MinZ : 240f;
+            var center=overview ? new Vector3(0,0,(CityRoadNetwork.MinZ+CityRoadNetwork.MaxZ)*.5f) : player.position;
+            var scale=overview ? Mathf.Min(inner.width/spanX,inner.height/spanZ) : 0;
+            Vector2 Map(Vector3 world) => new(inner.center.x+(world.x-center.x)*(overview ? scale : inner.width/spanX),
+                inner.center.y+(world.z-center.z)*(overview ? scale : inner.height/spanZ));
             if (cityBuildings != null)
             {
                 foreach (var building in cityBuildings)
@@ -92,23 +98,40 @@ namespace CarCrash
             {
                 var x = Map(new Vector3(avenue, 0, player.position.z)).x;
                 if (x < inner.xMin || x > inner.xMax) continue;
-                var width = (avenue == 0 ? 18f : 14f) / (range * 2) * inner.width;
-                Quad(vh, new Vector2(Mathf.Max(inner.xMin, x - width * 0.5f - 1), inner.yMin),
-                    new Vector2(Mathf.Min(inner.xMax, x + width * 0.5f + 1), inner.yMax), new Color(0.10f, 0.12f, 0.11f));
-                Quad(vh, new Vector2(Mathf.Max(inner.xMin, x - width * 0.5f), inner.yMin),
-                    new Vector2(Mathf.Min(inner.xMax, x + width * 0.5f), inner.yMax), new Color(0.69f, 0.70f, 0.66f));
+                var width = Mathf.Max(2f,18f*(overview ? scale : inner.width/spanX));
+                var bottom=Mathf.Max(inner.yMin,Map(new Vector3(avenue,0,CityRoadNetwork.MinZ)).y);
+                var top=Mathf.Min(inner.yMax,Map(new Vector3(avenue,0,CityRoadNetwork.MaxZ)).y);
+                Quad(vh, new Vector2(Mathf.Max(inner.xMin, x - width * .5f), bottom),
+                    new Vector2(Mathf.Min(inner.xMax, x + width * .5f), top),new Color(.69f,.70f,.66f));
             }
             foreach (var crossing in CityRoadNetwork.CrossStreetZ)
             {
                 var y = Map(new Vector3(player.position.x, 0, crossing)).y;
                 if (y < inner.yMin || y > inner.yMax) continue;
-                var width = 14f / (range * 2) * inner.height;
-                Quad(vh, new Vector2(inner.xMin, Mathf.Max(inner.yMin, y - width * 0.5f)),
-                    new Vector2(inner.xMax, Mathf.Min(inner.yMax, y + width * 0.5f)), new Color(0.69f, 0.70f, 0.66f));
+                var width = Mathf.Max(2f,14f*(overview ? scale : inner.height/spanZ));
+                Quad(vh, new Vector2(Mathf.Max(inner.xMin,Map(new Vector3(CityRoadNetwork.MinX,0,crossing)).x), Mathf.Max(inner.yMin, y - width * .5f)),
+                    new Vector2(Mathf.Min(inner.xMax,Map(new Vector3(CityRoadNetwork.MaxX,0,crossing)).x), Mathf.Min(inner.yMax, y + width * .5f)), new Color(.69f,.70f,.66f));
             }
-            var routeX = Map(new Vector3(0, 0, player.position.z)).x;
-            if (routeX > inner.xMin && routeX < inner.xMax)
-                Line(vh, new Vector2(routeX, inner.center.y), new Vector2(routeX, inner.yMax), 2f, new Color(0.91f, 0.69f, 0.29f));
+            var coastSouth=Map(new Vector3(296,0,-385));var coastNorth=Map(new Vector3(296,0,615));
+            if(coastSouth.x>=inner.xMin&&coastSouth.x<=inner.xMax&&coastNorth.y>=inner.yMin&&coastSouth.y<=inner.yMax)
+                Line(vh,new Vector2(coastSouth.x,Mathf.Max(inner.yMin,coastSouth.y)),new Vector2(coastNorth.x,Mathf.Min(inner.yMax,coastNorth.y)),Mathf.Max(2,14*(overview ? scale : inner.width/spanX)),new Color(.69f,.70f,.66f));
+            if(navigation!=null)
+            {
+                var previous=player.position;
+                foreach(var waypoint in navigation.Route)
+                {
+                    var a=Map(previous);var b=Map(waypoint);previous=waypoint;
+                    if((a.x<inner.xMin&&b.x<inner.xMin)||(a.x>inner.xMax&&b.x>inner.xMax)||(a.y<inner.yMin&&b.y<inner.yMin)||(a.y>inner.yMax&&b.y>inner.yMax))continue;
+                    a=new Vector2(Mathf.Clamp(a.x,inner.xMin,inner.xMax),Mathf.Clamp(a.y,inner.yMin,inner.yMax));
+                    b=new Vector2(Mathf.Clamp(b.x,inner.xMin,inner.xMax),Mathf.Clamp(b.y,inner.yMin,inner.yMax));
+                    Line(vh,a,b,overview ? 3 : 2,new Color(.96f,.72f,.25f));
+                }
+            }
+            for(var i=0;i<CityRoadNetwork.Places.Length;i++)
+            {
+                var marker=Map(CityRoadNetwork.Places[i].position);if(!inner.Contains(marker))continue;
+                Disc(vh,marker,overview ? 9f : 3.5f,new Color(.93f,.73f,.33f));
+            }
             if (traffic != null)
             {
                 foreach (var target in traffic)
@@ -119,7 +142,7 @@ namespace CarCrash
                     Disc(vh, point, 2f, target.IsReleased ? new Color(0.85f, 0.29f, 0.20f) : new Color(0.50f, 0.71f, 0.81f));
                 }
             }
-            var p = inner.center;
+            var p = Map(player.position);
             var direction = new Vector2(player.forward.x, player.forward.z).normalized;
             var side = new Vector2(-direction.y, direction.x);
             Triangle(vh, p + direction * 7, p - direction * 4 + side * 5, p - direction * 4 - side * 5, Color.white);

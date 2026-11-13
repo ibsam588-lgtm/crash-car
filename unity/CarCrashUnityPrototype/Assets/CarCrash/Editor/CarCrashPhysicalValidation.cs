@@ -75,7 +75,7 @@ namespace CarCrashEditor
                             traffic.gameObject.SetActive(false); // Isolate steering from traffic contacts.
                         _people = Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None);
                         Result.pedestrians = _people.Length;
-                        Check(_people.Length == 48, "All three neighborhoods have 48 human pedestrians on sidewalk routes");
+                        Check(_people.Length == 96, "The expanded city has 96 human pedestrians on sidewalk routes");
                         _session.Garage.Select(0);
                         foreach (var person in _people)
                         {

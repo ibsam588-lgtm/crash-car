@@ -28,6 +28,9 @@ namespace CarCrash
         public CarCrashCameraFollow CameraRig { get; private set; }
         public RacingHudView Hud { get; private set; }
         public VehicleGarage Garage { get; private set; }
+        public CityNavigator Navigation { get; private set; }
+        public bool MapVisible { get; private set; }
+        private bool _resumeAfterMap;
         private static bool _retryImmediately;
         private static RunPhase _nextMenu = RunPhase.Home;
         private static DriveMode _selectedMode = DriveMode.FreeDrive;
@@ -60,6 +63,7 @@ namespace CarCrash
             PaintIndex = Mathf.Clamp(PlayerPrefs.GetInt("CarCrash.Paint", 0), 0, PaintColors.Length - 1);
             Garage = vehicle.GetComponent<VehicleGarage>();
             if (Garage != null) Garage.Select(PlayerPrefs.GetInt("CarCrash.Vehicle", 0));
+            Navigation=gameObject.AddComponent<CityNavigator>();Navigation.player=vehicle.transform;
             ApplyPaint(PaintIndex);
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
@@ -79,11 +83,13 @@ namespace CarCrash
             if (Hud == null) return;
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P))
             {
-                if (Hud.HelpVisible) Hud.ShowHelp(false);
+                if(MapVisible)CloseMap();
+                else if (Hud.HelpVisible) Hud.ShowHelp(false);
                 else if (Phase == RunPhase.Showroom) ReturnHome();
                 else if (Phase == RunPhase.Driving) PauseRun();
                 else if (Phase == RunPhase.Paused) ResumeRun();
             }
+            if(Input.GetKeyDown(KeyCode.M))ToggleMap();
             if (Phase == RunPhase.Home && !Hud.HelpVisible)
             {
                 if (Input.GetKeyDown(KeyCode.Return)) StartFreeDrive();
@@ -169,10 +175,29 @@ namespace CarCrash
             if (Phase != RunPhase.Driving && Phase != RunPhase.Paused) return;
             ReleaseInput();
             _recovery?.RecoverVehicle();
+            if(_recovery!=null&&!_recovery.RecoverySuggested&&Navigation.Destination>=0)Navigation.NavigateTo(Navigation.Destination);
             if (Phase == RunPhase.Paused) ResumeRun();
         }
 
         public bool RecoverySuggested => _recovery != null && _recovery.RecoverySuggested;
+
+        public void ToggleMap()
+        {
+            if(MapVisible){CloseMap();return;}
+            if(Phase!=RunPhase.Driving&&Phase!=RunPhase.Paused)return;
+            _resumeAfterMap=Phase==RunPhase.Driving;
+            if(_resumeAfterMap)PauseRun();
+            MapVisible=true;Hud.RefreshPhase();
+        }
+        public void CloseMap()
+        {
+            if(!MapVisible)return;MapVisible=false;
+            if(_resumeAfterMap)ResumeRun();else Hud.RefreshPhase();
+        }
+        public void ExploreDestination(int index)
+        {
+            if(!MapVisible)return;Navigation.NavigateTo(index);CloseMap();
+        }
 
         public void PauseRun()
         {

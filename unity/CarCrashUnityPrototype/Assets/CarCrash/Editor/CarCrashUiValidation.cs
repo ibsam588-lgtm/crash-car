@@ -25,8 +25,8 @@ namespace CarCrashEditor
         private static float _pausedTime;
         private static int _idleHitCount;
         private static string _runtimeError;
-        private static int _oldPaint, _oldBest, _oldVehicle;
-        private static bool _hadPaint, _hadBest, _hadVehicle;
+        private static int _oldPaint, _oldBest, _oldVehicle, _oldExplored;
+        private static bool _hadPaint, _hadBest, _hadVehicle, _hadExplored;
         private static bool _capturedPrefs;
 
         static CarCrashUiValidation()
@@ -82,6 +82,7 @@ namespace CarCrashEditor
                         _oldBest = PlayerPrefs.GetInt("CarCrash.BestImpactScore");
                         _hadVehicle = PlayerPrefs.HasKey("CarCrash.Vehicle");
                         _oldVehicle = PlayerPrefs.GetInt("CarCrash.Vehicle");
+                        _hadExplored=PlayerPrefs.HasKey("CarCrash.ExploredPlaces");_oldExplored=PlayerPrefs.GetInt("CarCrash.ExploredPlaces");
                         _capturedPrefs = true;
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Home && Time.timeScale == 0f && _session.CameraRig.Showcasing,
                             "The game opens at a real home screen with the city safely paused");
@@ -165,9 +166,15 @@ namespace CarCrashEditor
                             QualitySettings.activeColorSpace == ColorSpace.Linear,
                             "HDR sunset lighting and linear color rendering are configured");
                         var city = Object.FindFirstObjectByType<CityRoadNetwork>();
-                        Check(city != null && city.GetComponentsInChildren<BoxCollider>().Length > 10 &&
-                            city.GetComponentsInChildren<MeshRenderer>().Length < 200,
-                            "The real city street map has building collision and batched scenery");
+                        var batches=0;var localBatches=0;
+                        foreach(var mesh in city.GetComponentsInChildren<MeshFilter>())
+                            if(mesh.name.StartsWith("CityBatch_",StringComparison.Ordinal))
+                            {
+                                batches++;
+                                if(mesh.sharedMesh.bounds.size.x<220&&mesh.sharedMesh.bounds.size.z<220)localBatches++;
+                            }
+                        Check(city != null && city.GetComponentsInChildren<BoxCollider>().Length>100&&batches>100&&batches<800&&localBatches>batches*.8f,
+                            "The larger city keeps solid buildings and spatial scenery batches for distance culling");
                         Check(Resources.Load<Font>("Fonts/BarlowCondensed-Bold") != null && Resources.Load<Font>("Fonts/ArchivoBlack-Regular") != null,
                             "The game UI includes its licensed display fonts");
                         _session.SelectPaint(1);
@@ -305,9 +312,13 @@ namespace CarCrashEditor
                         Check(trafficStable, "Traffic brakes and recycles past a stationary player without phantom high-speed impacts");
                         var pedestriansStaySafe = true;
                         foreach (var person in Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None))
+                        {
                             pedestriansStaySafe &= person.DistanceWalked > 20f && Mathf.Abs(person.transform.position.x-person.avenueCenterX) > 9.1f &&
                                 Mathf.Abs(person.transform.position.x-person.avenueCenterX) < 12.1f && person.transform.position.z > person.pointA.z - 0.6f &&
                                 person.transform.position.z < person.pointB.z + 0.6f;
+                            if(person.DistanceWalked<=20f||Mathf.Abs(person.transform.position.x-person.avenueCenterX)<9.1f||Mathf.Abs(person.transform.position.x-person.avenueCenterX)>12.1f)
+                                Debug.Log("[Pedestrian QA] "+person.name+" travel="+person.DistanceWalked+" position="+person.transform.position+" obstacle="+person.LastObstacle);
+                        }
                         Check(pedestriansStaySafe, "Pedestrians complete a sustained walk without leaving their sidewalk blocks");
                         _session.scoring.RegisterTrafficImpact(Object.FindFirstObjectByType<TrafficImpactTarget>(),
                             _session.vehicle.transform.position, Vector3.forward * 25, 90f, 0);
@@ -425,6 +436,7 @@ namespace CarCrashEditor
                 if (_hadPaint) PlayerPrefs.SetInt("CarCrash.Paint", _oldPaint); else PlayerPrefs.DeleteKey("CarCrash.Paint");
                 if (_hadBest) PlayerPrefs.SetInt("CarCrash.BestImpactScore", _oldBest); else PlayerPrefs.DeleteKey("CarCrash.BestImpactScore");
                 if (_hadVehicle) PlayerPrefs.SetInt("CarCrash.Vehicle", _oldVehicle); else PlayerPrefs.DeleteKey("CarCrash.Vehicle");
+                if(_hadExplored)PlayerPrefs.SetInt("CarCrash.ExploredPlaces",_oldExplored);else PlayerPrefs.DeleteKey("CarCrash.ExploredPlaces");
                 PlayerPrefs.Save();
             }
             Directory.CreateDirectory(Path.GetDirectoryName(ReportPath));

@@ -61,6 +61,23 @@ namespace CarCrashEditor
                 spec.colliderCenter = new Vector3(0, spec.size.y * .54f, 0);
                 specs.Add(spec);
             }
+            foreach(var spec in specs)
+            {
+                var top=spec.colliderCenter.y+spec.colliderSize.y*.5f;
+                // The coupe's wheel suspension can lower its root below road level.
+                // Keep the collision hull above a normal pavement lip at full load.
+                var bottom=Mathf.Max(.36f,spec.colliderCenter.y-spec.colliderSize.y*.5f);
+                spec.colliderCenter.y=(top+bottom)*.5f;
+                spec.colliderSize.y=top-bottom;
+            }
+            const string glidePath=Root+"Materials/Garage/VehicleGlide.physicMaterial";
+            var glide=AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(glidePath);
+            if(glide==null){glide=new PhysicsMaterial("VehicleGlide");AssetDatabase.CreateAsset(glide,glidePath);}
+            glide.staticFriction=.08f;glide.dynamicFriction=.05f;glide.frictionCombine=PhysicsMaterialCombine.Minimum;
+            glide.bounciness=0;EditorUtility.SetDirty(glide);
+            player.GetComponent<BoxCollider>().sharedMaterial=glide;
+            player.GetComponent<Rigidbody>().solverIterations=10;
+            player.GetComponent<Rigidbody>().solverVelocityIterations=4;
             var garage = player.AddComponent<VehicleGarage>();
             garage.vehicles = specs.ToArray();
             garage.visualRoot = originalVisual.transform;

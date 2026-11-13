@@ -31,13 +31,13 @@ The scene opens at Home, with Free Drive, the optional 60 second Impact Run, a d
 
 Recovery is manual through `R`, the HUD button, or Recover & Resume in the pause menu. It places the car on a nearby street without clearing score or elapsed time. Crossing the former lane/distance bounds does not teleport the player. Home, Garage, and End Session remain available from the pause/results menus.
 
-Seven City Loop cross streets connect Elysian Boulevard to Westside and Pacific avenues. All three neighborhoods have full shopfront blocks, textured roads, raised sidewalks, palms, streetlights, traffic signals and moving cars. Cross streets have marked centerlines, paving and solid curbs. Visible safety barriers mark the district edges. Lane traffic brakes for a stopped player or another car; wheel rotation follows its actual cruising speed. The nearby GT traffic uses a credited subdivision-car conversion with approximately 115,000 triangles and five render meshes.
+The open-world district covers 620 by 1,060 metres: seven avenues, thirteen cross streets and a coastal access drive connect approximately 15.5 km of road centerlines. Old interior barriers have been removed. Explore Old Town, Sunset Marina, Vista Beach, Paloma Park, the freight yard and Apex Motor Park. All avenues have textured roads, sidewalks, palms, traffic signals and detailed moving cars; regional building styles and the waterfront break up the grid. Lane traffic brakes for a stopped player and can be nudged gently rather than acting as an immovable wall. The nearby GT traffic uses a credited subdivision-car conversion with approximately 115,000 triangles and five render meshes.
 
-Trees, planters, curbs, lamps, benches, bins, hydrants, signals, and buildings have solid collision. The camera retracts before entering static scenery. Skyline towers sit outside the playable avenues. Forty-eight textured, skinned human pedestrians walk bounded sidewalk routes across all three neighborhoods using three licensed figures and original walk clips. They step aside for nearby cars and use dynamic physical bodies; distant models and shadows are culled.
+Trees, planters, lamps, benches, bins, hydrants, signals, and buildings have solid collision. Pavements use beveled, drivable edges and chassis collision hulls preserve clearance under loaded suspension. The camera retracts before entering static scenery. Skyline towers sit outside the playable avenues. Ninety-six textured, skinned human pedestrians walk bounded sidewalk routes using three licensed figures and original walk clips. They step aside for nearby cars and use dynamic physical bodies; distant models and shadows are culled.
 
 The responsive uGUI HUD uses compact digital instruments, speed-derived automatic gear/rev indicators, a city minimap driven by the street geometry and nearby traffic transforms, body integrity, rechargeable nitro, animated score, hit count, impact-chain feedback, and a run timer. Chase, Low, and Bonnet cameras use speed-sensitive field of view and impact shake. Paint and personal best scores save locally with PlayerPrefs.
 
-The detailed Roadbreaker model preserves the licensed CarConcept body and cockpit. It uses imported tire/normal maps, reflective metallic paint, transparent glass, separate wheels, and emissive lamps. The Elysian district includes textured asphalt and brick, a sunset HDR sky, road intersections, shop signs, palms, sidewalks, street furniture, and skyline towers. Static scenery is combined into material batches to limit draw calls. A street cubemap is captured in the Editor and saved with the scene for browser-compatible reflections. Camera output uses a small ACES-style tone-mapping shader; the UI stays sharp above the camera image.
+The detailed Roadbreaker model preserves the licensed CarConcept body and cockpit. It uses imported tire/normal maps, reflective metallic paint, transparent glass, separate wheels, and emissive lamps. The Elysian district includes textured asphalt and brick, a sunset HDR sky, road intersections, shop signs, palms, sidewalks, street furniture, and skyline towers. Static scenery uses spatial material batches and distance culling to limit draw calls; world collisions stay active. A street cubemap is captured in the Editor and saved with the scene for browser-compatible reflections. Camera output uses a small ACES-style tone-mapping shader; the UI stays sharp above the camera image.
 
 To reproduce the visual source assets:
 
@@ -65,6 +65,7 @@ Keyboard controls:
 - `Left Shift`: handbrake
 - `B` / left Ctrl: nitro
 - `C`: change driving camera
+- `M` / MAP: pause to browse the full city and choose a road route
 - `Esc` / `P`: pause or resume
 - `R`: recover during driving; retry from results
 
@@ -87,3 +88,9 @@ python -m http.server 8094 --bind 127.0.0.1 --directory Builds/WebGL
 ```
 
 Open `http://127.0.0.1:8094/`. Landscape and portrait layouts resize with the canvas and respect the device safe area.
+
+## Open-world and traversal QA
+
+`Car Crash > Validate Open World and Unstuck` checks clearance along the entire road grid, all six destination entrances, route creation and map pause behavior, actual driving beyond the previous world boundaries, gentle forward/reverse traffic pushes, recovery space for every vehicle, and the blocked-car hint. It writes `Builds/Validation/world-qa.json` and renders the landmarks to the repository's `build/open-world` directory.
+
+`Car Crash > Validate Curb Traversal` drives every selectable vehicle onto a real pavement edge and reverses back out. It writes `Builds/Validation/traversal-qa.json`. These supplement the UI, fleet and general physics suites.

@@ -598,8 +598,9 @@ namespace CarCrashEditor
             CreateTrafficCar(productionModel, "Traffic_Silver_Coupe", new Vector3(2.3f, 0.055f, 124f),
                 new Color(0.52f, 0.56f, 0.60f), new Vector3(0, 0, 7.2f), scoring);
             CreateDetailedTraffic("Traffic_Midnight_GT", new Vector3(-6.3f, 0.05f, 158f), new Color(0.12f, 0.11f, 0.15f), -9f, scoring);
-            foreach (var avenue in new[] {-54f,54f})
+            foreach (var avenue in CityRoadNetwork.AvenueX)
             {
+                if(avenue==0)continue;
                 CreateDetailedTraffic("Traffic_Neighborhood_North_"+avenue,new Vector3(avenue+2.3f,.05f,3f),new Color(.27f,.34f,.29f),6.8f,scoring);
                 CreateDetailedTraffic("Traffic_Neighborhood_South_"+avenue,new Vector3(avenue-2.3f,.05f,86f),new Color(.48f,.22f,.15f),-7.3f,scoring);
             }
@@ -943,7 +944,7 @@ namespace CarCrashEditor
             html = html.Replace("canvas.style.height = \"600px\";", "canvas.style.height = \"100vh\";");
             html = html.Replace("<title>Unity Web Player | Car Crash</title>", "<title>Elysian | Drive the City</title>");
             html = html.Replace("createUnityInstance(canvas, config,", "createUnityInstance(canvas, { ...config, autoSyncPersistentDataPath: true },");
-            html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas tabindex=\"0\" aria-label=\"Elysian. Enter for Free Drive, G for the six-vehicle garage. W accelerates, A and D steer. Q or REV reverses; S brakes then reverses. Space brakes, B nitro, C camera, R recover, P pause.\" id=\"unity-canvas\"");
+            html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas tabindex=\"0\" aria-label=\"Elysian. Enter for Free Drive, G for the six-vehicle garage. W accelerates, A and D steer. Q or REV reverses; S brakes then reverses. Space brakes, B nitro, C camera, M city map and road routes, R recover, P pause.\" id=\"unity-canvas\"");
             var buildVersion = File.GetLastWriteTimeUtc(Path.Combine(WebGlBuildPath, "Build", "WebGL.data")).Ticks.ToString("x");
             html = Regex.Replace(html, @"/WebGL\.(data|framework\.js|wasm|loader\.js)(\?v=[a-z0-9]+)?",
                 match => match.Value.Split('?')[0] + "?v=" + buildVersion);

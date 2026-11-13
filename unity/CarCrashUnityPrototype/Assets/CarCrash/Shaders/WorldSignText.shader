@@ -7,7 +7,7 @@ Shader "CarCrash/WorldSignText"
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
         ZTest LEqual
-        Cull Off
+        Cull Back
         Pass
         {
             CGPROGRAM
