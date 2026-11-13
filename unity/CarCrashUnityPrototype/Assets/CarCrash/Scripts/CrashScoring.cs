@@ -23,8 +23,31 @@ namespace CarCrash
         public float LastMultiplier { get; private set; } = 1f;
         public float LastImpactRealtime { get; private set; } = -10f;
         public bool SlowMotionActive => _slowMotionRoutine != null;
+        public bool SimulationPaused { get; private set; }
 
         private Coroutine _slowMotionRoutine;
+        private float _activeSlowMotionScale = 1f;
+
+        // Pause owns the clock even when an impact coroutine is running.
+        public void SetSimulationPaused(bool paused)
+        {
+            SimulationPaused = paused;
+            ApplyTimeScale();
+        }
+
+        private void ApplyTimeScale()
+        {
+            Time.timeScale = SimulationPaused ? 0f : (_slowMotionRoutine != null ? _activeSlowMotionScale : 1f);
+            Time.fixedDeltaTime = 0.02f * (Time.timeScale > 0f ? Time.timeScale : 1f);
+        }
+
+        private void OnDisable()
+        {
+            StopAllCoroutines();
+            _slowMotionRoutine = null;
+            Time.timeScale = 1f;
+            Time.fixedDeltaTime = 0.02f;
+        }
         public void RegisterTrafficImpact(
             TrafficImpactTarget target,
             Vector3 point,
@@ -108,12 +131,23 @@ namespace CarCrash
         {
             var depthScale = Mathf.Lerp(slowMotionScale, 0.34f, Mathf.Clamp01(chainDepth / 5f));
             var depthDuration = Mathf.Lerp(slowMotionSeconds, slowMotionSeconds * 0.72f, Mathf.Clamp01(chainDepth / 5f));
-            Time.timeScale = depthScale;
-            Time.fixedDeltaTime = 0.02f * Time.timeScale;
-            yield return new WaitForSecondsRealtime(depthDuration);
-            Time.timeScale = 1f;
-            Time.fixedDeltaTime = 0.02f;
+            _activeSlowMotionScale = depthScale;
+            // StartCoroutine executes up to the first yield before assigning its handle.
+            if (!SimulationPaused)
+            {
+                Time.timeScale = depthScale;
+                Time.fixedDeltaTime = 0.02f * depthScale;
+            }
+            while (depthDuration > 0f)
+            {
+                yield return null;
+                if (!SimulationPaused)
+                {
+                    depthDuration -= Time.unscaledDeltaTime;
+                }
+            }
             _slowMotionRoutine = null;
+            ApplyTimeScale();
         }
 
     }

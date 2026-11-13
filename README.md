@@ -23,6 +23,8 @@ Open `unity/CarCrashUnityPrototype` in Unity `6000.0.43f1`, then use:
 
 The tested production slice includes a modeled sports car with independent WheelColliders, animated wheels and lights, moving traffic, a textured downtown arena, touch/keyboard steering, boost, high-speed collisions, detachable panels, windshield damage, impact slow motion, scoring, and a retryable result screen.
 
+The Unity UI opens with a live 3D car preview, paint selection, and Start Engine countdown. Driving adds responsive analog gauges, live traffic radar, nitro and damage meters, three camera views, impact feedback, pause/resume, and personal-best results. Press `Enter` to start, `W/A/S/D` to drive, `B` for nitro, `C` for the camera, and `P` to pause. Touch controls work while held. See the [Unity UI and validation guide](unity/CarCrashUnityPrototype/README.md#dynamic-racing-ui).
+
 Serve the WebGL output locally from the Unity project:
 
 ```powershell

@@ -54,8 +54,8 @@ namespace CarCrashEditor
 
             PlayerSettings.companyName = "Car Crash Studio";
             PlayerSettings.productName = "Car Crash";
-            PlayerSettings.defaultScreenWidth = 720;
-            PlayerSettings.defaultScreenHeight = 1280;
+            PlayerSettings.defaultScreenWidth = 1280;
+            PlayerSettings.defaultScreenHeight = 720;
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
             PlayerSettings.WebGL.dataCaching = false;
 
@@ -1057,6 +1057,9 @@ namespace CarCrashEditor
             }
             html = html.Replace("canvas.style.width = \"960px\";", "canvas.style.width = \"100vw\";");
             html = html.Replace("canvas.style.height = \"600px\";", "canvas.style.height = \"100vh\";");
+            html = html.Replace("<title>Unity Web Player | Car Crash</title>", "<title>Crash Car | Street Impact</title>");
+            html = html.Replace("createUnityInstance(canvas, config,", "createUnityInstance(canvas, { ...config, autoSyncPersistentDataPath: true },");
+            html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas aria-label=\"Crash Car. Enter to start. W and S for pedals, A and D to steer, B for nitro, C for camera, P to pause.\" id=\"unity-canvas\"");
             File.WriteAllText(indexPath, html);
         }
     }

@@ -37,6 +37,7 @@ namespace CarCrash
         public float CurrentThrottle { get; private set; }
         public float CurrentBrake { get; private set; }
         public bool BoostActive => _boostTimer > 0f;
+        public float BoostCharge { get; private set; } = 1f;
         public bool LaunchReady => Time.time >= _launchAt;
 
         private Rigidbody _body;
@@ -89,7 +90,18 @@ namespace CarCrash
 
         public void Boost(float seconds = 1.4f)
         {
-            _boostTimer = Mathf.Max(_boostTimer, seconds);
+            TryBoost(seconds);
+        }
+
+        public bool TryBoost(float seconds = 1.4f)
+        {
+            if (!LaunchReady || BoostActive || BoostCharge < 0.35f || Time.timeScale <= 0f)
+            {
+                return false;
+            }
+            BoostCharge -= 0.35f;
+            _boostTimer = Mathf.Clamp(seconds, 0.1f, 2f);
+            return true;
         }
 
         public void ResetForRelaunch(float delaySeconds = 1.15f)
@@ -119,6 +131,10 @@ namespace CarCrash
 
             SpeedKmh = _body.linearVelocity.magnitude * 3.6f;
             _boostTimer = Mathf.Max(0f, _boostTimer - Time.fixedDeltaTime);
+            if (!BoostActive)
+            {
+                BoostCharge = Mathf.Min(1f, BoostCharge + Time.fixedDeltaTime * 0.10f);
+            }
             if (autoAccelerate && !_useMobileInput && Mathf.Abs(throttle) < 0.05f && brake < 0.05f)
             {
                 throttle = 1f;
