@@ -15,6 +15,7 @@ namespace CarCrash
 
         public bool Showcasing { get; private set; }
         public DrivingView View { get; private set; }
+        public bool HomeScreen { get; set; }
 
         private Camera _camera;
         private ArcadeVehicleController _vehicle;
@@ -30,6 +31,7 @@ namespace CarCrash
         public void SetShowcase(bool enabled)
         {
             Showcasing = enabled;
+            if (!enabled) HomeScreen = false;
             _orbitDragging = false;
             _transitionUntil = Time.unscaledTime + 2f;
             if (target != null) _vehicle = target.GetComponent<ArcadeVehicleController>();
@@ -101,10 +103,10 @@ namespace CarCrash
             var portrait = _camera.aspect < 1.4f;
             var angle = _orbit * Mathf.Deg2Rad;
             // Keep the whole body in the much narrower horizontal field of view on phones.
-            var radius = portrait ? Mathf.Clamp(6.6f / _camera.aspect, 8.5f, 20f) : 7.4f;
+            var radius = portrait ? Mathf.Clamp(6.6f / _camera.aspect, 8.5f, 20f) : HomeScreen ? 8.6f : 7.4f;
             var radial = new Vector3(Mathf.Sin(angle) * radius, portrait ? 2.5f : 1.95f, Mathf.Cos(angle) * radius);
             transform.position = Vector3.Lerp(transform.position, target.position + radial, blend * 0.45f);
-            var focus = target.position + Vector3.up * (portrait ? -0.10f : 0.75f);
+            var focus = target.position + Vector3.up * (portrait ? -0.10f : HomeScreen ? 0.35f : 0.75f);
             // Place the live car beside the menu on wide screens.
             focus -= transform.right * (portrait ? 0f : 1.65f);
             LookAt(focus, blend * 0.5f);

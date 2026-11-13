@@ -133,11 +133,11 @@ namespace CarCrashEditor
 
         private static void Ground()
         {
-            Plane("District ground", Vector3.zero + Vector3.down * 0.16f, 320, 580, _stone, true);
+            Plane("District ground", new Vector3(0, -0.16f, 100), 320, 720, _stone, true);
             Plane("Elysian Boulevard", new Vector3(0, 0, 100), 18f, 460, _asphalt, true);
             foreach (var x in new[] { -54f, 54f }) Plane("Parallel avenue", new Vector3(x, 0, 110), 14f, 460, _asphalt);
             foreach (var z in CrossStreets) Plane("Cross street", new Vector3(0, 0.006f, z), 190, 14, _asphalt);
-            for (var i = 0; i < 5; i++)
+            for (var i = 0; i < CrossStreets.Length; i++)
             {
                 var start = i == 0 ? -125 : CrossStreets[i - 1] + 7;
                 var end = CrossStreets[i] - 7;
@@ -163,6 +163,19 @@ namespace CarCrashEditor
                     for (var x = -7.8f; x < 8.5f; x += 1.45f)
                         Box("Zebra crossing", new Vector3(x, 0.018f, z + side * 8.9f), new Vector3(0.8f, 0.015f, 2.5f), _white);
                     Box("Stop line", new Vector3(side * 4.6f, 0.019f, z + side * 11f), new Vector3(7.9f, 0.016f, 0.22f), _white);
+                }
+            }
+            foreach (var avenue in CityRoadNetwork.AvenueX)
+            {
+                var width = avenue == 0 ? 18f : 14f;
+                var south = avenue == 0 ? -128f : -119f;
+                var north = avenue == 0 ? 328f : 338f;
+                foreach (var z in new[] { south, north })
+                {
+                    Box("Street end safety barrier", new Vector3(avenue, 0.65f, z), new Vector3(width, 1.3f, 0.65f), _stone, true);
+                    Box("Street end reflective stripe", new Vector3(avenue, 0.93f, z - 0.34f), new Vector3(width, 0.19f, 0.04f), _yellow);
+                    var signPosition = new Vector3(avenue, 2.45f, z + (z < 0 ? 0.4f : -0.4f));
+                    Sign("CITY LOOP  /  TURN", signPosition, Quaternion.Euler(0, z < 0 ? 180 : 0, 0), 0.16f, new Color(0.94f, 0.82f, 0.5f));
                 }
             }
             for (var i = 0; i < 24; i++)

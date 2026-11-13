@@ -23,12 +23,12 @@ Open `unity/CarCrashUnityPrototype` in Unity `6000.0.43f1`, then use:
 
 The tested production slice includes a modeled sports car with independent WheelColliders, animated wheels and lights, moving traffic, a textured downtown arena, touch/keyboard steering, boost, high-speed collisions, detachable panels, windshield damage, impact slow motion, scoring, and a retryable result screen.
 
-The Unity UI opens with a detailed 3D car preview, paint selection, and Start Engine countdown. Driving adds compact instruments, a live street minimap, nitro and damage meters, three camera views, impact feedback, pause/resume, and personal-best results. The Elysian city scene includes a sunset HDR sky, textured roads and brickwork, intersections, palms, storefronts, and skyline towers. Press `Enter` to start, `W/A/S/D` to drive, `B` for nitro, `C` for the camera, and `P` to pause. Touch controls work while held. See the [Unity UI and validation guide](unity/CarCrashUnityPrototype/README.md#dynamic-racing-ui).
+The Unity home screen offers untimed Free Drive, an optional 60 second Impact Run, a driving guide, and the live 3D garage. Nearby lane traffic uses detailed car meshes with proper bodywork, glass, tires, wheels, and lights. Driving adds compact instruments, a live street minimap, nitro and damage meters, three camera views, impact feedback, pause/resume, and personal-best results. The Elysian city scene includes a sunset HDR sky, textured roads and brickwork, intersections, palms, storefronts, and skyline towers. Press `Enter` for Free Drive, `G` for the garage, `W/A/S/D` to drive, `B` for nitro, `C` for the camera, `R` for manual recovery, and `P` to pause. Free Drive does not end after a minute or a stopped crash, and driving beyond the old camera boundaries never teleports the player. Touch controls work while held. See the [Unity UI and validation guide](unity/CarCrashUnityPrototype/README.md#dynamic-racing-ui).
 
 Serve the WebGL output locally from the Unity project:
 
 ```powershell
-python -m http.server 8092 --bind 127.0.0.1 --directory Builds/WebGL
+python -m http.server 8094 --bind 127.0.0.1 --directory Builds/WebGL
 ```
 
 ## Run

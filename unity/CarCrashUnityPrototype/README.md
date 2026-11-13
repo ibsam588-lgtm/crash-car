@@ -27,7 +27,11 @@ This folder contains the Unity 6 production prototype for Car Crash.
 
 ## Dynamic Racing UI
 
-The scene opens in a live 3D garage with an orbiting camera, drag/arrow camera controls, five paint finishes, vehicle specifications, and a Start Engine button. A three-second countdown leads into a 60-second Impact Run. A stopped wreck or full damage can finish the run early.
+The scene opens at Home, with Free Drive, the optional 60 second Impact Run, a driving guide, and garage navigation. Free Drive is untimed and continues through stops and crashes until the player chooses to end the session. The garage has an orbiting camera, drag/arrow camera controls, five paint finishes, vehicle specifications, and a Start Free Drive button. Both modes use a three-second countdown.
+
+Recovery is manual through `R`, the HUD button, or Recover & Resume in the pause menu. It places the car on a nearby street without clearing score or elapsed time. Crossing the former lane/distance bounds does not teleport the player. Home, Garage, and End Session remain available from the pause/results menus.
+
+The avenue ends connect through City Loop cross streets. Visible safety barriers mark the street ends, and the ground covers the full district. Lane traffic brakes for a stopped player or another car; wheel rotation follows its actual cruising speed. The nearby GT traffic uses a credited subdivision-car conversion with approximately 115,000 triangles and five render meshes.
 
 The responsive uGUI HUD uses compact digital instruments, speed-derived automatic gear/rev indicators, a city minimap driven by the street geometry and nearby traffic transforms, body integrity, rechargeable nitro, animated score, hit count, impact-chain feedback, and a run timer. Chase, Low, and Bonnet cameras use speed-sensitive field of view and impact shake. Paint and personal best scores save locally with PlayerPrefs.
 
@@ -39,13 +43,16 @@ To reproduce the visual source assets:
 python tools/fetch_realism_assets.py
 blender --background --python tools/blender/prepare_realistic_roadbreaker.py
 python tools/prepare_realism_textures.py
+python tools/fetch_traffic_asset.py
+blender --background --factory-startup --python tools/blender/prepare_realistic_traffic.py
 ```
 
 Run these commands from the repository root; the Blender helper uses the existing licensed GLB. The texture conversion helper requires Pillow. Asset sources and font licenses are listed in the repository's `THIRD_PARTY_NOTICES.md`.
 
 Keyboard controls:
 
-- `Enter`: start from the garage
+- `Enter`: Free Drive from Home or the garage
+- `G`: garage from Home
 - `W` / up arrow: accelerator
 - `S` / down arrow / `Space`: brake
 - `A/D` / left/right arrows: steer
@@ -53,13 +60,13 @@ Keyboard controls:
 - `B` / left Ctrl: nitro
 - `C`: change driving camera
 - `Esc` / `P`: pause or resume
-- `R`: retry from results
+- `R`: recover during driving; retry from results
 
 On touch screens, hold the steering and pedal controls. Releasing a control, leaving its hit area, opening the pause menu, or losing app focus clears held input. Braking overrides throttle. Pause also suspends impact slow motion and the run timer.
 
 ## UI Verification
 
-Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. This checks the actual scene, car dimensions and wheel alignment, baked reflections, paint bindings, independent touch input, brake priority, nitro charge, camera switching, impact scoring, pause during slow motion, results, retry, and garage return. It restores the pre-test paint and personal-best preferences and writes `Builds/Validation/ui-smoke.json`.
+Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. This checks Home navigation, the driving guide, traffic dimensions and alignment, car paint/wheels, baked reflections, independent touch input, brake priority, nitro, camera switching, scoring, pause during slow motion, results, retry, and garage/Home return. It runs Free Drive for a real 65 seconds, waits after a crash, crosses the former reset bounds, and checks manual recovery preserves the session. The optional challenge is checked separately. It restores the pre-test paint and personal-best preferences and writes `Builds/Validation/ui-smoke.json`.
 
 For a browser preview after building WebGL:
 

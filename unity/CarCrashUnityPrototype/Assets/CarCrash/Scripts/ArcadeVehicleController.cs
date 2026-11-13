@@ -116,6 +116,14 @@ namespace CarCrash
             _launchAt = Time.time + delaySeconds;
         }
 
+        public void RecoverAt(Vector3 position, Quaternion rotation)
+        {
+            _spawnPosition = position;
+            _spawnRotation = rotation;
+            ResetForRelaunch(0f);
+            SpeedKmh = CurrentSteer = CurrentThrottle = CurrentBrake = 0f;
+        }
+
         private void FixedUpdate()
         {
             if (!LaunchReady)

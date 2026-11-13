@@ -23,6 +23,7 @@ namespace CarCrashEditor
         private static CarCrashHudInput _session;
         private static Vector3 _pausedPosition;
         private static float _pausedTime;
+        private static int _idleHitCount;
         private static string _runtimeError;
         private static int _oldPaint, _oldBest;
         private static bool _hadPaint, _hadBest;
@@ -49,7 +50,7 @@ namespace CarCrashEditor
             Checks.Clear();
             _runtimeError = null;
             _capturedPrefs = false;
-            _deadline = EditorApplication.timeSinceStartup + 90;
+            _deadline = EditorApplication.timeSinceStartup + 180;
             EditorApplication.update -= Tick;
             EditorApplication.update += Tick;
             Application.logMessageReceived -= OnLog;
@@ -80,8 +81,16 @@ namespace CarCrashEditor
                         _oldPaint = PlayerPrefs.GetInt("CarCrash.Paint");
                         _oldBest = PlayerPrefs.GetInt("CarCrash.BestImpactScore");
                         _capturedPrefs = true;
-                        Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && Time.timeScale == 0f && _session.CameraRig.Showcasing,
-                            "Live garage starts with the simulation safely paused");
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Home && Time.timeScale == 0f && _session.CameraRig.Showcasing,
+                            "The game opens at a real home screen with the city safely paused");
+                        Check(GameObject.Find("Free Drive") != null && GameObject.Find("Impact Run") != null && GameObject.Find("Open garage") != null,
+                            "Home offers untimed driving, an explicit timed challenge, and the garage");
+                        _session.Hud.ShowHelp(true);
+                        Check(_session.Hud.HelpVisible, "The driving guide opens from Home");
+                        _session.Hud.ShowHelp(false);
+                        _session.OpenGarage();
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && !_session.Hud.HelpVisible,
+                            "Home navigation opens the live vehicle garage");
                         var vertices = 0;
                         foreach (var filter in _session.vehicle.GetComponentsInChildren<MeshFilter>())
                             if (filter.sharedMesh != null) vertices += filter.sharedMesh.vertexCount;
@@ -104,6 +113,29 @@ namespace CarCrashEditor
                                 throw new Exception("Imported wheel axle is not aligned across the chassis: " + wheel.name);
                         }
                         Check(true, "All four tire axles retain their source orientation and neutral steering");
+                        foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+                        {
+                            var meshes = traffic.GetComponentsInChildren<MeshFilter>();
+                            var fleetVertices = 0;
+                            foreach (var mesh in meshes) fleetVertices += mesh.sharedMesh != null ? mesh.sharedMesh.vertexCount : 0;
+                            var fleetRenderers = traffic.GetComponentsInChildren<MeshRenderer>();
+                            var bounds = fleetRenderers[0].bounds;
+                            foreach (var renderer in fleetRenderers) bounds.Encapsulate(renderer.bounds);
+                            Check(fleetVertices > 20000 && bounds.size.x > 1.7f && bounds.size.x < 3f &&
+                                bounds.size.y > 0.9f && bounds.size.y < 1.9f && bounds.size.z > 4f && bounds.size.z < 5.8f,
+                                "Detailed traffic has complete life-size bodywork, wheels, and upright alignment: " + traffic.name);
+                            var centre = traffic.transform.InverseTransformPoint(bounds.center);
+                            Check(new Vector2(centre.x, centre.z).magnitude < 0.8f,
+                                "Traffic bodywork is centred on its actual collision chassis: " + traffic.name);
+                            foreach (var wheel in traffic.GetComponent<TrafficWheelAnimator>().wheels)
+                            {
+                                var wheelRenderers = wheel.GetComponentsInChildren<MeshRenderer>();
+                                var tire = wheelRenderers[0].bounds;
+                                foreach (var renderer in wheelRenderers) tire.Encapsulate(renderer.bounds);
+                                Check(tire.size.x < 0.7f && tire.size.y > 0.5f && tire.size.y < 1.15f && tire.size.z < 1.15f,
+                                    "Traffic wheel rotates only its own aligned tire and rim: " + traffic.name + "/" + wheel.name);
+                            }
+                        }
                         var reflection = Object.FindFirstObjectByType<ReflectionProbe>();
                         Check(reflection != null && reflection.mode == UnityEngine.Rendering.ReflectionProbeMode.Custom &&
                             reflection.customBakedTexture != null,
@@ -174,6 +206,16 @@ namespace CarCrashEditor
                         var target = Object.FindFirstObjectByType<TrafficImpactTarget>();
                         _session.scoring.RegisterTrafficImpact(target, _session.vehicle.transform.position,
                             Vector3.forward * 25f, 90f, 0);
+                        var looseParts = 0;
+                        foreach (var body in Object.FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
+                        {
+                            if (!body.name.StartsWith("Damage_", StringComparison.Ordinal) || body.transform.IsChildOf(_session.vehicle.transform)) continue;
+                            looseParts++;
+                            var shape = body.GetComponent<Collider>();
+                            if (shape == null || shape.bounds.size.sqrMagnitude > 64f)
+                                throw new Exception("Detached panel has an oversized collision shape: " + body.name);
+                        }
+                        Check(looseParts > 0, "Detached body panels keep collision shapes proportional to their real geometry");
                         Check(_session.scoring.Score > 0 && _session.scoring.SlowMotionActive && Time.timeScale < 1f,
                             "Impact updates score and activates cinematic slow motion");
                         _session.PauseRun();
@@ -196,6 +238,57 @@ namespace CarCrashEditor
                     case 5:
                         if (_session.scoring.SlowMotionActive) return;
                         Check(Time.timeScale == 1f, "Slow motion returns to normal simulation speed");
+                        Check(!_session.IsTimed, "Garage launches untimed Free Drive by default");
+                        _session.Hud.ReleaseControls();
+                        _session.vehicle.enabled = false;
+                        var parkedBody = _session.vehicle.GetComponent<Rigidbody>();
+                        parkedBody.interpolation = RigidbodyInterpolation.None;
+                        parkedBody.linearVelocity = Vector3.zero;
+                        parkedBody.angularVelocity = Vector3.zero;
+                        _pausedPosition = new Vector3(54f, 0.2f, 210f);
+                        _session.vehicle.transform.position = _pausedPosition;
+                        parkedBody.position = _pausedPosition;
+                        Physics.SyncTransforms();
+                        _session.GetComponent<ImpactRunLoopDirector>().SendMessage("LateUpdate");
+                        Check(Vector3.Distance(_pausedPosition, _session.vehicle.transform.position) < 0.01f,
+                            "Crossing the old lane and distance boundaries does not teleport the player");
+                        _session.vehicle.ResetForRelaunch(0f);
+                        Physics.SyncTransforms();
+                        _pausedPosition = parkedBody.position;
+                        parkedBody.constraints = RigidbodyConstraints.FreezeAll;
+                        _idleHitCount = _session.scoring.Hits;
+                        _stage = 50;
+                        break;
+                    case 50:
+                        if (_session.ElapsedSeconds < 65f) return;
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Driving && !_session.IsTimed,
+                            "Free Drive remains playable after a real 65 second session");
+                        Check(Vector3.Distance(_pausedPosition, _session.vehicle.GetComponent<Rigidbody>().position) < 0.01f,
+                            "The parked player stays in position without an automatic respawn (actual " + _session.vehicle.GetComponent<Rigidbody>().position + ")");
+                        var trafficStable = _session.scoring.Hits == _idleHitCount;
+                        foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+                            trafficStable &= !traffic.IsReleased;
+                        Check(trafficStable, "Traffic brakes and recycles past a stationary player without phantom high-speed impacts");
+                        _session.scoring.RegisterTrafficImpact(Object.FindFirstObjectByType<TrafficImpactTarget>(),
+                            _session.vehicle.transform.position, Vector3.forward * 25, 90f, 0);
+                        _nextAt = EditorApplication.timeSinceStartup + 6;
+                        _stage = 51;
+                        break;
+                    case 51:
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Driving,
+                            "Stopping for six seconds after a crash does not end the driving session");
+                        _session.vehicle.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.None;
+                        _session.vehicle.transform.position = new Vector3(54f, 0.2f, 210f);
+                        _session.vehicle.GetComponent<Rigidbody>().position = new Vector3(54f, 0.2f, 210f);
+                        Physics.SyncTransforms();
+                        _session.vehicle.enabled = true;
+                        var retainedScore = _session.scoring.Score;
+                        var retainedTime = _session.ElapsedSeconds;
+                        _session.RecoverVehicle();
+                        _session.vehicle.GetComponent<Rigidbody>().interpolation = RigidbodyInterpolation.Interpolate;
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Driving && _session.scoring.Score == retainedScore &&
+                            _session.ElapsedSeconds >= retainedTime && _session.vehicle.transform.position.z > 175f,
+                            "Manual recovery returns to a nearby street without restarting time, score, or the session");
                         _session.FinishRun();
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Results && Time.timeScale == 0f &&
                             _session.BestScore >= _session.scoring.Score, "Results freeze the run and persist the personal best");
@@ -225,6 +318,29 @@ namespace CarCrashEditor
                         if (_session == null || _session.Hud == null) return;
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && _session.PaintIndex == 1 && Time.timeScale == 0f,
                             "Garage return restores the chosen finish and an idle simulation");
+                        _session.ReturnHome();
+                        _session = null;
+                        _stage = 9;
+                        _nextAt = EditorApplication.timeSinceStartup + 0.5;
+                        break;
+                    case 9:
+                        _session = Object.FindFirstObjectByType<CarCrashHudInput>();
+                        if (_session == null || _session.Hud == null) return;
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Home,
+                            "The player can return to the Home screen from the garage");
+                        _session.SendMessage("OnApplicationFocus", true);
+                        _session.StartImpactRun();
+                        _stage = 10;
+                        break;
+                    case 10:
+                        if (_session.Phase != CarCrashHudInput.RunPhase.Driving) return;
+                        Check(_session.IsTimed, "The time limit only applies when the challenge is explicitly selected");
+                        typeof(CarCrashHudInput).GetProperty("ElapsedSeconds").SetValue(_session, CarCrashHudInput.RunDuration + 0.1f);
+                        _stage = 11;
+                        break;
+                    case 11:
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Results,
+                            "The optional challenge ends at its advertised time limit");
                         Complete(null);
                         break;
                 }

@@ -5,7 +5,8 @@ namespace CarCrash
 {
     public sealed class CarCrashHudInput : MonoBehaviour
     {
-        public enum RunPhase { Showroom, Countdown, Driving, Paused, Results }
+        public enum RunPhase { Home, Showroom, Countdown, Driving, Paused, Results }
+        public enum DriveMode { FreeDrive, ImpactRun }
         public ArcadeVehicleController vehicle;
         public CrashScoring scoring;
         public const float RunDuration = 60f;
@@ -15,7 +16,9 @@ namespace CarCrash
             new(0.06f, 0.24f, 0.42f), new(0.60f, 0.035f, 0.025f), new(0.86f, 0.87f, 0.84f)
         };
         public static readonly string[] PaintNames = { "MIDNIGHT GRAPHITE", "ARCTIC SILVER", "OCEAN BLUE", "CARMINE RED", "PEARL WHITE" };
-        public RunPhase Phase { get; private set; } = RunPhase.Showroom;
+        public RunPhase Phase { get; private set; } = RunPhase.Home;
+        public DriveMode Mode { get; private set; } = DriveMode.FreeDrive;
+        public bool IsTimed => Mode == DriveMode.ImpactRun;
         public float ElapsedSeconds { get; private set; }
         public float PeakSpeed { get; private set; }
         public float CountdownRemaining { get; private set; }
@@ -25,10 +28,11 @@ namespace CarCrash
         public CarCrashCameraFollow CameraRig { get; private set; }
         public RacingHudView Hud { get; private set; }
         private static bool _retryImmediately;
+        private static RunPhase _nextMenu = RunPhase.Home;
+        private static DriveMode _selectedMode = DriveMode.FreeDrive;
         private MaterialPropertyBlock _paintBlock;
-        private int _observedHits;
-        private float _secondsSinceImpact;
         private bool _focused = true;
+        private ImpactRunLoopDirector _recovery;
 
         private void Awake()
         {
@@ -46,16 +50,22 @@ namespace CarCrash
                 return;
             }
             CameraRig = GetComponent<CarCrashCameraFollow>();
+            _recovery = GetComponent<ImpactRunLoopDirector>();
+            Mode = _selectedMode;
+            Phase = _nextMenu;
+            _nextMenu = RunPhase.Home;
             BestScore = PlayerPrefs.GetInt("CarCrash.BestImpactScore", 0);
             PaintIndex = Mathf.Clamp(PlayerPrefs.GetInt("CarCrash.Paint", 0), 0, PaintColors.Length - 1);
             ApplyPaint(PaintIndex);
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
+            CameraRig.HomeScreen = Phase == RunPhase.Home;
             Hud = gameObject.AddComponent<RacingHudView>();
             Hud.Initialize(this);
             if (_retryImmediately)
             {
                 _retryImmediately = false;
+                Phase = RunPhase.Showroom;
                 BeginRun();
             }
         }
@@ -65,8 +75,15 @@ namespace CarCrash
             if (Hud == null) return;
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P))
             {
-                if (Phase == RunPhase.Driving) PauseRun();
+                if (Hud.HelpVisible) Hud.ShowHelp(false);
+                else if (Phase == RunPhase.Showroom) ReturnHome();
+                else if (Phase == RunPhase.Driving) PauseRun();
                 else if (Phase == RunPhase.Paused) ResumeRun();
+            }
+            if (Phase == RunPhase.Home && !Hud.HelpVisible)
+            {
+                if (Input.GetKeyDown(KeyCode.Return)) StartFreeDrive();
+                if (Input.GetKeyDown(KeyCode.G)) OpenGarage();
             }
             if (Phase == RunPhase.Showroom && Input.GetKeyDown(KeyCode.Return)) BeginRun();
             if (Phase == RunPhase.Results && Input.GetKeyDown(KeyCode.R)) RestartRun();
@@ -85,34 +102,65 @@ namespace CarCrash
             else if (Phase == RunPhase.Driving)
             {
                 ElapsedSeconds += Time.unscaledDeltaTime;
-                if (scoring.Hits != _observedHits)
-                {
-                    _observedHits = scoring.Hits;
-                    _secondsSinceImpact = 0f;
-                }
-                else _secondsSinceImpact += Time.unscaledDeltaTime;
                 PeakSpeed = Mathf.Max(PeakSpeed, vehicle.SpeedKmh);
                 if (Input.GetKeyDown(KeyCode.C)) CycleCamera();
                 if (Input.GetKeyDown(KeyCode.B) || Input.GetKeyDown(KeyCode.LeftControl)) ActivateBoost();
+                if (Input.GetKeyDown(KeyCode.R)) RecoverVehicle();
                 var steer = Mathf.Clamp(Input.GetAxisRaw("Horizontal") + (Hud.RightHeld ? 1f : 0f) - (Hud.LeftHeld ? 1f : 0f), -1f, 1f);
                 var throttle = Hud.GasHeld ? 1f : Mathf.Clamp01(Input.GetAxisRaw("Vertical"));
                 var brake = Hud.BrakeHeld || Input.GetKey(KeyCode.Space) ? 1f : Mathf.Clamp01(-Input.GetAxisRaw("Vertical"));
                 vehicle.SetMobileInput(steer, brake > 0f ? 0f : throttle, brake);
-                var settledWreck = scoring.Hits > 0 && vehicle.SpeedKmh < 8f && _secondsSinceImpact > 4.5f;
-                if (ElapsedSeconds >= RunDuration || scoring.Damage >= 100f || settledWreck) FinishRun();
+                // Only the challenge owns a time limit. Stopping after a collision
+                // never ends a drive, and Free Drive stays open until the player exits.
+                if (IsTimed && (ElapsedSeconds >= RunDuration || scoring.Damage >= 100f)) FinishRun();
             }
             Hud.RefreshTelemetry();
         }
 
         public void BeginRun()
         {
-            if (Phase != RunPhase.Showroom) return;
+            if (Phase != RunPhase.Showroom && Phase != RunPhase.Home) return;
+            _selectedMode = Mode;
             Phase = RunPhase.Countdown;
             CountdownRemaining = 3f;
             vehicle.SetMobileInput(0f, 0f, 0f);
             CameraRig.SetShowcase(false);
             Hud.RefreshPhase();
         }
+
+        public void StartFreeDrive()
+        {
+            if (Phase != RunPhase.Home && Phase != RunPhase.Showroom) return;
+            Mode = DriveMode.FreeDrive;
+            BeginRun();
+        }
+
+        public void StartImpactRun()
+        {
+            if (Phase != RunPhase.Home) return;
+            Mode = DriveMode.ImpactRun;
+            BeginRun();
+        }
+
+        public void OpenGarage()
+        {
+            if (Phase != RunPhase.Home) return;
+            Mode = DriveMode.FreeDrive;
+            Phase = RunPhase.Showroom;
+            CameraRig.HomeScreen = false;
+            Hud.ShowHelp(false);
+            Hud.RefreshPhase();
+        }
+
+        public void RecoverVehicle()
+        {
+            if (Phase != RunPhase.Driving && Phase != RunPhase.Paused) return;
+            ReleaseInput();
+            _recovery?.RecoverVehicle();
+            if (Phase == RunPhase.Paused) ResumeRun();
+        }
+
+        public bool RecoverySuggested => _recovery != null && _recovery.RecoverySuggested;
 
         public void PauseRun()
         {
@@ -146,6 +194,12 @@ namespace CarCrash
                 PlayerPrefs.Save();
             }
             Hud.RefreshPhase();
+        }
+
+        public void EndSession()
+        {
+            if (Phase == RunPhase.Paused) Phase = RunPhase.Driving;
+            FinishRun();
         }
 
         public void ActivateBoost()
@@ -193,11 +247,20 @@ namespace CarCrash
         public void RestartRun()
         {
             _retryImmediately = true;
+            _selectedMode = Mode;
             ReloadScene();
         }
         public void ReturnToShowroom()
         {
             _retryImmediately = false;
+            _selectedMode = Mode;
+            _nextMenu = RunPhase.Showroom;
+            ReloadScene();
+        }
+        public void ReturnHome()
+        {
+            _retryImmediately = false;
+            _nextMenu = RunPhase.Home;
             ReloadScene();
         }
         private void ReloadScene()

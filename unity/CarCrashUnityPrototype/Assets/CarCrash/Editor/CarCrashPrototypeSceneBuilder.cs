@@ -14,10 +14,7 @@ namespace CarCrashEditor
     public static class CarCrashPrototypeSceneBuilder
     {
         private const string ModelPath = "Assets/CarCrash/Models/roadbreaker_realistic.fbx";
-        private const string TrafficSedanModelPath = "Assets/CarCrash/Models/traffic_sedan_modern.fbx";
-        private const string TrafficCrossoverModelPath = "Assets/CarCrash/Models/traffic_crossover_modern.fbx";
-        private const string TrafficTruckModelPath = "Assets/CarCrash/Models/traffic_delivery_truck_modern.fbx";
-        private const string TrafficBusModelPath = "Assets/CarCrash/Models/traffic_city_bus_modern.fbx";
+        private const string DetailedTrafficModelPath = "Assets/CarCrash/Models/traffic_gt_detailed.fbx";
         private const string CityBackdropTexturePath = "Assets/CarCrash/Textures/option_c_city_backdrop.png";
         private const string GeneratedTextureDirectory = "Assets/CarCrash/Generated";
         private const string RoadTexturePath = GeneratedTextureDirectory + "/wet_asphalt_albedo.png";
@@ -92,10 +89,7 @@ namespace CarCrashEditor
             foreach (var modelPath in new[]
             {
                 ModelPath,
-                TrafficSedanModelPath,
-                TrafficCrossoverModelPath,
-                TrafficTruckModelPath,
-                TrafficBusModelPath
+                DetailedTrafficModelPath,
             })
             {
                 ConfigureModelImporter(modelPath);
@@ -483,7 +477,7 @@ namespace CarCrashEditor
             }
 
             var root = new GameObject("CarCrash_GT650_Player");
-            root.transform.position = new Vector3(0f, 0.055f, -10f);
+            root.transform.position = new Vector3(2.3f, 0.055f, -10f);
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
             instance.name = "CarCrash_GT650_Visual";
             instance.transform.SetParent(root.transform, false);
@@ -590,88 +584,44 @@ namespace CarCrashEditor
 
         private static void CreateTraffic(GameObject productionModel, CrashScoring scoring)
         {
-            CreateTrafficCar(
-                productionModel,
-                "Traffic_Graphite_01",
-                new Vector3(-2.65f, 0.055f, 20f),
-                new Color(0.08f, 0.10f, 0.12f),
-                new Vector3(0f, 0f, 5.4f),
-                scoring);
-            CreateImportedTrafficVehicle(
-                TrafficCrossoverModelPath,
-                "Traffic_Ruby_Crossover_02",
-                new Vector3(2.65f, 0.025f, 38f),
-                new Vector3(0f, 0f, 4.7f),
-                new Vector3(2.08f, 1.62f, 4.52f),
-                1860f,
-                0.42f,
-                scoring);
-            CreateImportedTrafficVehicle(
-                TrafficTruckModelPath,
-                "Traffic_Modern_Delivery_Truck",
-                new Vector3(-2.95f, 0.025f, 58f),
-                new Vector3(0f, 0f, -5.2f),
-                new Vector3(2.42f, 3.18f, 7.05f),
-                4600f,
-                0.49f,
-                scoring);
-            CreateImportedTrafficVehicle(
-                TrafficBusModelPath,
-                "Traffic_Modern_City_Bus",
-                new Vector3(3.15f, 0.025f, 82f),
-                new Vector3(0f, 0f, -4.2f),
-                new Vector3(2.56f, 3.38f, 10.72f),
-                8400f,
-                0.53f,
-                scoring);
+            // Ordinary lane traffic replaces the boxy truck/bus cluster. The closest
+            // car is alongside the player so its real bodywork and wheels are visible.
+            CreateDetailedTraffic("Traffic_Ocean_GT", new Vector3(6.3f, 0.05f, -6f), new Color(0.035f, 0.18f, 0.33f), 6.7f, scoring);
+            CreateTrafficCar(productionModel, "Traffic_Graphite_Coupe", new Vector3(-2.3f, 0.055f, 18f),
+                new Color(0.10f, 0.12f, 0.14f), new Vector3(0, 0, -7.4f), scoring);
+            CreateDetailedTraffic("Traffic_Pearl_GT", new Vector3(2.3f, 0.05f, 32f), new Color(0.76f, 0.77f, 0.72f), 8f, scoring);
+            CreateDetailedTraffic("Traffic_Carmine_GT", new Vector3(-6.3f, 0.05f, 48f), new Color(0.46f, 0.035f, 0.025f), -7f, scoring);
+            CreateDetailedTraffic("Traffic_Teal_GT", new Vector3(6.3f, 0.05f, 72f), new Color(0.035f, 0.25f, 0.22f), 9f, scoring);
+            CreateDetailedTraffic("Traffic_Silver_GT", new Vector3(-2.3f, 0.05f, 98f), new Color(0.48f, 0.52f, 0.57f), -8.2f, scoring);
+            CreateTrafficCar(productionModel, "Traffic_Silver_Coupe", new Vector3(2.3f, 0.055f, 124f),
+                new Color(0.52f, 0.56f, 0.60f), new Vector3(0, 0, 7.2f), scoring);
+            CreateDetailedTraffic("Traffic_Midnight_GT", new Vector3(-6.3f, 0.05f, 158f), new Color(0.12f, 0.11f, 0.15f), -9f, scoring);
+            foreach (var mover in UnityEngine.Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+            {
+                mover.observer = productionModel.transform.parent;
+                mover.laneJitter = 0.025f;
+            }
+        }
 
-            // The angled, staggered cluster is arranged so momentum can travel
-            // through multiple vehicles without spawning them already touching.
-            CreateImportedTrafficVehicle(
-                TrafficSedanModelPath,
-                "Traffic_Chain_Blue_Sedan_01",
-                new Vector3(-0.45f, 0.025f, 118f),
-                new Vector3(0f, 0f, -4.8f),
-                new Vector3(1.98f, 1.38f, 4.68f),
-                1640f,
-                0.37f,
-                scoring,
-                new Color(0.025f, 0.15f, 0.34f),
-                0.78f,
-                -6f);
-            CreateTrafficCar(
-                productionModel,
-                "Traffic_Chain_Silver_Supercar_02",
-                new Vector3(1.65f, 0.055f, 124f),
-                new Color(0.42f, 0.45f, 0.48f),
-                new Vector3(0f, 0f, -6.1f),
-                scoring,
-                0.56f,
-                7f);
-            CreateImportedTrafficVehicle(
-                TrafficCrossoverModelPath,
-                "Traffic_Chain_Emerald_Crossover_03",
-                new Vector3(3.62f, 0.025f, 130f),
-                new Vector3(0f, 0f, -7.4f),
-                new Vector3(2.08f, 1.62f, 4.52f),
-                1860f,
-                0.42f,
-                scoring,
-                new Color(0.018f, 0.23f, 0.10f),
-                -0.54f,
-                -7f);
-            CreateImportedTrafficVehicle(
-                TrafficSedanModelPath,
-                "Traffic_Chain_Crimson_Sedan_04",
-                new Vector3(1.55f, 0.025f, 136f),
-                new Vector3(0f, 0f, -8.7f),
-                new Vector3(1.98f, 1.38f, 4.68f),
-                1640f,
-                0.37f,
-                scoring,
-                new Color(0.48f, 0.018f, 0.012f),
-                -0.42f,
-                8f);
+        private static void CreateDetailedTraffic(string name, Vector3 position, Color paint, float speed, CrashScoring scoring)
+        {
+            var source = AssetDatabase.LoadAssetAtPath<GameObject>(DetailedTrafficModelPath);
+            if (source == null) throw new FileNotFoundException("Missing detailed traffic model: " + DetailedTrafficModelPath);
+            var root = new GameObject(name);
+            root.transform.SetPositionAndRotation(position, Quaternion.Euler(0, speed < 0 ? 180 : 0, 0));
+            var visual = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            visual.name = name + "_Visual";
+            visual.transform.SetParent(root.transform, false);
+            // Keep the FBX axis/unit conversion supplied by its imported root.
+            SetRenderersEnabled(visual.transform, true);
+            TrafficMaterialLibrary.Apply(visual, paint);
+            ConfigureTrafficPhysics(root, new Vector3(2.25f, 1.22f, 4.65f), 1510, new Vector3(0, 0, speed), 0);
+            AttachTrafficImpactSystem(root, visual.transform, scoring);
+            var wheels = root.AddComponent<TrafficWheelAnimator>();
+            wheels.wheels = new[] { FindChild(visual.transform, "Wheel_FL"), FindChild(visual.transform, "Wheel_FR"),
+                FindChild(visual.transform, "Wheel_RL"), FindChild(visual.transform, "Wheel_RR") };
+            wheels.speedMetersPerSecond = Mathf.Abs(speed);
+            wheels.wheelRadius = 0.35f;
         }
 
         private static void CreateTrafficCar(
@@ -689,6 +639,9 @@ namespace CarCrashEditor
             var visual = UnityEngine.Object.Instantiate(model);
             visual.name = $"{name}_Visual";
             visual.transform.SetParent(root.transform, false);
+            visual.transform.localPosition = model.transform.localPosition;
+            var inheritedDamage = visual.GetComponent<CrashDamageVisual>();
+            if (inheritedDamage != null) UnityEngine.Object.DestroyImmediate(inheritedDamage);
             var baseYaw = velocity.z < 0f ? 180f : 0f;
             visual.transform.localRotation =
                 Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f) * model.transform.localRotation;
@@ -735,86 +688,6 @@ namespace CarCrashEditor
             var wheelAnimator = root.AddComponent<TrafficWheelAnimator>();
             wheelAnimator.wheels = wheels;
             wheelAnimator.speedMetersPerSecond = velocity.magnitude;
-        }
-
-        private static void CreateImportedTrafficVehicle(
-            string modelPath,
-            string name,
-            Vector3 position,
-            Vector3 velocity,
-            Vector3 colliderSize,
-            float mass,
-            float wheelRadius,
-            CrashScoring scoring,
-            Color? paintOverride = null,
-            float chainLateralBias = 0f,
-            float yawOffsetDegrees = 0f)
-        {
-            var model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
-            if (model == null)
-            {
-                throw new FileNotFoundException($"Missing traffic model at {modelPath}");
-            }
-
-            var root = new GameObject(name);
-            root.transform.position = position;
-            var visual = (GameObject)PrefabUtility.InstantiatePrefab(model);
-            visual.name = $"{name}_Visual";
-            visual.transform.SetParent(root.transform, false);
-            visual.transform.localPosition = Vector3.zero;
-            var baseYaw = velocity.z < 0f ? 180f : 0f;
-            visual.transform.localRotation = Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f);
-            visual.transform.localScale = Vector3.one;
-            SetRenderersEnabled(visual.transform, true);
-            RealismMaterialLibrary.ApplyVehicle(visual, false);
-
-            if (paintOverride.HasValue)
-            {
-                RecolorTrafficPaint(visual.transform, paintOverride.Value);
-            }
-
-            ConfigureTrafficPhysics(root, colliderSize, mass, velocity, chainLateralBias);
-            AttachTrafficImpactSystem(root, visual.transform, scoring);
-            var wheelAnimator = root.AddComponent<TrafficWheelAnimator>();
-            wheelAnimator.wheels = new[]
-            {
-                FindChild(visual.transform, "Wheel_FL"),
-                FindChild(visual.transform, "Wheel_FR"),
-                FindChild(visual.transform, "Wheel_RL"),
-                FindChild(visual.transform, "Wheel_RR")
-            };
-            wheelAnimator.speedMetersPerSecond = velocity.magnitude;
-            wheelAnimator.wheelRadius = wheelRadius;
-        }
-
-        private static void RecolorTrafficPaint(Transform visual, Color color)
-        {
-            foreach (var renderer in visual.GetComponentsInChildren<Renderer>(true))
-            {
-                var materials = renderer.sharedMaterials;
-                var changed = false;
-                for (var index = 0; index < materials.Length; index++)
-                {
-                    var source = materials[index];
-                    if (source == null || !source.name.StartsWith("M_TrafficPaint", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    var replacement = new Material(source)
-                    {
-                        name = $"{source.name}_{color.r:F2}_{color.g:F2}_{color.b:F2}",
-                        color = color
-                    };
-                    materials[index] = replacement;
-                    changed = true;
-                }
-
-                if (changed)
-                {
-                    renderer.sharedMaterials = materials;
-                }
-            }
         }
 
         private static void ConfigureTrafficPhysics(
@@ -890,9 +763,6 @@ namespace CarCrashEditor
             loop.vehicle = vehicle;
             loop.player = player.transform;
             loop.playerBody = body;
-            loop.resetBeyondZ = 172f;
-            loop.resetBeyondX = 9.4f;
-            loop.resetAboveY = 7.5f;
         }
 
         private static WheelCollider CreateWheelCollider(Transform parent, string name, Vector3 localPosition, float radius, bool drive)

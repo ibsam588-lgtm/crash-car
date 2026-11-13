@@ -110,7 +110,27 @@ namespace CarCrash
                 if (part.GetComponent<Collider>() == null)
                 {
                     var collider = part.gameObject.AddComponent<BoxCollider>();
-                    collider.size = Vector3.one;
+                    // Imported panels can carry a centimetre-to-metre transform.
+                    // Build the shape in the part's local coordinates rather than
+                    // turning a one-unit box into a vehicle-sized (or larger) wall.
+                    var hasBounds = false;
+                    var localBounds = new Bounds();
+                    foreach (var renderer in part.GetComponentsInChildren<Renderer>())
+                    {
+                        var world = renderer.bounds;
+                        for (var corner = 0; corner < 8; corner++)
+                        {
+                            var worldCorner = world.center + Vector3.Scale(world.extents, new Vector3(
+                                (corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+                            var local = part.InverseTransformPoint(worldCorner);
+                            if (!hasBounds) { localBounds = new Bounds(local, Vector3.zero); hasBounds = true; }
+                            else localBounds.Encapsulate(local);
+                        }
+                    }
+                    collider.center = localBounds.center;
+                    collider.size = hasBounds ? localBounds.size : Vector3.one * 0.01f;
+                    foreach (var ownCollider in GetComponentsInChildren<Collider>())
+                        Physics.IgnoreCollision(collider, ownCollider, true);
                 }
 
                 var loose = part.GetComponent<Rigidbody>();
