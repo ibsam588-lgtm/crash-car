@@ -25,8 +25,8 @@ namespace CarCrashEditor
         private static float _pausedTime;
         private static int _idleHitCount;
         private static string _runtimeError;
-        private static int _oldPaint, _oldBest;
-        private static bool _hadPaint, _hadBest;
+        private static int _oldPaint, _oldBest, _oldVehicle;
+        private static bool _hadPaint, _hadBest, _hadVehicle;
         private static bool _capturedPrefs;
 
         static CarCrashUiValidation()
@@ -80,6 +80,8 @@ namespace CarCrashEditor
                         _hadBest = PlayerPrefs.HasKey("CarCrash.BestImpactScore");
                         _oldPaint = PlayerPrefs.GetInt("CarCrash.Paint");
                         _oldBest = PlayerPrefs.GetInt("CarCrash.BestImpactScore");
+                        _hadVehicle = PlayerPrefs.HasKey("CarCrash.Vehicle");
+                        _oldVehicle = PlayerPrefs.GetInt("CarCrash.Vehicle");
                         _capturedPrefs = true;
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Home && Time.timeScale == 0f && _session.CameraRig.Showcasing,
                             "The game opens at a real home screen with the city safely paused");
@@ -96,6 +98,18 @@ namespace CarCrashEditor
                         Check(_session.Hud.HelpVisible, "The driving guide survives a screen layout rebuild");
                         _session.Hud.ShowHelp(false);
                         _session.OpenGarage();
+                        _session.SelectVehicle(0);
+                        var readableButtons = true;
+                        var uiCanvas = Object.FindFirstObjectByType<Canvas>();
+                        foreach (var button in uiCanvas.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+                        {
+                            var label = button.GetComponentInChildren<UnityEngine.UI.Text>(true);
+                            if (label != null && !string.IsNullOrEmpty(label.text))
+                                readableButtons &= label.fontSize * uiCanvas.scaleFactor >= 15.8f;
+                        }
+                        Check(readableButtons, "Every labelled menu button retains at least 16 physical pixels of text");
+                        Check(Resources.Load<Font>("Fonts/AtkinsonHyperlegible-Bold") != null,
+                            "The interface bundles a clear, readable font instead of narrow condensed button text");
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && !_session.Hud.HelpVisible,
                             "Home navigation opens the live vehicle garage");
                         var vertices = 0;
@@ -217,12 +231,12 @@ namespace CarCrashEditor
                         _session.CycleCamera();
                         Check(_session.CameraRig.View != view, "Camera control changes the live driving view");
                         var target = Object.FindFirstObjectByType<TrafficImpactTarget>();
-                        var panelsBeforeBump = _session.vehicle.GetComponentsInChildren<Transform>().Length;
+                        var panelsBeforeBump = AttachedDamageParts();
                         var hitsBeforeBump = _session.scoring.Hits;
                         _session.scoring.RegisterTrafficImpact(target, _session.vehicle.transform.position,
                             Vector3.forward * 12.5f, 45f, 0);
                         Check(_session.scoring.Hits == hitsBeforeBump + 1 && _session.scoring.Damage >= 3f &&
-                            _session.vehicle.GetComponentsInChildren<Transform>().Length == panelsBeforeBump,
+                            AttachedDamageParts() == panelsBeforeBump,
                             "Moderate bumps register meaningful damage without detaching whole body panels");
                         _session.scoring.RegisterTrafficImpact(target, _session.vehicle.transform.position,
                             Vector3.forward * 25f, 90f, 0);
@@ -291,8 +305,8 @@ namespace CarCrashEditor
                         Check(trafficStable, "Traffic brakes and recycles past a stationary player without phantom high-speed impacts");
                         var pedestriansStaySafe = true;
                         foreach (var person in Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None))
-                            pedestriansStaySafe &= person.DistanceWalked > 20f && Mathf.Abs(person.transform.position.x) > 9.1f &&
-                                Mathf.Abs(person.transform.position.x) < 12.1f && person.transform.position.z > person.pointA.z - 0.6f &&
+                            pedestriansStaySafe &= person.DistanceWalked > 20f && Mathf.Abs(person.transform.position.x-person.avenueCenterX) > 9.1f &&
+                                Mathf.Abs(person.transform.position.x-person.avenueCenterX) < 12.1f && person.transform.position.z > person.pointA.z - 0.6f &&
                                 person.transform.position.z < person.pointB.z + 0.6f;
                         Check(pedestriansStaySafe, "Pedestrians complete a sustained walk without leaving their sidewalk blocks");
                         _session.scoring.RegisterTrafficImpact(Object.FindFirstObjectByType<TrafficImpactTarget>(),
@@ -383,6 +397,14 @@ namespace CarCrashEditor
             else ExecuteEvents.Execute(control, pointer, ExecuteEvents.pointerUpHandler);
         }
 
+        private static int AttachedDamageParts()
+        {
+            var count=0;
+            foreach(var part in _session.vehicle.GetComponentsInChildren<Transform>(true))
+                if(part.name.StartsWith("Damage_",StringComparison.Ordinal))count++;
+            return count;
+        }
+
         private static void Check(bool condition, string description)
         {
             if (!condition) throw new Exception(description);
@@ -402,6 +424,7 @@ namespace CarCrashEditor
             {
                 if (_hadPaint) PlayerPrefs.SetInt("CarCrash.Paint", _oldPaint); else PlayerPrefs.DeleteKey("CarCrash.Paint");
                 if (_hadBest) PlayerPrefs.SetInt("CarCrash.BestImpactScore", _oldBest); else PlayerPrefs.DeleteKey("CarCrash.BestImpactScore");
+                if (_hadVehicle) PlayerPrefs.SetInt("CarCrash.Vehicle", _oldVehicle); else PlayerPrefs.DeleteKey("CarCrash.Vehicle");
                 PlayerPrefs.Save();
             }
             Directory.CreateDirectory(Path.GetDirectoryName(ReportPath));

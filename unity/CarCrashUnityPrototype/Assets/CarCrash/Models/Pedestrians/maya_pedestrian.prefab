@@ -103,6 +103,7 @@ MonoBehaviour:
   sourceWalkSpeed: 1.3
   walkClip: {fileID: -623603649343465320, guid: 97e9dcd2989ce17438c18bf1949f72c2, type: 3}
   player: {fileID: 0}
+  avenueCenterX: 0
 --- !u!1001 &121628932193685185
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -31,9 +31,9 @@ The scene opens at Home, with Free Drive, the optional 60 second Impact Run, a d
 
 Recovery is manual through `R`, the HUD button, or Recover & Resume in the pause menu. It places the car on a nearby street without clearing score or elapsed time. Crossing the former lane/distance bounds does not teleport the player. Home, Garage, and End Session remain available from the pause/results menus.
 
-The avenue ends connect through City Loop cross streets. Visible safety barriers mark the street ends, and the ground covers the full district. Lane traffic brakes for a stopped player or another car; wheel rotation follows its actual cruising speed. The nearby GT traffic uses a credited subdivision-car conversion with approximately 115,000 triangles and five render meshes.
+Seven City Loop cross streets connect Elysian Boulevard to Westside and Pacific avenues. All three neighborhoods have full shopfront blocks, textured roads, raised sidewalks, palms, streetlights, traffic signals and moving cars. Cross streets have marked centerlines, paving and solid curbs. Visible safety barriers mark the district edges. Lane traffic brakes for a stopped player or another car; wheel rotation follows its actual cruising speed. The nearby GT traffic uses a credited subdivision-car conversion with approximately 115,000 triangles and five render meshes.
 
-Trees, planters, curbs, lamps, benches, bins, hydrants, signals, and buildings have solid collision. The camera retracts before entering static scenery. Skyline towers sit outside the playable avenues. Twenty-four textured, skinned human pedestrians walk bounded sidewalk routes using three licensed figures and original walk clips. They step aside for nearby cars and use dynamic physical bodies; distant models and shadows are culled.
+Trees, planters, curbs, lamps, benches, bins, hydrants, signals, and buildings have solid collision. The camera retracts before entering static scenery. Skyline towers sit outside the playable avenues. Forty-eight textured, skinned human pedestrians walk bounded sidewalk routes across all three neighborhoods using three licensed figures and original walk clips. They step aside for nearby cars and use dynamic physical bodies; distant models and shadows are culled.
 
 The responsive uGUI HUD uses compact digital instruments, speed-derived automatic gear/rev indicators, a city minimap driven by the street geometry and nearby traffic transforms, body integrity, rechargeable nitro, animated score, hit count, impact-chain feedback, and a run timer. Chase, Low, and Bonnet cameras use speed-sensitive field of view and impact shake. Paint and personal best scores save locally with PlayerPrefs.
 
@@ -59,6 +59,7 @@ Keyboard controls:
 - `G`: garage from Home
 - `W` / up arrow: accelerator
 - `S` / down arrow: brake, then reverse when held at rest
+- `Q` / REV pedal: reverse; brakes first when moving forward
 - `Space`: brake without reversing
 - `A/D` / left/right arrows: steer while moving; hold with `W` to turn from rest
 - `Left Shift`: handbrake
@@ -67,13 +68,17 @@ Keyboard controls:
 - `Esc` / `P`: pause or resume
 - `R`: recover during driving; retry from results
 
-On touch screens, hold GAS with a steering control to turn. Hold BRAKE / R to stop, then reverse. Releasing a control, leaving its hit area, opening the pause menu, or losing app focus clears held input. Braking overrides throttle. Pause also suspends impact slow motion and the run timer.
+On touch screens, hold GAS with a steering control to turn. Hold REV to back up; it brakes first when moving forward. BRAKE stops the car and also reverses when held at rest. Releasing a control, leaving its hit area, opening the pause menu, or losing app focus clears held input. Braking overrides throttle. Pause also suspends impact slow motion and the run timer.
+
+The garage also offers Apex GT, Summit AWD, Ridgeback 4x4, Atlas Hauler, and Ironclaw Monster. Selection changes the actual model, wheel radius and wheelbase, suspension, weight, acceleration, top speed, and camera framing, and saves locally. A dedicated REV pedal and `Q` reverse directly from rest and brake first while moving forward; `S` retains brake-then-reverse behavior. Button labels use Atkinson Hyperlegible, minimum readable pixel sizes, and opaque contrasting panels. Compact landscape layouts use a larger UI scale.
+
+Crashes produce speed-scaled sparks, dust clouds, glass spray and an expanding ground splash. These effects also trigger on solid scenery contacts, pause with the simulation, and expire automatically. Run `Car Crash > Validate Garage Fleet and Crash Effects` for real forward/reverse driving in all six vehicles and an actual scenery-impact particle lifecycle test. It writes `Builds/Validation/fleet-qa.json`.
 
 ## UI Verification
 
 Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. This checks Home navigation, the driving guide, traffic dimensions and alignment, car paint/wheels, baked reflections, independent touch input, brake priority, nitro, camera switching, scoring, pause during slow motion, results, retry, and garage/Home return. It runs Free Drive for a real 65 seconds, waits after a crash, crosses the former reset bounds, and checks manual recovery preserves the session. The optional challenge is checked separately. It restores the pre-test paint and personal-best preferences and writes `Builds/Validation/ui-smoke.json`.
 
-Run `Car Crash > Validate Driving and World Physics` for measured left/right heading and travel, reverse steering, human skinning/animation and sidewalk movement, camera wall clearance, and actual 80 km/h car impacts against six kinds of street objects. It writes `Builds/Validation/driving-qa.json`. Browser QA should also cover desktop, phone portrait, phone landscape, simultaneous pedal/steering input, and all three cameras.
+Run `Car Crash > Validate Driving and World Physics` for measured left/right heading and travel, reverse steering, human skinning/animation and sidewalk movement, camera wall clearance, and actual 80 km/h car impacts against six kinds of street objects. It also checks shopfront coverage on all three avenues, unobstructed cross streets, and actual driving along both side neighborhoods and their connecting streets. It writes `Builds/Validation/driving-qa.json`. Browser QA should also cover desktop, phone portrait, phone landscape, simultaneous pedal/steering input, and all three cameras.
 
 For a browser preview after building WebGL:
 

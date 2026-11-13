@@ -31,6 +31,8 @@ namespace CarCrash
         public float collisionVelocityCapKmh = 235f;
         public float lateralDamping = 3.6f;
         public float uprightAssist = 4.2f;
+        public float reverseSpeedKmh = 32f;
+        public bool allWheelDrive;
 
         public float SpeedKmh { get; private set; }
         public float ForwardSpeedKmh => _body != null ? Vector3.Dot(_body.linearVelocity, transform.forward) * 3.6f : 0f;
@@ -56,6 +58,27 @@ namespace CarCrash
         private Quaternion _frontRightRotationOffset = Quaternion.identity;
         private Quaternion _rearLeftRotationOffset = Quaternion.identity;
         private Quaternion _rearRightRotationOffset = Quaternion.identity;
+
+        public void ConfigureVehicle(GarageVehicle spec)
+        {
+            if (_body == null) _body = GetComponent<Rigidbody>();
+            _body.mass = spec.mass;
+            _body.centerOfMass = new Vector3(0f, spec.size.y > 2f ? 0.35f : -0.22f, 0.10f);
+            maxSpeedKmh = spec.topSpeed;
+            reverseSpeedKmh = spec.reverseSpeed;
+            // Torque follows wheel radius and supported weight instead of spinning
+            // a large tire thousands of RPM while the chassis barely moves.
+            maxMotorTorque = spec.mass * spec.wheelRadius * 1.8f;
+            allWheelDrive = spec.allWheelDrive;
+            arcadeDriveAcceleration = spec.acceleration;
+            maxSteerAngle = spec.steering;
+            brakeTorque = spec.mass * 4.8f;
+            handbrakeTorque = spec.mass * 7f;
+            _frontLeftRotationOffset = WheelRotationOffset(frontLeftCollider, frontLeftVisual);
+            _frontRightRotationOffset = WheelRotationOffset(frontRightCollider, frontRightVisual);
+            _rearLeftRotationOffset = WheelRotationOffset(rearLeftCollider, rearLeftVisual);
+            _rearRightRotationOffset = WheelRotationOffset(rearRightCollider, rearRightVisual);
+        }
 
         private void Awake()
         {
@@ -110,6 +133,8 @@ namespace CarCrash
         public void ResetForRelaunch(float delaySeconds = 1.15f)
         {
             transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
+            _body.position = _spawnPosition;
+            _body.rotation = _spawnRotation;
             _body.linearVelocity = Vector3.zero;
             _body.angularVelocity = Vector3.zero;
             _boostTimer = 0f;
@@ -117,8 +142,9 @@ namespace CarCrash
             _mobileThrottle = 0f;
             _mobileBrake = 0f;
             _launchAt = Time.time + delaySeconds;
-            _wheelResetUntil = Time.time + 0.18f;
+            _wheelResetUntil = Time.time + 0.25f;
             ResetWheelSpin();
+            Physics.SyncTransforms();
         }
 
         public void RecoverAt(Vector3 position, Quaternion rotation)
@@ -140,6 +166,7 @@ namespace CarCrash
             {
                 ResetWheelSpin();
                 _body.linearVelocity = Vector3.zero;
+                _body.angularVelocity = Vector3.zero;
                 return;
             }
 
@@ -163,7 +190,7 @@ namespace CarCrash
             CurrentThrottle = throttle;
             CurrentBrake = brake;
 
-            var speedLimit = throttle < 0f ? 32f : _boostTimer > 0f ? maxSpeedKmh * 1.10f : maxSpeedKmh;
+            var speedLimit = throttle < 0f ? reverseSpeedKmh : _boostTimer > 0f ? maxSpeedKmh * 1.10f : maxSpeedKmh;
             var torqueFalloff = Mathf.Clamp01(1f - Mathf.InverseLerp(speedLimit * 0.82f, speedLimit, SpeedKmh));
             var torque = throttle * maxMotorTorque * torqueFalloff;
             if (_boostTimer > 0f && throttle > 0.1f)
@@ -180,8 +207,8 @@ namespace CarCrash
             frontLeftCollider.steerAngle = steer * maxSteerAngle;
             frontRightCollider.steerAngle = steer * maxSteerAngle;
 
-            rearLeftCollider.motorTorque = torque;
-            rearRightCollider.motorTorque = torque;
+            frontLeftCollider.motorTorque = frontRightCollider.motorTorque = allWheelDrive ? torque*.5f : 0f;
+            rearLeftCollider.motorTorque = rearRightCollider.motorTorque = allWheelDrive ? torque*.5f : torque;
 
             var wheelBrake = brake * brakeTorque + handbrake * handbrakeTorque;
             frontLeftCollider.brakeTorque = brake * brakeTorque;
@@ -238,7 +265,9 @@ namespace CarCrash
         private void ResetWheelSpin()
         {
             frontLeftCollider.motorTorque = frontRightCollider.motorTorque = rearLeftCollider.motorTorque = rearRightCollider.motorTorque = 0f;
-            frontLeftCollider.brakeTorque = frontRightCollider.brakeTorque = rearLeftCollider.brakeTorque = rearRightCollider.brakeTorque = 30000f;
+            // Vehicle swaps can change tire inertia by an order of magnitude.
+            // Clear stored angular momentum while the chassis is held at its pose.
+            frontLeftCollider.brakeTorque = frontRightCollider.brakeTorque = rearLeftCollider.brakeTorque = rearRightCollider.brakeTorque = 1000000f;
         }
 
         private void ApplyStability(float speedLimit)

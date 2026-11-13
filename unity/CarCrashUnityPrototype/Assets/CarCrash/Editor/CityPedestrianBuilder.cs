@@ -108,12 +108,13 @@ namespace CarCrashEditor
             }
             var root = new GameObject("City pedestrians").transform;
             var index = 0;
+            foreach (var avenue in CityRoadNetwork.AvenueX)
             for (var block = 1; block < CityRoadNetwork.CrossStreetZ.Length; block++)
             foreach (var side in new[] { -1f, 1f })
-            for (var lane = 0; lane < 2; lane++)
+            for (var lane = 0; lane < (avenue == 0 ? 2 : 1); lane++)
             {
                 var type = index % names.Length;
-                var x = side * (lane == 0 ? 9.5f : 11.75f);
+                var x = avenue + side * (lane == 0 ? 9.5f : 11.75f);
                 var a = new Vector3(x, 0.16f, CityRoadNetwork.CrossStreetZ[block - 1] + 12f);
                 var b = new Vector3(x, 0.16f, CityRoadNetwork.CrossStreetZ[block] - 12f);
                 var person = (GameObject)PrefabUtility.InstantiatePrefab(templates[type], root);
@@ -124,6 +125,7 @@ namespace CarCrashEditor
                 walker.walkSpeed = (type == 2 ? 1.7f : 1.3f) * (0.92f + lane * 0.1f);
                 walker.sourceWalkSpeed = type == 2 ? 1.7f : 1.3f;
                 walker.player = player;
+                walker.avenueCenterX = avenue;
                 PrefabUtility.RecordPrefabInstancePropertyModifications(person);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(person.transform);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(walker);

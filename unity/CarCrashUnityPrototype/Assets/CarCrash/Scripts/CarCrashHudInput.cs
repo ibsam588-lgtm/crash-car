@@ -27,6 +27,7 @@ namespace CarCrash
         public bool NewBest { get; private set; }
         public CarCrashCameraFollow CameraRig { get; private set; }
         public RacingHudView Hud { get; private set; }
+        public VehicleGarage Garage { get; private set; }
         private static bool _retryImmediately;
         private static RunPhase _nextMenu = RunPhase.Home;
         private static DriveMode _selectedMode = DriveMode.FreeDrive;
@@ -57,6 +58,8 @@ namespace CarCrash
             _nextMenu = RunPhase.Home;
             BestScore = PlayerPrefs.GetInt("CarCrash.BestImpactScore", 0);
             PaintIndex = Mathf.Clamp(PlayerPrefs.GetInt("CarCrash.Paint", 0), 0, PaintColors.Length - 1);
+            Garage = vehicle.GetComponent<VehicleGarage>();
+            if (Garage != null) Garage.Select(PlayerPrefs.GetInt("CarCrash.Vehicle", 0));
             ApplyPaint(PaintIndex);
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
@@ -111,11 +114,12 @@ namespace CarCrash
                 var right = Hud.RightHeld || Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow);
                 var gas = Hud.GasHeld || Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow);
                 var brakeReverse = Hud.BrakeHeld || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow);
+                var explicitReverse = Hud.ReverseHeld || Input.GetKey(KeyCode.Q);
                 var hardBrake = Input.GetKey(KeyCode.Space);
                 _reverseHoldSeconds = brakeReverse && !gas && !hardBrake && vehicle.ForwardSpeedKmh < 2f
                     ? _reverseHoldSeconds + Time.deltaTime : 0f;
-                var reverse = _reverseHoldSeconds >= 0.35f;
-                var brake = hardBrake || (brakeReverse && !reverse) || (gas && vehicle.ForwardSpeedKmh < -2f);
+                var reverse = !gas && ((_reverseHoldSeconds >= 0.35f) || (explicitReverse && vehicle.ForwardSpeedKmh < 1.8f));
+                var brake = hardBrake || ((brakeReverse || explicitReverse) && !reverse) || (gas && vehicle.ForwardSpeedKmh < -2f);
                 var throttle = brake ? 0f : reverse ? -1f : gas ? 1f : 0f;
                 vehicle.SetMobileInput((right ? 1f : 0f) - (left ? 1f : 0f), throttle, brake ? 1f : 0f);
                 // Only the challenge owns a time limit. Stopping after a collision
@@ -231,6 +235,18 @@ namespace CarCrash
             PlayerPrefs.Save();
             Hud.RefreshPaint();
         }
+
+        public void SelectVehicle(int index)
+        {
+            if (Phase != RunPhase.Showroom || Garage == null || index < 0 || index >= Garage.vehicles.Length) return;
+            ReleaseInput();
+            Garage.Select(index);
+            ApplyPaint(PaintIndex);
+            CameraRig.SetShowcase(true);
+            PlayerPrefs.SetInt("CarCrash.Vehicle", index);
+            PlayerPrefs.Save();
+            Hud.RefreshVehicle();
+        }
         private void ApplyPaint(int index)
         {
             PaintIndex = index;
@@ -243,7 +259,8 @@ namespace CarCrash
                     var material = materials[slot];
                     if (material == null) continue;
                     var bodyPaint = material.name.Contains("Competition_Orange") || material.name.Contains("Orange_Shadow") ||
-                        material.name.Contains("Competition_Yellow") || material.name.Contains("Yellow_Shadow") || material.name.Contains("Paint_1");
+                        material.name.Contains("Competition_Yellow") || material.name.Contains("Yellow_Shadow") || material.name.Contains("Paint_1") ||
+                        material.name.StartsWith("M_Garage_Paint") || material.name.StartsWith("M_Fleet_Paint");
                     if (!bodyPaint) continue;
                     renderer.GetPropertyBlock(_paintBlock, slot);
                     var color = PaintColors[index];

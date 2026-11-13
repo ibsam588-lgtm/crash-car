@@ -42,6 +42,19 @@ Asset license: https://polyhaven.com/license. Original download URLs and SHA-256
 
 Barlow Condensed and Archivo Black are distributed through the Google Fonts repository under the SIL Open Font License 1.1. Their license notices are included with the font files in `Assets/CarCrash/Resources/Fonts` within the Unity project.
 
+The readable interface uses Atkinson Hyperlegible (regular and bold), distributed by Google Fonts under the SIL Open Font License 1.1. Source: https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegible. Its OFL notice is included beside the font files.
+
+## Expanded Playable Garage
+
+The detailed pickup, crossover SUV, and cargo truck are original unbranded Innerscene models released under CC0 1.0:
+
+- https://www.innerscene.com/tools/library/3d-parts/crew-cab-pickup-with-open-bed-4f02e0cc
+- https://www.innerscene.com/tools/library/3d-parts/charcoal-five-door-crossover-suv-a1996830
+- https://www.innerscene.com/tools/library/3d-parts/7-5-t-class-box-truck-with-roll-up-door-12baea66
+- License: https://creativecommons.org/publicdomain/zero/1.0/
+
+The conversions normalize orientation, consolidate material slots and meshes, retain four independent wheel groups (including dual rear tires on the cargo truck), reduce mesh density, and prepare Unity materials. Ironclaw Monster derives from the same pickup with a lifted body, enlarged wheels, raised chevron tread, exposed axles and long-travel shocks. Download SHA-256 hashes and source URLs are included in `Assets/CarCrash/Models/Garage/sources.json`. Roadbreaker GT and Apex GT derive from the CarConcept and Yasutoshi Mori assets credited above.
+
 ## Animated Human Pedestrians
 
 Maya, Sam, and Harper are Innerscene character adaptations of MakeHuman/MPFB CC0 body, rig, skin, and clothing assets, with original Innerscene walking motion. Each asset page dedicates its model and animation to CC0 1.0:

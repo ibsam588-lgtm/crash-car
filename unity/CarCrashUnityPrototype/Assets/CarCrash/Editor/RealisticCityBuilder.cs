@@ -13,6 +13,8 @@ namespace CarCrashEditor
         private static Transform _city;
         private static Material _asphalt, _concrete, _stone, _metal, _glass, _warmGlass, _trim, _white, _yellow;
         private static Material _bark, _leaf, _light;
+        private static Material _signMaterial;
+        private static Font _signFont;
         private static float[] CrossStreets => CityRoadNetwork.CrossStreetZ;
         private static readonly Dictionary<string, Mesh> Meshes = new();
 
@@ -84,6 +86,18 @@ namespace CarCrashEditor
             _city = new GameObject("Elysian downtown district").transform;
             _city.gameObject.AddComponent<CityRoadNetwork>();
             _city.gameObject.AddComponent<CityLightingRig>();
+            _signFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            const string signPath = "Assets/CarCrash/Materials/Realism/M_World_Sign_Text.mat";
+            _signMaterial = AssetDatabase.LoadAssetAtPath<Material>(signPath);
+            if (_signMaterial == null)
+            {
+                _signMaterial = new Material(Shader.Find("CarCrash/WorldSignText"));
+                AssetDatabase.CreateAsset(_signMaterial,signPath);
+            }
+            _signMaterial.mainTexture = _signFont.material.mainTexture;
+            var fontBinding = _city.gameObject.AddComponent<CitySignFont>();
+            fontBinding.font = _signFont;
+            fontBinding.material = _signMaterial;
             _asphalt = RealismMaterialLibrary.Surface("M_City_Asphalt", "asphalt_02", new Color(0.60f, 0.62f, 0.65f), Vector2.one, 0.7f, 0.65f);
             _concrete = RealismMaterialLibrary.Surface("M_City_Paving", "brick_wall_003", new Color(0.63f, 0.65f, 0.65f), new Vector2(2, 2), 0.25f, 0.20f);
             _stone = RealismMaterialLibrary.Standard("M_City_Concrete", new Color(0.48f, 0.47f, 0.43f), 0f, 0.28f);
@@ -97,8 +111,17 @@ namespace CarCrashEditor
             _leaf = RealismMaterialLibrary.Standard("M_Palm_Leaf", new Color(0.17f, 0.25f, 0.10f), 0f, 0.3f);
             _light = RealismMaterialLibrary.Standard("M_City_Lamp_Lens", new Color(1f, 0.83f, 0.56f), 0f, 0.7f, 1.8f);
             Ground();
-            Buildings();
-            StreetDetails();
+            var district = _city;
+            foreach (var avenue in CityRoadNetwork.AvenueX)
+            {
+                var neighborhood = new GameObject(avenue < 0 ? "Westside neighborhood" : avenue > 0 ? "Pacific neighborhood" : "Elysian neighborhood").transform;
+                neighborhood.SetParent(district, false);
+                _city = neighborhood;
+                Buildings();
+                StreetDetails(avenue < 0 ? "WESTSIDE AVE" : avenue > 0 ? "PACIFIC AVE" : "ELYSIAN BLVD");
+                neighborhood.position = Vector3.right * avenue;
+            }
+            _city = district;
             Skyline();
             CombineStaticGeometry();
             BakeStreetReflection();
@@ -135,39 +158,67 @@ namespace CarCrashEditor
         {
             Plane("District ground", new Vector3(0, -0.16f, 100), 320, 720, _stone, true);
             Plane("Elysian Boulevard", new Vector3(0, 0, 100), 18f, 460, _asphalt, true);
-            foreach (var x in new[] { -54f, 54f }) Plane("Parallel avenue", new Vector3(x, 0, 110), 14f, 460, _asphalt);
+            foreach (var x in new[] { -54f, 54f }) Plane("Parallel avenue", new Vector3(x, 0, 110), 18f, 460, _asphalt);
             foreach (var z in CrossStreets) Plane("Cross street", new Vector3(0, 0.006f, z), 190, 14, _asphalt);
             for (var i = 0; i < CrossStreets.Length; i++)
             {
                 var start = i == 0 ? -125 : CrossStreets[i - 1] + 7;
                 var end = CrossStreets[i] - 7;
-                foreach (var x in new[] { -10.7f, 10.7f })
+                foreach (var avenue in CityRoadNetwork.AvenueX)
+                foreach (var side in new[] { -1f, 1f })
                 {
+                    var x = avenue + side * 10.7f;
                     Box("Sidewalk foundation", new Vector3(x, 0.045f, (start + end) * 0.5f), new Vector3(3.35f, 0.20f, end - start), _stone, true);
                     Plane($"Walkway {i} {x}", new Vector3(x, 0.151f, (start + end) * 0.5f), 3.35f, end - start, _concrete);
-                    Box("Raised curb", new Vector3(x + (x < 0 ? 1.63f : -1.63f), 0.12f, (start + end) * 0.5f), new Vector3(0.20f, 0.27f, end - start), _trim, true);
+                    Box("Raised curb", new Vector3(x - side * 1.63f, 0.12f, (start + end) * 0.5f), new Vector3(0.20f, 0.27f, end - start), _trim, true);
                 }
             }
             for (var z = -115f; z < 320; z += 5.6f)
             {
                 if (NearCrossStreet(z, 9f)) continue;
-                foreach (var x in new[] { -3.3f, 3.3f })
-                    Box("Worn lane paint", new Vector3(x, 0.012f, z), new Vector3(0.085f, 0.018f, 2.5f), _white);
-                foreach (var x in new[] { -0.12f, 0.12f })
-                    Box("Double yellow centerline", new Vector3(x, 0.014f, z), new Vector3(0.07f, 0.016f, 5.65f), _yellow);
+                foreach (var avenue in CityRoadNetwork.AvenueX)
+                {
+                    foreach (var x in new[] { -3.3f, 3.3f })
+                        Box("Worn lane paint", new Vector3(avenue+x, 0.012f, z), new Vector3(0.085f, 0.018f, 2.5f), _white);
+                    foreach (var x in new[] { -0.12f, 0.12f })
+                        Box("Double yellow centerline", new Vector3(avenue+x, 0.014f, z), new Vector3(0.07f, 0.016f, 5.65f), _yellow);
+                }
             }
             foreach (var z in CrossStreets)
             {
+                foreach (var avenue in CityRoadNetwork.AvenueX)
                 foreach (var side in new[] { -1, 1 })
                 {
                     for (var x = -7.8f; x < 8.5f; x += 1.45f)
-                        Box("Zebra crossing", new Vector3(x, 0.018f, z + side * 8.9f), new Vector3(0.8f, 0.015f, 2.5f), _white);
-                    Box("Stop line", new Vector3(side * 4.6f, 0.019f, z + side * 11f), new Vector3(7.9f, 0.016f, 0.22f), _white);
+                        Box("Zebra crossing", new Vector3(avenue+x, 0.018f, z + side * 8.9f), new Vector3(0.8f, 0.015f, 2.5f), _white);
+                    Box("Stop line", new Vector3(avenue+side * 4.6f, 0.019f, z + side * 11f), new Vector3(7.9f, 0.016f, 0.22f), _white);
+                }
+                foreach (var side in new[] {-1f,1f})
+                foreach (var segment in new[] {new Vector2(12.4f,41.6f),new Vector2(66.4f,93.5f)})
+                {
+                    var center = side * (segment.x+segment.y)*.5f;
+                    var length = segment.y-segment.x;
+                    foreach (var edge in new[] {-1f,1f})
+                    {
+                        var walkZ = z+edge*8.7f;
+                        Box("Cross street sidewalk",new Vector3(center,.045f,walkZ),new Vector3(length,.20f,3.35f),_stone,true);
+                        Plane("Cross street paving",new Vector3(center,.151f,walkZ),length,3.35f,_concrete);
+                        Box("Cross street curb",new Vector3(center,.12f,z+edge*7.07f),new Vector3(length,.27f,.20f),_trim,true);
+                        Palm(new Vector3(center,.15f,walkZ),0);
+                    }
+                    foreach (var lane in new[] {-.12f,.12f})
+                        Box("Cross street centerline",new Vector3(center,.014f,z+lane),new Vector3(length,.016f,.07f),_yellow);
+                }
+                foreach (var side in new[] {-1f,1f})
+                {
+                    Box("District edge safety barrier",new Vector3(side*94f,.65f,z),new Vector3(.65f,1.3f,14f),_stone,true);
+                    Box("District edge reflective stripe",new Vector3(side*93.66f,.93f,z),new Vector3(.04f,.19f,14f),_yellow);
+                    Sign("CITY LOOP / TURN",new Vector3(side*93.5f,2.45f,z),Quaternion.Euler(0,side*90f,0),.16f,new Color(.94f,.82f,.5f));
                 }
             }
             foreach (var avenue in CityRoadNetwork.AvenueX)
             {
-                var width = avenue == 0 ? 18f : 14f;
+                const float width = 18f;
                 var south = avenue == 0 ? -128f : -119f;
                 var north = avenue == 0 ? 328f : 338f;
                 foreach (var z in new[] { south, north })
@@ -249,7 +300,7 @@ namespace CarCrashEditor
             }
         }
 
-        private static void StreetDetails()
+        private static void StreetDetails(string streetName)
         {
             for (var i = 0; i < 22; i++)
             {
@@ -284,7 +335,7 @@ namespace CarCrashEditor
                     Box("Signal green lens", signal.transform.position + new Vector3(0, -0.26f, -0.17f), new Vector3(0.21f, 0.21f, 0.04f), green);
                     var signPosition = new Vector3(side * 9.6f, 4.1f, z - side * 6.5f);
                     Box("Street name plate", signPosition, new Vector3(2.1f, 0.38f, 0.06f), green);
-                    Sign("ELYSIAN BLVD", signPosition + Vector3.back * 0.05f, Quaternion.identity, 0.065f, Color.white);
+                    Sign(streetName, signPosition + Vector3.back * 0.05f, Quaternion.identity, 0.065f, Color.white);
                 }
             }
             // Small curbside props break up the repeated streetscape at car height.
@@ -447,11 +498,11 @@ namespace CarCrashEditor
             var obj = new GameObject(text, typeof(TextMesh));
             obj.transform.SetParent(_city, false); obj.transform.SetPositionAndRotation(position, rotation);
             var sign = obj.GetComponent<TextMesh>();
-            sign.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            sign.font = _signFont;
             sign.text = text; sign.fontSize = 64; sign.fontStyle = FontStyle.Bold;
             sign.characterSize = size; sign.color = color; sign.anchor = TextAnchor.MiddleCenter;
             sign.alignment = TextAlignment.Center;
-            obj.GetComponent<MeshRenderer>().sharedMaterial = sign.font.material;
+            obj.GetComponent<MeshRenderer>().sharedMaterial = _signMaterial;
         }
 
         private static Mesh SaveMesh(string name, Mesh mesh)

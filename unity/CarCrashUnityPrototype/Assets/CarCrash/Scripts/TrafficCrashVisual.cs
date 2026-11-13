@@ -42,6 +42,7 @@ namespace CarCrash
         public void ApplyImpact(Vector3 point, Vector3 relativeVelocity, float impactKmh, int chainDepth)
         {
             DarkenNearestPanel(point, impactKmh);
+            if (impactKmh < 58f) return;
 
             var partCount = Mathf.Clamp(1 + Mathf.FloorToInt((impactKmh - 58f) / 48f), 1, maximumDetachedParts);
             _detachable.Sort((left, right) =>

@@ -69,6 +69,7 @@ namespace CarCrash
             LastImpactScore = Mathf.RoundToInt(impactKmh * scorePerKmh * LastMultiplier + LastChainDepth * 520f);
             Score += LastImpactScore;
             LastImpactRealtime = Time.realtimeSinceStartup;
+            GetComponent<VehicleImpactEffects>()?.EmitImpact(point, -relativeVelocity.normalized, relativeVelocity, impactKmh);
 
             if (LastChainDepth == 0)
             {

@@ -10,6 +10,7 @@ namespace CarCrash
         public float sourceWalkSpeed = 1.3f;
         public AnimationClip walkClip;
         public Transform player;
+        public float avenueCenterX;
         public bool Yielding { get; private set; }
         public float DistanceWalked { get; private set; }
         public string LastObstacle { get; private set; }
@@ -58,11 +59,12 @@ namespace CarCrash
                 var toCar = player.position - position;
                 toCar.y = 0;
                 var car = player.GetComponent<ArcadeVehicleController>();
-                if (toCar.magnitude < 5.5f && Mathf.Abs(player.position.x) > 8f && car != null && car.SpeedKmh > 5f)
+                var carRoadX = player.position.x - avenueCenterX;
+                if (toCar.magnitude < 5.5f && Mathf.Abs(carRoadX) > 8f && car != null && car.SpeedKmh > 5f)
                 {
                     // Step aside within the sidewalk, rather than walking into traffic.
-                    var side = Mathf.Sign(pointA.x);
-                    var safeX = Mathf.Abs(player.position.x) < 10.7f ? side * 11.8f : side * 9.5f;
+                    var side = Mathf.Sign(pointA.x-avenueCenterX);
+                    var safeX = avenueCenterX + (Mathf.Abs(carRoadX) < 10.7f ? side * 11.8f : side * 9.5f);
                     delta = new Vector3(safeX - position.x, 0, Mathf.Clamp(position.z - player.position.z, -1f, 1f));
                     Yielding = true;
                 }

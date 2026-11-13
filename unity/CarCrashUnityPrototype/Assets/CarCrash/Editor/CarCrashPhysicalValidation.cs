@@ -23,6 +23,7 @@ namespace CarCrashEditor
         private static Collider[] _cityColliders;
         private static readonly List<Collider> _contactTargets = new();
         private static int _contactIndex;
+        private static int _routeIndex;
         private static PhysicalQaContactProbe _probe;
         private static CityPedestrian[] _people;
         private static readonly string[] SolidNames = { "Palm trunk", "Streetlight column", "Sidewalk bench seat", "Litter bin", "Fire hydrant", "Traffic signal pole" };
@@ -74,7 +75,8 @@ namespace CarCrashEditor
                             traffic.gameObject.SetActive(false); // Isolate steering from traffic contacts.
                         _people = Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None);
                         Result.pedestrians = _people.Length;
-                        Check(_people.Length == 24, "The district has 24 human pedestrians on sidewalk routes");
+                        Check(_people.Length == 48, "All three neighborhoods have 48 human pedestrians on sidewalk routes");
+                        _session.Garage.Select(0);
                         foreach (var person in _people)
                         {
                             var animation = person.GetComponentInChildren<Animation>();
@@ -128,7 +130,7 @@ namespace CarCrashEditor
                         CheckWorldShapes();
                         foreach (var person in _people)
                         {
-                            Check(person.DistanceWalked > 0.5f && Mathf.Abs(person.transform.position.x) > 9.1f && Mathf.Abs(person.transform.position.x) < 12.1f,
+                            Check(person.DistanceWalked > 0.5f && Mathf.Abs(person.transform.position.x-person.avenueCenterX) > 9.1f && Mathf.Abs(person.transform.position.x-person.avenueCenterX) < 12.1f,
                                 "Pedestrian walks on the sidewalk rather than the road: " + person.name +
                                 " travel=" + person.DistanceWalked.ToString("F2") + " position=" + person.transform.position + " obstacle=" + person.LastObstacle);
                             if (Vector3.Distance(person.transform.position, _session.vehicle.transform.position) < 80f)
@@ -201,7 +203,37 @@ namespace CarCrashEditor
                         var cameraPosition = _session.CameraRig.transform.position;
                         Check(Vector3.Distance(_wall.ClosestPoint(cameraPosition), cameraPosition) > 0.18f,
                             "The chase camera stays outside nearby building walls");
-                        Complete();
+                        _session.vehicle.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.None;
+                        _session.vehicle.enabled = true;
+                        foreach (var wheel in _session.vehicle.GetComponentsInChildren<WheelCollider>()) wheel.enabled = true;
+                        _routeIndex = 0;
+                        _stage = 12;
+                        break;
+                    case 12:
+                        if (_routeIndex == 4) { Complete(); break; }
+                        var west = _routeIndex < 2;
+                        var crossStreet = _routeIndex % 2 == 0;
+                        var start = crossStreet ? new Vector3(west ? -20f : 20f,.15f,35f+(west ? 2.3f : -2.3f))
+                            : new Vector3((west ? -54f : 54f)+2.3f,.15f,-10f);
+                        _forward = crossStreet ? west ? Vector3.left : Vector3.right : Vector3.forward;
+                        _session.vehicle.RecoverAt(start,Quaternion.LookRotation(_forward));
+                        _start = start;
+                        _nextAt = EditorApplication.timeSinceStartup + .6;
+                        _stage = 13;
+                        break;
+                    case 13:
+                        Hold("Accelerator pedal",true,20);
+                        _nextAt = EditorApplication.timeSinceStartup + 1.5;
+                        _stage = 14;
+                        break;
+                    case 14:
+                        var distance = Vector3.Dot(_session.vehicle.transform.position-_start,_forward);
+                        Check(distance > 8f && _session.vehicle.ForwardSpeedKmh > 20f,
+                            "The car really drives through the expanded "+(_routeIndex < 2 ? "west" : "east")+
+                            (_routeIndex % 2 == 0 ? " cross street" : " avenue")+"; travel="+distance.ToString("F2"));
+                        _session.Hud.ReleaseControls();
+                        _routeIndex++;
+                        _stage = 12;
                         break;
                 }
             }
@@ -223,6 +255,20 @@ namespace CarCrashEditor
                 var found = false;
                 foreach (var collider in colliders) if (collider.name.StartsWith(name, StringComparison.Ordinal)) found = true;
                 Check(found, "Street object is solid: " + name);
+            }
+            foreach (var avenue in CityRoadNetwork.AvenueX)
+            {
+                var buildings = 0;
+                foreach (var collider in colliders)
+                    if (collider.name == "Masonry building" && Mathf.Abs(collider.bounds.center.x-avenue) < 25f) buildings++;
+                Check(buildings >= 12,"Detailed solid shopfront blocks line both sides of avenue "+avenue);
+            }
+            foreach (var z in new[] {-58f,35f,108f,187f,266f})
+            {
+                var clear = true;
+                for (var x=-87f;x<=87f;x+=6f)
+                    clear &= !Physics.CheckBox(new Vector3(x,.8f,z),new Vector3(1.8f,.3f,.95f),Quaternion.identity,~0,QueryTriggerInteraction.Ignore);
+                Check(clear,"Cross street connects the west and east neighborhoods without scenery in its driving corridor at "+z);
             }
         }
 
