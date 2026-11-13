@@ -80,7 +80,7 @@ namespace CarCrash
             {
                 if (glow != null)
                 {
-                    glow.intensity = Mathf.Lerp(1.2f, 4.2f, lightAmount);
+                    glow.intensity = Mathf.Lerp(0.08f, 0.65f, lightAmount);
                 }
             }
         }

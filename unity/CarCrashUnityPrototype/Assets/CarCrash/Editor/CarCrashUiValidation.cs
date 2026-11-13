@@ -82,6 +82,41 @@ namespace CarCrashEditor
                         _capturedPrefs = true;
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && Time.timeScale == 0f && _session.CameraRig.Showcasing,
                             "Live garage starts with the simulation safely paused");
+                        var vertices = 0;
+                        foreach (var filter in _session.vehicle.GetComponentsInChildren<MeshFilter>())
+                            if (filter.sharedMesh != null) vertices += filter.sharedMesh.vertexCount;
+                        Check(vertices > 50000 && _session.vehicle.frontLeftVisual != null && _session.vehicle.rearRightVisual != null,
+                            "Detailed vehicle geometry retains independent wheel bindings");
+                        var renderers = _session.vehicle.GetComponentsInChildren<MeshRenderer>();
+                        var vehicleBounds = renderers[0].bounds;
+                        foreach (var renderer in renderers) vehicleBounds.Encapsulate(renderer.bounds);
+                        Check(vehicleBounds.size.x > 1.8f && vehicleBounds.size.x < 2.8f &&
+                            vehicleBounds.size.y > 0.9f && vehicleBounds.size.y < 1.9f &&
+                            vehicleBounds.size.z > 4f && vehicleBounds.size.z < 5.5f,
+                            "Imported coupe is life size, upright, and aligned with the driving chassis");
+                        foreach (var wheel in new[] { _session.vehicle.frontLeftVisual, _session.vehicle.frontRightVisual,
+                            _session.vehicle.rearLeftVisual, _session.vehicle.rearRightVisual })
+                        {
+                            var parts = wheel.GetComponentsInChildren<MeshRenderer>();
+                            var bounds = parts[0].bounds;
+                            foreach (var part in parts) bounds.Encapsulate(part.bounds);
+                            if (bounds.size.x >= bounds.size.y * 0.7f)
+                                throw new Exception("Imported wheel axle is not aligned across the chassis: " + wheel.name);
+                        }
+                        Check(true, "All four tire axles retain their source orientation and neutral steering");
+                        var reflection = Object.FindFirstObjectByType<ReflectionProbe>();
+                        Check(reflection != null && reflection.mode == UnityEngine.Rendering.ReflectionProbeMode.Custom &&
+                            reflection.customBakedTexture != null,
+                            "Street reflections use a persistent baked cubemap compatible with browser rendering");
+                        Check(RenderSettings.skybox != null && RenderSettings.skybox.GetTexture("_MainTex") != null &&
+                            QualitySettings.activeColorSpace == ColorSpace.Linear,
+                            "HDR sunset lighting and linear color rendering are configured");
+                        var city = Object.FindFirstObjectByType<CityRoadNetwork>();
+                        Check(city != null && city.GetComponentsInChildren<BoxCollider>().Length > 10 &&
+                            city.GetComponentsInChildren<MeshRenderer>().Length < 200,
+                            "The real city street map has building collision and batched scenery");
+                        Check(Resources.Load<Font>("Fonts/BarlowCondensed-Bold") != null && Resources.Load<Font>("Fonts/ArchivoBlack-Regular") != null,
+                            "The game UI includes its licensed display fonts");
                         _session.SelectPaint(1);
                         var paintVerified = false;
                         var block = new MaterialPropertyBlock();
@@ -90,7 +125,7 @@ namespace CarCrashEditor
                             for (var slot = 0; slot < renderer.sharedMaterials.Length; slot++)
                             {
                                 var material = renderer.sharedMaterials[slot];
-                                if (material == null || !material.name.Contains("Competition_")) continue;
+                                if (material == null || !(material.name.Contains("Competition_") || material.name.Contains("Paint_1"))) continue;
                                 renderer.GetPropertyBlock(block, slot);
                                 paintVerified |= block.GetColor("_Color") == CarCrashHudInput.PaintColors[1];
                             }

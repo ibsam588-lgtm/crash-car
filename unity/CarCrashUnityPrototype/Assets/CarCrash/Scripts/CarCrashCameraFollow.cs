@@ -23,6 +23,7 @@ namespace CarCrash
         private bool _orbitDragging;
         private float _transitionUntil;
         private float _orbitDirection = 1f;
+        private bool _autoOrbit = true;
 
         private void Awake() => _camera = GetComponent<Camera>();
 
@@ -34,7 +35,11 @@ namespace CarCrash
             if (target != null) _vehicle = target.GetComponent<ArcadeVehicleController>();
         }
 
-        public void RotateShowcase(float degrees) => _orbit = Mathf.Clamp(_orbit + degrees, 112f, 248f);
+        public void RotateShowcase(float degrees)
+        {
+            _autoOrbit = false;
+            _orbit += degrees;
+        }
         public void CycleView() => View = (DrivingView)(((int)View + 1) % 3);
 
         private void LateUpdate()
@@ -50,6 +55,12 @@ namespace CarCrash
 
             var localOffset = View == DrivingView.Low ? new Vector3(0f, 1.4f, -5.8f)
                 : View == DrivingView.Bonnet ? new Vector3(0f, 1.4f, 1.15f) : offset;
+            if (_camera.aspect < 1.4f && View != DrivingView.Bonnet)
+            {
+                // Preserve the coupe's screen width when the horizontal FOV narrows.
+                localOffset.z *= Mathf.Clamp(0.8f / _camera.aspect, 1f, 2f);
+                localOffset.y *= 1.25f;
+            }
             transform.position = Vector3.Lerp(transform.position, target.TransformPoint(localOffset), blend);
             LookAt(target.position + target.forward * lookAhead + Vector3.up * 1.1f, blend);
             var speed = _vehicle != null ? Mathf.Clamp01(_vehicle.SpeedKmh / 200f) : 0f;
@@ -76,21 +87,22 @@ namespace CarCrash
             if (!Input.GetMouseButton(0)) _orbitDragging = false;
             if (_orbitDragging)
             {
-                _orbit = Mathf.Clamp(_orbit + (Input.mousePosition.x - _pointer.x) * 0.22f, 112f, 248f);
+                _autoOrbit = false;
+                _orbit += (Input.mousePosition.x - _pointer.x) * 0.22f;
                 _pointer = Input.mousePosition;
             }
-            else
+            else if (_autoOrbit)
             {
                 if (_orbit > 214f) _orbitDirection = -1f;
                 if (_orbit < 136f) _orbitDirection = 1f;
-                _orbit += dt * 3f * _orbitDirection;
+                _orbit += dt * 1.5f * _orbitDirection;
             }
 
             var portrait = _camera.aspect < 1.4f;
             var angle = _orbit * Mathf.Deg2Rad;
             // Keep the whole body in the much narrower horizontal field of view on phones.
             var radius = portrait ? Mathf.Clamp(6.6f / _camera.aspect, 8.5f, 20f) : 7.4f;
-            var radial = new Vector3(Mathf.Sin(angle) * radius, 2.5f, Mathf.Cos(angle) * radius);
+            var radial = new Vector3(Mathf.Sin(angle) * radius, portrait ? 2.5f : 1.95f, Mathf.Cos(angle) * radius);
             transform.position = Vector3.Lerp(transform.position, target.position + radial, blend * 0.45f);
             var focus = target.position + Vector3.up * (portrait ? -0.10f : 0.75f);
             // Place the live car beside the menu on wide screens.

@@ -2,6 +2,7 @@ using CarCrash;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -12,7 +13,7 @@ namespace CarCrashEditor
 {
     public static class CarCrashPrototypeSceneBuilder
     {
-        private const string ModelPath = "Assets/CarCrash/Models/car_crash_gt650.fbx";
+        private const string ModelPath = "Assets/CarCrash/Models/roadbreaker_realistic.fbx";
         private const string TrafficSedanModelPath = "Assets/CarCrash/Models/traffic_sedan_modern.fbx";
         private const string TrafficCrossoverModelPath = "Assets/CarCrash/Models/traffic_crossover_modern.fbx";
         private const string TrafficTruckModelPath = "Assets/CarCrash/Models/traffic_delivery_truck_modern.fbx";
@@ -30,8 +31,9 @@ namespace CarCrashEditor
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             ConfigureProject();
-            CreateLightingAndAtmosphere();
-            CreateDowntownArena();
+            RealismMaterialLibrary.PrepareTextures();
+            RealisticCityBuilder.CreateLighting();
+            RealisticCityBuilder.CreateCity();
             var player = CreatePlayerVehicle();
             CreateTraffic(player.model, player.scoring);
             CreateCameraAndGameSystems(player.root, player.body, player.vehicle, player.scoring);
@@ -485,9 +487,9 @@ namespace CarCrashEditor
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
             instance.name = "CarCrash_GT650_Visual";
             instance.transform.SetParent(root.transform, false);
-            instance.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-            instance.transform.localScale = Vector3.one;
+            // Preserve FBX's imported root transform, which contains its axis conversion.
             SetRenderersEnabled(instance.transform, true);
+            RealismMaterialLibrary.ApplyVehicle(instance, true);
 
             var body = root.AddComponent<Rigidbody>();
             body.mass = 1540f;
@@ -689,12 +691,12 @@ namespace CarCrashEditor
             visual.transform.SetParent(root.transform, false);
             var baseYaw = velocity.z < 0f ? 180f : 0f;
             visual.transform.localRotation =
-                Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f) * Quaternion.Euler(-90f, 0f, 0f);
+                Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f) * model.transform.localRotation;
             visual.transform.localScale = Vector3.one * 0.94f;
 
             foreach (var renderer in visual.GetComponentsInChildren<Renderer>(true))
             {
-                if (renderer.sharedMaterial == null || !renderer.sharedMaterial.name.StartsWith("Paint 1", StringComparison.Ordinal))
+                if (renderer.sharedMaterial == null || !(renderer.sharedMaterial.name.StartsWith("Paint 1", StringComparison.Ordinal) || renderer.sharedMaterial.name.Contains("Paint_1")))
                 {
                     continue;
                 }
@@ -764,6 +766,7 @@ namespace CarCrashEditor
             visual.transform.localRotation = Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f);
             visual.transform.localScale = Vector3.one;
             SetRenderersEnabled(visual.transform, true);
+            RealismMaterialLibrary.ApplyVehicle(visual, false);
 
             if (paintOverride.HasValue)
             {
@@ -863,8 +866,12 @@ namespace CarCrashEditor
             var camera = cameraObject.AddComponent<Camera>();
             camera.fieldOfView = 54f;
             camera.nearClipPlane = 0.12f;
-            camera.farClipPlane = 290f;
+            camera.farClipPlane = 650f;
             camera.allowHDR = true;
+            camera.allowMSAA = true;
+            camera.clearFlags = CameraClearFlags.Skybox;
+            var grade = cameraObject.AddComponent<CinematicCameraGrade>();
+            grade.gradeShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/CarCrash/Shaders/CinematicGrade.shader");
             camera.backgroundColor = new Color(0.16f, 0.12f, 0.12f);
             cameraObject.AddComponent<AudioListener>();
 
@@ -923,8 +930,8 @@ namespace CarCrashEditor
             var light = glowObject.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(1f, 0.025f, 0.008f);
-            light.range = 4.2f;
-            light.intensity = 2.2f;
+            light.range = 2.5f;
+            light.intensity = 0.2f;
             return light;
         }
 
@@ -1060,6 +1067,9 @@ namespace CarCrashEditor
             html = html.Replace("<title>Unity Web Player | Car Crash</title>", "<title>Crash Car | Street Impact</title>");
             html = html.Replace("createUnityInstance(canvas, config,", "createUnityInstance(canvas, { ...config, autoSyncPersistentDataPath: true },");
             html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas aria-label=\"Crash Car. Enter to start. W and S for pedals, A and D to steer, B for nitro, C for camera, P to pause.\" id=\"unity-canvas\"");
+            var buildVersion = File.GetLastWriteTimeUtc(Path.Combine(WebGlBuildPath, "Build", "WebGL.data")).Ticks.ToString("x");
+            html = Regex.Replace(html, @"/WebGL\.(data|framework\.js|wasm|loader\.js)(\?v=[a-z0-9]+)?",
+                match => match.Value.Split('?')[0] + "?v=" + buildVersion);
             File.WriteAllText(indexPath, html);
         }
     }

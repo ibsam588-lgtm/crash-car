@@ -1,0 +1,787 @@
+{
+  "materials": [
+    {
+      "name": "Mechanical",
+      "color": [
+        0.05112205445766449,
+        0.05112205445766449,
+        0.05112205445766449,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 1,
+      "albedo": -1,
+      "normal": 0,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": 1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Glass",
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": -1,
+      "occlusionStrength": 1,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Material",
+      "color": [
+        0.002932318253442645,
+        0.002932318253442645,
+        0.002932318253442645,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": 3,
+      "emissionColor": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Interior 1",
+      "color": [
+        0.003697239328175783,
+        0.003697239328175783,
+        0.003697239328175783,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": -1,
+      "normal": 4,
+      "normalStrength": 1,
+      "normalTiling": [
+        200,
+        400
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Floormat",
+      "color": [
+        0.0012017396511510017,
+        0.0012017396511510017,
+        0.0012017396511510017,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.5,
+      "albedo": -1,
+      "normal": 4,
+      "normalStrength": 1,
+      "normalTiling": [
+        2,
+        3
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Hardware",
+      "color": [
+        0.2715774476528168,
+        0.2715774476528168,
+        0.2715774476528168,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.5,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": 3,
+      "emissionColor": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Interior 3 Carmine",
+      "color": [
+        0.21576441824436188,
+        0.005,
+        0,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": -1,
+      "normal": 4,
+      "normalStrength": 1,
+      "normalTiling": [
+        200,
+        400
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Interior 2",
+      "color": [
+        0.003697239328175783,
+        0.003697239328175783,
+        0.003697239328175783,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": -1,
+      "normal": 5,
+      "normalStrength": 1,
+      "normalTiling": [
+        100,
+        100
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "color": [
+        0.0012017396511510017,
+        0.0012017396511510017,
+        0.0012017396511510017,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.5,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": 6,
+      "emissionColor": [
+        1,
+        0.259027361869812,
+        0
+      ]
+    },
+    {
+      "name": "License",
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8,
+      "albedo": 3,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Paint 2 Carmine",
+      "color": [
+        0.03775528281927109,
+        0.03775528281927109,
+        0.03775528281927109,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.3,
+      "albedo": -1,
+      "normal": 7,
+      "normalStrength": 0.30000001192092896,
+      "normalTiling": [
+        30,
+        30
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Paint 1 Carmine",
+      "color": [
+        0.666,
+        0,
+        0,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.25,
+      "albedo": -1,
+      "normal": 7,
+      "normalStrength": 0.30000001192092896,
+      "normalTiling": [
+        30,
+        30
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Signallight",
+      "color": [
+        0.0012017396511510017,
+        0.0012017396511510017,
+        0.0012017396511510017,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.5,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": -1,
+      "occlusionStrength": 1,
+      "emission": -1,
+      "emissionColor": [
+        0.8,
+        0.35,
+        0
+      ]
+    },
+    {
+      "name": "Brakelight",
+      "color": [
+        0.0012017396511510017,
+        0.0012017396511510017,
+        0.0012017396511510017,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.5,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": -1,
+      "occlusionStrength": 1,
+      "emission": -1,
+      "emissionColor": [
+        0.7,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Headlight",
+      "color": [
+        0.0012017396511510017,
+        0.0012017396511510017,
+        0.0012017396511510017,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.5,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": -1,
+      "occlusionStrength": 1,
+      "emission": -1,
+      "emissionColor": [
+        0.54179847240448,
+        0.737204909324646,
+        1
+      ]
+    },
+    {
+      "name": "Mirror",
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": 3,
+      "emissionColor": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Brake",
+      "color": [
+        0.6523702144622803,
+        0,
+        0,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.2,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": 3,
+      "emissionColor": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Disc",
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.73,
+      "albedo": 8,
+      "normal": 9,
+      "normalStrength": 1,
+      "normalTiling": [
+        20,
+        10
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Tireside",
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": 10,
+      "normal": 11,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Tiretread",
+      "color": [
+        0.009021492674946783,
+        0.009021492674946783,
+        0.009021492674946783,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.6,
+      "albedo": -1,
+      "normal": 12,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        4
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Rim2",
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.049,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": 3,
+      "emissionColor": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Rim1",
+      "color": [
+        0.000992374261841178,
+        0.000992374261841178,
+        0.000992374261841178,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": 3,
+      "emissionColor": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Paint 1 Pearl",
+      "color": [
+        0.5,
+        0.5,
+        0.5,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.35,
+      "albedo": -1,
+      "normal": 7,
+      "normalStrength": 0.05,
+      "normalTiling": [
+        30,
+        30
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Paint 1 Graphite",
+      "color": [
+        0.15,
+        0.15,
+        0.15,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.3,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Paint 2 Pearl",
+      "color": [
+        0.4,
+        0.4,
+        0.4,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.25,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Paint 2 Graphite",
+      "color": [
+        0.1,
+        0.1,
+        0.1,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.2,
+      "albedo": -1,
+      "normal": -1,
+      "normalStrength": 1,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Interior 3 Pearl",
+      "color": [
+        0.98,
+        0.98,
+        0.98,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": -1,
+      "normal": 4,
+      "normalStrength": 1,
+      "normalTiling": [
+        200,
+        400
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Interior 3 Graphite",
+      "color": [
+        0.02,
+        0.05,
+        0.1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": -1,
+      "normal": 4,
+      "normalStrength": 1,
+      "normalTiling": [
+        200,
+        400
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Panel Sides",
+      "color": [
+        0.003697239328175783,
+        0.003697239328175783,
+        0.003697239328175783,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.4,
+      "albedo": -1,
+      "normal": 4,
+      "normalStrength": 0,
+      "normalTiling": [
+        1,
+        1
+      ],
+      "metalRough": -1,
+      "occlusion": 2,
+      "occlusionStrength": 0,
+      "emission": -1,
+      "emissionColor": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

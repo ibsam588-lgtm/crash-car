@@ -13,6 +13,7 @@ namespace CarCrash
         public bool showroom;
         public Transform player;
         public MovingTrafficObstacle[] traffic;
+        public BoxCollider[] cityBuildings;
         public Color accent = new(0.78f, 1f, 0.22f);
 
         protected override void OnPopulateMesh(VertexHelper vh)
@@ -68,41 +69,65 @@ namespace CarCrash
         private void Radar(VertexHelper vh, Rect r)
         {
             Panel(vh, r);
-            var inner = new Rect(r.xMin + 22f, r.yMin + 10f, r.width - 44f, r.height - 20f);
-            for (var i = 0; i < 5; i++)
+            var inner = new Rect(r.xMin + 4, r.yMin + 4, r.width - 8, r.height - 8);
+            Quad(vh, inner.min, inner.max, new Color(0.27f, 0.29f, 0.27f, 0.95f));
+            if (player == null) return;
+            const float range = 120f;
+            Vector2 Map(Vector3 world) => new(inner.center.x + (world.x - player.position.x) / (range * 2) * inner.width,
+                inner.center.y + (world.z - player.position.z) / (range * 2) * inner.height);
+            if (cityBuildings != null)
             {
-                var x = inner.xMin + i * inner.width * 0.25f;
-                Line(vh, new Vector2(x, inner.yMin), new Vector2(x, inner.yMax), 1f,
-                    new Color(0.75f, 0.87f, 0.9f, i == 0 || i == 4 ? 0.35f : 0.12f));
+                foreach (var building in cityBuildings)
+                {
+                    if (building == null) continue;
+                    var bounds = building.bounds;
+                    var a = Map(bounds.min); var b = Map(bounds.max);
+                    var min = new Vector2(Mathf.Max(inner.xMin, a.x), Mathf.Max(inner.yMin, a.y));
+                    var max = new Vector2(Mathf.Min(inner.xMax, b.x), Mathf.Min(inner.yMax, b.y));
+                    if (min.x < max.x && min.y < max.y) Quad(vh, min, max, new Color(0.15f, 0.17f, 0.16f));
+                }
             }
-            for (var i = 1; i < 4; i++)
+            foreach (var avenue in CityRoadNetwork.AvenueX)
             {
-                var y = inner.yMin + inner.height * i / 4f;
-                Line(vh, new Vector2(inner.xMin, y), new Vector2(inner.xMax, y), 1f, new Color(0.6f, 0.8f, 0.9f, 0.08f));
+                var x = Map(new Vector3(avenue, 0, player.position.z)).x;
+                if (x < inner.xMin || x > inner.xMax) continue;
+                var width = (avenue == 0 ? 18f : 14f) / (range * 2) * inner.width;
+                Quad(vh, new Vector2(Mathf.Max(inner.xMin, x - width * 0.5f - 1), inner.yMin),
+                    new Vector2(Mathf.Min(inner.xMax, x + width * 0.5f + 1), inner.yMax), new Color(0.10f, 0.12f, 0.11f));
+                Quad(vh, new Vector2(Mathf.Max(inner.xMin, x - width * 0.5f), inner.yMin),
+                    new Vector2(Mathf.Min(inner.xMax, x + width * 0.5f), inner.yMax), new Color(0.69f, 0.70f, 0.66f));
             }
-            if (player != null && traffic != null)
+            foreach (var crossing in CityRoadNetwork.CrossStreetZ)
+            {
+                var y = Map(new Vector3(player.position.x, 0, crossing)).y;
+                if (y < inner.yMin || y > inner.yMax) continue;
+                var width = 14f / (range * 2) * inner.height;
+                Quad(vh, new Vector2(inner.xMin, Mathf.Max(inner.yMin, y - width * 0.5f)),
+                    new Vector2(inner.xMax, Mathf.Min(inner.yMax, y + width * 0.5f)), new Color(0.69f, 0.70f, 0.66f));
+            }
+            var routeX = Map(new Vector3(0, 0, player.position.z)).x;
+            if (routeX > inner.xMin && routeX < inner.xMax)
+                Line(vh, new Vector2(routeX, inner.center.y), new Vector2(routeX, inner.yMax), 2f, new Color(0.91f, 0.69f, 0.29f));
+            if (traffic != null)
             {
                 foreach (var target in traffic)
                 {
                     if (target == null || !target.gameObject.activeInHierarchy) continue;
-                    var relative = player.InverseTransformPoint(target.transform.position);
-                    if (relative.z < -12f || relative.z > 70f || Mathf.Abs(relative.x) > 10f) continue;
-                    var point = new Vector2(inner.center.x + relative.x / 10f * inner.width * 0.5f,
-                        Mathf.Lerp(inner.yMin, inner.yMax, (relative.z + 12f) / 82f));
-                    Quad(vh, point - new Vector2(2.5f, 4f), point + new Vector2(2.5f, 4f),
-                        target.IsReleased ? new Color(1f, 0.34f, 0.16f) : new Color(0.45f, 0.78f, 0.9f, 0.85f));
+                    var point = Map(target.transform.position);
+                    if (!inner.Contains(point)) continue;
+                    Disc(vh, point, 2f, target.IsReleased ? new Color(0.85f, 0.29f, 0.20f) : new Color(0.50f, 0.71f, 0.81f));
                 }
             }
-            var p = new Vector2(inner.center.x, inner.yMin + inner.height * 12f / 82f);
-            Triangle(vh, p + new Vector2(0f, 7f), p + new Vector2(-5f, -4f), p + new Vector2(5f, -4f), accent);
-            var scanY = Mathf.Lerp(inner.yMin, inner.yMax, Mathf.Repeat(Time.unscaledTime * 0.3f, 1f));
-            Line(vh, new Vector2(inner.xMin, scanY), new Vector2(inner.xMax, scanY), 1f, new Color(accent.r, accent.g, accent.b, 0.35f));
+            var p = inner.center;
+            var direction = new Vector2(player.forward.x, player.forward.z).normalized;
+            var side = new Vector2(-direction.y, direction.x);
+            Triangle(vh, p + direction * 7, p - direction * 4 + side * 5, p - direction * 4 - side * 5, Color.white);
         }
-
         private void Atmosphere(VertexHelper vh, Rect r)
         {
             var dark = color;
-            GradientQuad(vh, new Vector2(r.xMin, r.yMax - r.height * (showroom ? 0.45f : 0.23f)), new Vector2(r.xMax, r.yMax), Color.clear, dark);
+            var topShade = new Color(dark.r, dark.g, dark.b, showroom ? 0.68f : 0.84f);
+            GradientQuad(vh, new Vector2(r.xMin, r.yMax - r.height * (showroom ? 0.45f : 0.28f)), new Vector2(r.xMax, r.yMax), Color.clear, topShade);
             GradientQuad(vh, new Vector2(r.xMin, r.yMin), new Vector2(r.xMax, r.yMin + r.height * 0.38f), dark, Color.clear);
             if (showroom && r.width > r.height * 1.4f)
                 Four(vh, new Vector2(r.xMin, r.yMin), new Vector2(r.xMin, r.yMax),

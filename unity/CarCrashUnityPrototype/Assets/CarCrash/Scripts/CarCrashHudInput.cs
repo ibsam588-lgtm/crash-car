@@ -11,10 +11,10 @@ namespace CarCrash
         public const float RunDuration = 60f;
         public static readonly Color[] PaintColors =
         {
-            new(1f, 0.61f, 0.045f), new(0.12f, 0.57f, 0.86f),
-            new(0.82f, 0.06f, 0.055f), new(0.72f, 0.77f, 0.80f), new(0.10f, 0.13f, 0.16f)
+            new(0.22f, 0.26f, 0.30f), new(0.70f, 0.75f, 0.80f),
+            new(0.06f, 0.24f, 0.42f), new(0.60f, 0.035f, 0.025f), new(0.86f, 0.87f, 0.84f)
         };
-        public static readonly string[] PaintNames = { "COMPETITION GOLD", "APEX BLUE", "SIGNAL RED", "GLACIER SILVER", "CARBON BLACK" };
+        public static readonly string[] PaintNames = { "MIDNIGHT GRAPHITE", "ARCTIC SILVER", "OCEAN BLUE", "CARMINE RED", "PEARL WHITE" };
         public RunPhase Phase { get; private set; } = RunPhase.Showroom;
         public float ElapsedSeconds { get; private set; }
         public float PeakSpeed { get; private set; }
@@ -176,16 +176,15 @@ namespace CarCrash
                     var material = materials[slot];
                     if (material == null) continue;
                     var bodyPaint = material.name.Contains("Competition_Orange") || material.name.Contains("Orange_Shadow") ||
-                        material.name.Contains("Competition_Yellow") || material.name.Contains("Yellow_Shadow");
-                    var wheelMetal = material.name == "Rim1" || material.name == "Rim2" || material.name.Contains("Forged_Wheel") || material.name.Contains("Wheel_Edge");
-                    if (!bodyPaint && !wheelMetal) continue;
+                        material.name.Contains("Competition_Yellow") || material.name.Contains("Yellow_Shadow") || material.name.Contains("Paint_1");
+                    if (!bodyPaint) continue;
                     renderer.GetPropertyBlock(_paintBlock, slot);
-                    var color = wheelMetal ? new Color(0.10f, 0.12f, 0.14f) : PaintColors[index];
+                    var color = PaintColors[index];
                     if (material.name.Contains("Shadow")) color *= 0.7f;
                     color.a = 1f;
                     _paintBlock.SetColor("_Color", color);
-                    _paintBlock.SetFloat("_Metallic", wheelMetal ? 0.8f : 0.55f);
-                    _paintBlock.SetFloat("_Glossiness", wheelMetal ? 0.55f : 0.72f);
+                    _paintBlock.SetFloat("_Metallic", 0.45f);
+                    _paintBlock.SetFloat("_Glossiness", 0.78f);
                     renderer.SetPropertyBlock(_paintBlock, slot);
                     _paintBlock.Clear();
                 }

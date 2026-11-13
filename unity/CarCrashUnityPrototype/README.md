@@ -4,8 +4,8 @@ This folder contains the Unity 6 production prototype for Car Crash.
 
 ## What Is Included
 
-- `Assets/CarCrash/Models/car_crash_gt650.blend`
-- `Assets/CarCrash/Models/car_crash_gt650.fbx`
+- `Assets/CarCrash/Models/roadbreaker_realistic.fbx` and the licensed source GLB
+- Reproducible Blender conversion and environment-download helpers in the repository's `tools` directory
 - Vehicle, traffic, camera, HUD, crash damage, slow-motion, scoring, and run-result scripts
 - Unity editor builders at `Car Crash > Build Production Impact Run Scene` and `Car Crash > Build Production WebGL`
 
@@ -29,7 +29,19 @@ This folder contains the Unity 6 production prototype for Car Crash.
 
 The scene opens in a live 3D garage with an orbiting camera, drag/arrow camera controls, five paint finishes, vehicle specifications, and a Start Engine button. A three-second countdown leads into a 60-second Impact Run. A stopped wreck or full damage can finish the run early.
 
-The responsive uGUI HUD includes an animated analog speedometer, speed-derived automatic gear/rev indicators, a radar driven by actual nearby traffic transforms, body integrity, rechargeable nitro, animated score, hit count, impact-chain feedback, and a run timer. Chase, Low, and Bonnet cameras use speed-sensitive field of view and impact shake. Paint and personal best scores save locally with PlayerPrefs.
+The responsive uGUI HUD uses compact digital instruments, speed-derived automatic gear/rev indicators, a city minimap driven by the street geometry and nearby traffic transforms, body integrity, rechargeable nitro, animated score, hit count, impact-chain feedback, and a run timer. Chase, Low, and Bonnet cameras use speed-sensitive field of view and impact shake. Paint and personal best scores save locally with PlayerPrefs.
+
+The detailed Roadbreaker model preserves the licensed CarConcept body and cockpit. It uses imported tire/normal maps, reflective metallic paint, transparent glass, separate wheels, and emissive lamps. The Elysian district includes textured asphalt and brick, a sunset HDR sky, road intersections, shop signs, palms, sidewalks, street furniture, and skyline towers. Static scenery is combined into material batches to limit draw calls. A street cubemap is captured in the Editor and saved with the scene for browser-compatible reflections. Camera output uses a small ACES-style tone-mapping shader; the UI stays sharp above the camera image.
+
+To reproduce the visual source assets:
+
+```powershell
+python tools/fetch_realism_assets.py
+blender --background --python tools/blender/prepare_realistic_roadbreaker.py
+python tools/prepare_realism_textures.py
+```
+
+Run these commands from the repository root; the Blender helper uses the existing licensed GLB. The texture conversion helper requires Pillow. Asset sources and font licenses are listed in the repository's `THIRD_PARTY_NOTICES.md`.
 
 Keyboard controls:
 
@@ -47,7 +59,7 @@ On touch screens, hold the steering and pedal controls. Releasing a control, lea
 
 ## UI Verification
 
-Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. This checks the actual scene, paint bindings, independent touch input, brake priority, nitro charge, camera switching, impact scoring, pause during slow motion, results, retry, and garage return. It restores the pre-test paint and personal-best preferences and writes `Builds/Validation/ui-smoke.json`.
+Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. This checks the actual scene, car dimensions and wheel alignment, baked reflections, paint bindings, independent touch input, brake priority, nitro charge, camera switching, impact scoring, pause during slow motion, results, retry, and garage return. It restores the pre-test paint and personal-best preferences and writes `Builds/Validation/ui-smoke.json`.
 
 For a browser preview after building WebGL:
 

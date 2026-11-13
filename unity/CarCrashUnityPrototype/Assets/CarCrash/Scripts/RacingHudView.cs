@@ -7,7 +7,7 @@ namespace CarCrash
 {
     public sealed class RacingHudView : MonoBehaviour
     {
-        private static readonly Color Lime = new(0.80f, 1f, 0.26f);
+        private static readonly Color Lime = new(0.92f, 0.73f, 0.33f);
         private static readonly Color White = new(0.95f, 0.97f, 0.96f);
         private static readonly Color Muted = new(0.63f, 0.71f, 0.74f);
         private static readonly Color PanelColor = new(0.025f, 0.043f, 0.055f, 0.87f);
@@ -16,6 +16,7 @@ namespace CarCrash
         private CanvasScaler _scaler;
         private RectTransform _safe;
         private Font _font;
+        private Font _displayFont;
         private MovingTrafficObstacle[] _traffic;
         private Rect _lastSafeArea;
         private Vector2Int _lastSize;
@@ -41,7 +42,8 @@ namespace CarCrash
         public void Initialize(CarCrashHudInput session)
         {
             _session = session;
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = Resources.Load<Font>("Fonts/BarlowCondensed-Bold") ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _displayFont = Resources.Load<Font>("Fonts/ArchivoBlack-Regular") ?? _font;
             _traffic = FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None);
             var ui = new GameObject("Racing UI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             _canvas = ui.GetComponent<Canvas>();
@@ -86,7 +88,7 @@ namespace CarCrash
             _height = _safe.rect.height;
 
             _atmosphere = Shape(_safe, "Edge shading", 0, 0, _width, _height, RacingHudGraphic.Shape.Atmosphere,
-                new Color(0.008f, 0.018f, 0.025f, 0.80f));
+                new Color(0.008f, 0.018f, 0.025f, 0.52f));
             _showroom = Group(_safe, "Live garage");
             BuildShowroom(_showroom.transform);
             _race = Group(_safe, "Driving telemetry");
@@ -105,138 +107,133 @@ namespace CarCrash
         private void BuildShowroom(Transform root)
         {
             var pad = _portrait ? 24f : 44f;
-            Brand(root, pad, 25);
-            Label(root, "DOWNTOWN STRIP", _width - pad - 175, 28, 175, 20, 12, White, TextAnchor.MiddleRight);
-            Label(root, "STREET SERIES  /  01", _width - pad - 190, 49, 190, 18, 10, Muted, TextAnchor.MiddleRight);
-            var titleY = _portrait ? 112f : 132f;
-            Label(root, "NO RULES. JUST IMPACT.", pad, titleY - 24, 340, 20, 11, Lime);
-            Label(root, "BUILT FOR", pad, titleY, _portrait ? _width - 48 : 500, 74, _portrait ? 45 : 64, White);
-            Label(root, "THE IMPACT.", pad, titleY + (_portrait ? 49 : 68), _portrait ? _width - 48 : 540, 74, _portrait ? 45 : 64, Lime);
+            Brand(root, pad, 27);
+            Label(root, "ELYSIAN DISTRICT", _width - pad - 180, 27, 180, 22, 13, White, TextAnchor.MiddleRight);
+            Label(root, "GOLDEN HOUR / STREET SERIES", _width - pad - 230, 51, 230, 17, 10, Muted, TextAnchor.MiddleRight);
+            var titleY = _portrait ? 118f : 143f;
+            Label(root, "DOWNTOWN  /  CHAPTER 01", pad, titleY - 28, 350, 18, 11, Lime);
+            Label(root, "OWN THE", pad, titleY, _portrait ? _width - 48 : 510, 72, _portrait ? 36 : 55, White);
+            Label(root, "STREETS.", pad, titleY + (_portrait ? 49 : 69), _portrait ? _width - 48 : 510, 75, _portrait ? 36 : 55, White);
             if (!_portrait)
-                Label(root, "Find the gap. Build the chain.\nLeave your mark on the city.", pad + 2, titleY + 160, 370, 62, 17, White);
+            {
+                Label(root, "One car. A city full of possibilities.", pad + 2, titleY + 160, 420, 30, 18, White);
+                Label(root, "Thread the traffic. Build your impact chain.", pad + 2, titleY + 194, 420, 24, 14, Muted);
+            }
 
-            var cardY = _height - (_portrait ? 292 : 224);
-            var cardWidth = _portrait ? _width - pad * 2 : 366f;
-            var card = Shape(root, "Vehicle specification", pad, cardY, cardWidth, _portrait ? 142 : 156, RacingHudGraphic.Shape.Panel, PanelColor);
-            Label(card.transform, "YOUR MACHINE", 18, 13, 190, 18, 10, Lime);
-            Label(card.transform, "ROADBREAKER GT", 18, 37, cardWidth - 36, 28, _portrait ? 23 : 25, White);
-            Label(card.transform, "SPORT COUPE  /  REAR-WHEEL DRIVE", 18, 69, cardWidth - 36, 18, 10, Muted);
-            Rule(card.transform, 18, 98, cardWidth - 36);
-            Label(card.transform, $"{_session.vehicle.maxSpeedKmh:0} KM/H", 18, 110, 120, 24, 16, White);
-            Label(card.transform, "60 SECOND RUN", cardWidth - 165, 111, 146, 23, 12, Lime, TextAnchor.MiddleRight);
-
-            var paintX = _portrait ? pad : _width - 324f;
-            var paintY = _height - (_portrait ? 394f : 236f);
-            _paintLabel = Label(root, "", paintX, paintY, 280, 19, 10, White);
+            var footerY = _height - (_portrait ? 287f : 166f);
+            Solid(root, "Garage footer", 0, footerY, _width, _height - footerY, new Color(0.018f, 0.021f, 0.025f, 0.86f));
+            Rule(root, pad, footerY, _width - pad * 2);
+            Label(root, "CURRENT VEHICLE", pad, footerY + 20, 250, 17, 10, Muted);
+            Label(root, "ROADBREAKER GT", pad, footerY + 45, _portrait ? _width - 48 : 335, 34, 27, White);
+            Label(root, $"PERFORMANCE COUPE   /   {_session.vehicle.maxSpeedKmh:0} KM/H", pad, footerY + 82, _portrait ? _width - 48 : 335, 20, 12, Muted);
+            if (_session.BestScore > 0)
+                Label(root, $"PERSONAL BEST  {_session.BestScore:N0}", pad, footerY - 33, 280, 22, 12, White);
+            var paintX = _portrait ? pad : _width * 0.42f;
+            var paintY = footerY + (_portrait ? 115 : 25);
+            _paintLabel = Label(root, "", paintX, paintY, 290, 18, 10, White);
             for (var i = 0; i < _swatches.Length; i++)
             {
                 var index = i;
-                var button = ActionButton(root, "Paint " + CarCrashHudInput.PaintNames[i], "", paintX + i * 44, paintY + 29, 34, 30,
+                var button = ActionButton(root, "Paint " + CarCrashHudInput.PaintNames[i], "", paintX + i * 43, paintY + 31, 32, 27,
                     () => _session.SelectPaint(index), CarCrashHudInput.PaintColors[i], White);
                 _swatches[i] = button.targetGraphic;
             }
-            ActionButton(root, "Orbit left", "<", _portrait ? _width - pad - 88 : _width - 145, _portrait ? _height * 0.48f : 365, 38, 38,
+            var orbitY = _portrait ? footerY - 89 : footerY - 84;
+            ActionButton(root, "Orbit left", "<", _width - pad - 88, orbitY, 38, 38,
                 () => _session.CameraRig.RotateShowcase(-32f), PanelColor, White);
-            ActionButton(root, "Orbit right", ">", _portrait ? _width - pad - 40 : _width - 99, _portrait ? _height * 0.48f : 365, 38, 38,
+            ActionButton(root, "Orbit right", ">", _width - pad - 42, orbitY, 38, 38,
                 () => _session.CameraRig.RotateShowcase(32f), PanelColor, White);
-            Label(root, "DRAG TO EXPLORE", _portrait ? pad : _width - 324, _portrait ? _height * 0.49f : 412, 210, 20, 10, Muted);
-
+            Label(root, "DRAG TO ROTATE", _portrait ? pad : _width - 325, orbitY + 9, 170, 20, 10, White);
             var startX = _portrait ? pad : _width - 324f;
-            var startY = _height - (_portrait ? 126f : 117f);
-            ActionButton(root, "Start engine", "START ENGINE    >", startX, startY, _portrait ? _width - pad * 2 : 280, 61,
-                _session.BeginRun, Lime, new Color(0.06f, 0.09f, 0.02f), 20);
-            Label(root, "IMPACT RUN  /  TRAFFIC CHAINS", startX, startY + 71, _portrait ? _width - 48 : 280, 18, 10, White, TextAnchor.MiddleCenter);
+            var startY = _portrait ? _height - 90f : footerY + 45f;
+            ActionButton(root, "Start engine", "START ENGINE    >", startX, startY, _portrait ? _width - pad * 2 : 280, 54,
+                _session.BeginRun, Lime, new Color(0.08f, 0.07f, 0.04f), 19);
             if (!_portrait)
-                Label(root, "W / S   DRIVE & BRAKE     A / D   STEER     B   NITRO     C   CAMERA", pad, _height - 33, 780, 18, 10, Muted);
+                Label(root, "W / S   PEDALS     A / D   STEER     B   NITRO     C   CAMERA     P   PAUSE", pad, _height - 30, 800, 17, 11, Muted);
             else
-                Label(root, "HOLD THE PEDALS TO DRIVE", pad, _height - 31, _width - 48, 16, 9, Muted, TextAnchor.MiddleCenter);
-            if (_session.BestScore > 0)
-                Label(root, $"PERSONAL BEST   {_session.BestScore:N0}", pad, cardY - 30, 280, 20, 11, White);
+                Label(root, "60 SECOND IMPACT RUN", pad, _height - 27, _width - 48, 17, 10, Muted, TextAnchor.MiddleCenter);
         }
 
         private void BuildRace(Transform root)
         {
-            var pad = _portrait ? 22f : 32f;
-            Label(root, "IMPACT RUN", pad, 22, 220, 20, 12, Lime);
-            Label(root, "TOTAL SCORE", pad, 51, 180, 18, 10, Muted);
-            _score = Label(root, "0", pad - 1, 70, 255, 53, _portrait ? 42 : 46, White);
-            _hits = Label(root, "00 HITS", pad, 126, 110, 22, 12, White);
-            _combo = Label(root, "x1.0", pad + 112, 122, 100, 28, 20, Lime);
+            var pad = _portrait ? 22f : 30f;
+            Label(root, "ELYSIAN", pad, 22, 200, 24, 17, White);
+            Label(root, "DOWNTOWN IMPACT", pad, 49, 220, 18, 10, Muted);
             var right = _width - pad;
-            Label(root, "TIME LEFT", right - 190, 22, 105, 18, 9, Muted, TextAnchor.MiddleRight);
-            _timer = Label(root, "01:00", right - 190, 45, 105, 35, 27, White, TextAnchor.MiddleRight);
-            ActionButton(root, "Pause", "II", right - 57, 23, 57, 51, _session.PauseRun, PanelColor, White, 22);
-            _cameraLabel = ActionButton(root, "Change camera", "CAM / CHASE", right - 157, 90, 157, 35, _session.CycleCamera, PanelColor, White, 10)
-                .GetComponentInChildren<Text>();
+            Label(root, "IMPACT SCORE", right - 265, 20, 205, 18, 10, Muted, TextAnchor.MiddleRight);
+            _score = Label(root, "0", right - 276, 40, 216, 43, _portrait ? 33 : 38, White, TextAnchor.MiddleRight);
+            _hits = Label(root, "00 HITS", right - 270, 85, 130, 20, 12, White, TextAnchor.MiddleRight);
+            _combo = Label(root, "x1.0", right - 125, 85, 65, 22, 15, Lime, TextAnchor.MiddleRight);
+            ActionButton(root, "Pause", "II", right - 44, 22, 44, 44, _session.PauseRun, PanelColor, White, 19);
+            Label(root, "TIME LEFT", right - 213, 121, 78, 17, 10, Muted, TextAnchor.MiddleRight);
+            _timer = Label(root, "01:00", right - 128, 114, 68, 30, 22, White, TextAnchor.MiddleRight);
+            _cameraLabel = ActionButton(root, "Change camera", "CAM / CHASE", pad, 80, 116, 29,
+                _session.CycleCamera, PanelColor, White, 10).GetComponentInChildren<Text>();
             if (!_portrait)
             {
-                Label(root, "DOWNTOWN STRIP", _width * 0.5f - 160, 25, 320, 25, 13, White, TextAnchor.MiddleCenter);
-                Label(root, "S T R E E T   /   S E R I E S", _width * 0.5f - 160, 52, 320, 18, 9, Muted, TextAnchor.MiddleCenter);
+                Label(root, "IMPACT RUN", _width * 0.5f - 170, 24, 340, 27, 15, White, TextAnchor.MiddleCenter);
+                Label(root, "BUILD THE CHAIN. LEAVE YOUR MARK.", _width * 0.5f - 200, 53, 400, 18, 10, Muted, TextAnchor.MiddleCenter);
             }
 
-            var radarY = _height - (_portrait ? 382f : 314f);
-            Label(root, "TRAFFIC SCAN / 70 M", pad, radarY - 25, 175, 18, 9, Muted);
-            _radar = Shape(root, "Live traffic radar", pad, radarY, _portrait ? 130 : 156, _portrait ? 140 : 158,
-                RacingHudGraphic.Shape.Radar, new Color(0.03f, 0.06f, 0.075f, 0.75f));
+            var mapWidth = _portrait ? 151f : 200f;
+            var mapHeight = _portrait ? 130f : 143f;
+            var mapY = _height - (_portrait ? 384 : 260);
+            _radar = Shape(root, "Live city minimap", pad, mapY, mapWidth, mapHeight, RacingHudGraphic.Shape.Radar,
+                new Color(0.11f, 0.13f, 0.13f, 0.92f));
             _radar.player = _session.vehicle.transform;
             _radar.traffic = _traffic;
+            var network = FindFirstObjectByType<CityRoadNetwork>();
+            _radar.cityBuildings = network != null ? network.GetComponentsInChildren<BoxCollider>() : System.Array.Empty<BoxCollider>();
+            Label(root, "N", pad + mapWidth - 20, mapY + 6, 15, 18, 11, White, TextAnchor.MiddleCenter);
+            _integrity = Label(root, "VEHICLE 100%", pad, mapY + mapHeight + 8, mapWidth, 17, 10, White);
+            _damageFill = Meter(root, "Body integrity", pad, mapY + mapHeight + 29, mapWidth, 5, new Color(0.42f, 0.72f, 0.40f));
+            _boostLabel = Label(root, "NITRO READY", pad, mapY + mapHeight + 41, mapWidth, 17, 10, White);
+            _boostFill = Meter(root, "Nitro charge", pad, mapY + mapHeight + 62, mapWidth, 4, new Color(0.36f, 0.63f, 0.79f));
 
-            var dialSize = _portrait ? 178f : 222f;
-            var dialX = _width - pad - dialSize;
-            var dialY = _height - (_portrait ? 352f : 268f);
-            _dial = Shape(root, "Analog speedometer", dialX, dialY, dialSize, dialSize, RacingHudGraphic.Shape.Gauge, White);
-            for (var i = 0; i <= 8; i++)
-            {
-                var a = (225f - i * 33.75f) * Mathf.Deg2Rad;
-                var radius = dialSize * 0.30f;
-                Label(root, (i * 30).ToString(), dialX + dialSize * 0.5f + Mathf.Cos(a) * radius - 15,
-                    dialY + dialSize * 0.5f - Mathf.Sin(a) * radius - 9, 30, 18, _portrait ? 8 : 10, Muted, TextAnchor.MiddleCenter);
-            }
-            _speed = Label(root, "000", dialX + dialSize * 0.2f, dialY + dialSize * 0.52f, dialSize * 0.6f, 51,
-                _portrait ? 34 : 42, White, TextAnchor.MiddleCenter);
-            Label(root, "KM/H", dialX, dialY + dialSize * 0.76f, dialSize, 18, 9, Muted, TextAnchor.MiddleCenter);
-            _gear = Label(root, "N", dialX + dialSize * 0.5f - 16, dialY + dialSize * 0.86f, 32, 25, 18, Lime, TextAnchor.MiddleCenter);
-            Label(root, "AUTO", dialX + dialSize * 0.5f - 55, dialY + dialSize * 0.88f, 32, 18, 8, Muted, TextAnchor.MiddleRight);
-            _rpmFill = Meter(root, "Engine revs", dialX + 22, dialY - 10, dialSize - 44, 3, Lime);
-
-            var integrityY = _portrait ? radarY + 151 : radarY + 173;
-            _integrity = Label(root, "INTEGRITY 100%", pad, integrityY, 180, 18, 9, White);
-            _damageFill = Meter(root, "Body integrity", pad, integrityY + 25, _portrait ? 130 : 156, 4, Lime);
+            var speedWidth = _portrait ? 148f : 170f;
+            var speedX = right - speedWidth;
+            var speedY = _height - (_portrait ? 247f : 170f);
+            _dial = Shape(root, "Digital driving instruments", speedX, speedY, speedWidth, 96, RacingHudGraphic.Shape.Panel,
+                new Color(0.016f, 0.02f, 0.025f, 0.60f));
+            _speed = Label(root, "000", speedX + 9, speedY + 4, speedWidth - 58, 55, _portrait ? 36 : 40, White, TextAnchor.MiddleRight);
+            Label(root, "KM/H", right - 45, speedY + 34, 36, 18, 10, Muted);
+            _gear = Label(root, "N", speedX + 15, speedY + 65, 25, 24, 18, White);
+            Label(root, "AUTO", speedX + 43, speedY + 69, 36, 17, 9, Muted);
+            _rpmFill = Meter(root, "Engine revs", speedX + 86, speedY + 75, speedWidth - 99, 3, Lime);
+            if (!_portrait)
+                Label(root, "Elysian Boulevard", right - 280, _height - 45, 280, 25, 19, White, TextAnchor.MiddleRight);
 
             _controls = Group(root, "Touch driving controls");
             var c = _controls.transform;
-            var controlY = _height - (_portrait ? 91f : 115f);
-            _left = HoldButton(c, "Steer left", "<", pad, controlY, 65, 65, PanelColor);
-            _right = HoldButton(c, "Steer right", ">", pad + 76, controlY, 65, 65, PanelColor);
+            var controlY = _height - (_portrait ? 91f : 103f);
+            var controlX = _portrait ? pad : pad + mapWidth + 23;
+            var controlSize = _portrait ? 65f : 47f;
+            _left = HoldButton(c, "Steer left", "<", controlX, controlY, controlSize, controlSize, PanelColor, _portrait ? 28 : 22);
+            _right = HoldButton(c, "Steer right", ">", controlX + controlSize + 10, controlY, controlSize, controlSize, PanelColor, _portrait ? 28 : 22);
             if (_portrait)
             {
-                _brake = HoldButton(c, "Brake pedal", "BRAKE", _width - pad - 141, controlY + 6, 61, 59, PanelColor, 11);
-                _gas = HoldButton(c, "Accelerator pedal", "GAS", _width - pad - 68, controlY - 12, 68, 77, new Color(0.12f, 0.17f, 0.07f, 0.94f), 14);
+                _brake = HoldButton(c, "Brake pedal", "BRAKE", right - 141, controlY + 6, 61, 59, PanelColor, 11);
+                _gas = HoldButton(c, "Accelerator pedal", "GAS", right - 68, controlY - 12, 68, 77, PanelColor, 14);
             }
             else
             {
-                _brake = HoldButton(c, "Brake pedal", "BRAKE", dialX - 169, controlY + 1, 64, 64, PanelColor, 11);
-                _gas = HoldButton(c, "Accelerator pedal", "GAS", dialX - 92, controlY - 20, 76, 85, new Color(0.12f, 0.17f, 0.07f, 0.94f), 14);
+                _brake = HoldButton(c, "Brake pedal", "BRAKE", right - speedWidth - 146, controlY, 54, 47, PanelColor, 10);
+                _gas = HoldButton(c, "Accelerator pedal", "GAS", right - speedWidth - 79, controlY - 7, 56, 54, PanelColor, 13);
             }
-            var boostX = _portrait ? pad : _width * 0.43f - 70;
-            var boostY = _height - (_portrait ? 170f : 116f);
-            var boost = ActionButton(c, "Nitro boost", "NITRO  >", boostX, boostY, _portrait ? 128 : 140, 57,
-                _session.ActivateBoost, new Color(0.08f, 0.16f, 0.19f, 0.94f), new Color(0.40f, 0.87f, 1f), 15);
+            var boostX = _portrait ? pad : _width * 0.48f - 55;
+            var boostY = _height - (_portrait ? 174 : 103);
+            var boost = ActionButton(c, "Nitro boost", "NITRO  [B]", boostX, boostY, _portrait ? 128 : 110, _portrait ? 54 : 47,
+                _session.ActivateBoost, new Color(0.06f, 0.10f, 0.13f, 0.78f), new Color(0.58f, 0.80f, 0.91f), 13);
             _boostButton = boost.targetGraphic;
-            _boostLabel = Label(c, "NITRO READY", boostX - 15, boostY - 27, _portrait ? 158 : 170, 18, 10, White, TextAnchor.MiddleCenter);
-            _boostFill = Meter(c, "Nitro charge", boostX, boostY + 66, _portrait ? 128 : 140, 4, new Color(0.35f, 0.85f, 1f));
-            Label(c, _portrait ? "HOLD TO STEER" : "A / D  STEER", pad, controlY + 75, 160, 18, 9, Muted);
             if (!_portrait)
-                Label(c, "W / S   PEDALS       B   NITRO       C   CAMERA       ESC   PAUSE", _width * 0.5f - 280, _height - 24, 560, 16, 9, Muted, TextAnchor.MiddleCenter);
-
-            _eventLabel = Label(root, "FIND YOUR LINE", _width * 0.5f - 150, _height - (_portrait ? 436 : 57), 300, 21, 10, White, TextAnchor.MiddleCenter);
+                Label(c, "W / S  PEDALS     A / D  STEER     B  NITRO     C  CAMERA     P  PAUSE", _width * 0.5f - 270, _height - 24, 540, 16, 10, Muted, TextAnchor.MiddleCenter);
+            _eventLabel = Label(root, "", _width * 0.5f - 170, _height - (_portrait ? 433 : 188), 340, 21, 11, White, TextAnchor.MiddleCenter);
             var impactRoot = Group(root, "Impact feedback");
             _impact = impactRoot.AddComponent<CanvasGroup>();
-            var impactY = _portrait ? 185f : 130f;
-            _impactTitle = Label(impactRoot.transform, "SOLID IMPACT", _width * 0.5f - 200, impactY, 400, 35, _portrait ? 24 : 30, Lime, TextAnchor.MiddleCenter);
+            var impactY = _portrait ? 185f : 120f;
+            _impactTitle = Label(impactRoot.transform, "SOLID IMPACT", _width * 0.5f - 200, impactY, 400, 35, _portrait ? 23 : 28, Lime, TextAnchor.MiddleCenter);
             _impactScore = Label(impactRoot.transform, "+0", _width * 0.5f - 200, impactY + 39, 400, 42, 32, White, TextAnchor.MiddleCenter);
         }
-
         private void BuildPause(Transform root)
         {
             Dim(root);
@@ -327,10 +324,10 @@ namespace CarCrash
             SetText(_gear, car.SpeedKmh < 1f ? "N" : Mathf.Clamp(Mathf.FloorToInt(car.SpeedKmh / 38f) + 1, 1, 6).ToString());
             SetText(_cameraLabel, "CAM / " + _session.CameraRig.View.ToString().ToUpperInvariant());
             SetText(_boostLabel, car.BoostActive ? "NITRO ACTIVE" : car.BoostCharge >= 0.35f ? $"NITRO {car.BoostCharge * 100f:0}%" : "RECHARGING");
-            SetText(_integrity, $"INTEGRITY {100f - score.Damage:0}%");
+            SetText(_integrity, $"VEHICLE {100f - score.Damage:0}%");
             SetFill(_boostFill, car.BoostCharge);
             SetFill(_damageFill, 1f - score.Damage / 100f);
-            _damageFill.GetComponent<Image>().color = score.Damage > 65f ? new Color(1f, 0.3f, 0.18f) : Lime;
+            _damageFill.GetComponent<Image>().color = score.Damage > 65f ? new Color(1f, 0.3f, 0.18f) : new Color(0.42f, 0.72f, 0.40f);
             var revs = car.SpeedKmh < 1 ? 0.08f : 0.2f + Mathf.Repeat(car.SpeedKmh / 38f, 1f) * 0.7f;
             SetFill(_rpmFill, revs);
             _dial.value = _displaySpeed / 240f;
@@ -341,7 +338,7 @@ namespace CarCrash
             _atmosphere.boosting = car.BoostActive;
             _atmosphere.SetVerticesDirty();
             _boostButton.color = car.BoostActive ? new Color(0.1f, 0.45f, 0.58f, 0.95f) : new Color(0.08f, 0.16f, 0.19f, 0.94f);
-            SetText(_eventLabel, car.BoostActive ? "N I T R O   A C T I V E" : score.SlowMotionActive ? "I M P A C T   C A M" : "FIND YOUR LINE");
+            SetText(_eventLabel, car.BoostActive ? "NITRO ACTIVE" : score.SlowMotionActive ? "IMPACT CAM" : "");
 
             var sinceImpact = Time.realtimeSinceStartup - score.LastImpactRealtime;
             _impact.alpha = _session.Phase == CarCrashHudInput.RunPhase.Driving && sinceImpact < 2.2f
@@ -378,9 +375,9 @@ namespace CarCrash
         {
             var rect = Rect(parent, value, x, y, width, height);
             var text = rect.gameObject.AddComponent<Text>();
-            text.font = _font;
+            text.font = size >= 42 ? _displayFont : _font;
             text.fontSize = size;
-            text.fontStyle = FontStyle.Bold;
+            text.fontStyle = FontStyle.Normal;
             text.color = tint;
             text.alignment = alignment;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
