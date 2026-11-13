@@ -251,6 +251,7 @@ namespace CarCrash
         private void BuildRace(Transform root)
         {
             var pad = _portrait ? 22f : 30f;
+            Solid(root,"Telemetry header background",0,0,_width,166,new Color(.012f,.022f,.03f,.88f));
             Label(root, "ELYSIAN", pad, 22, 200, 24, 17, White);
             _modeCaption = Label(root, "FREE DRIVE", pad, 49, 220, 18, 10, Muted);
             var right = _width - pad;
@@ -275,6 +276,7 @@ namespace CarCrash
             var mapWidth = _portrait ? 151f : 200f;
             var mapHeight = _portrait ? 130f : 143f;
             var mapY = _portrait ? 102+hudButtonHeight*2 : _height - 260;
+            Solid(root,"Map telemetry background",pad-6,mapY-4,mapWidth+12,mapHeight+77,PanelColor);
             _radar = Shape(root, "Live city minimap", pad, mapY, mapWidth, mapHeight, RacingHudGraphic.Shape.Radar,
                 new Color(0.11f, 0.13f, 0.13f, 0.92f));
             _radar.player = _session.vehicle.transform;
