@@ -30,6 +30,8 @@ on:
       - 'unity/CarCrashUnityPrototype/ProjectSettings/**'
       - 'ci/android_release.py'
       - 'ci/test_android_release.py'
+      - 'ci/unity_cloud_build.py'
+      - 'ci/test_unity_cloud_build.py'
       - '.github/workflows/unity-play-internal.yml'
 
 permissions:
@@ -41,69 +43,48 @@ concurrency:
 
 env:
   PROJECT_PATH: unity/CarCrashUnityPrototype
-  UNITY_VERSION: 6000.0.60f1
   BUNDLETOOL_SHA256: a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29
 
 jobs:
   build:
     name: Build Android app bundle
-    # Enable automatic main builds after Unity activation and signing are configured.
+    # Unity Build Automation activates its own Editor; Google SSO stays unchanged.
     if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.UNITY_CI_ENABLED == 'true')
     runs-on: ubuntu-22.04
-    timeout-minutes: 75
+    timeout-minutes: 100
     outputs:
-      version_code: ${{ steps.version.outputs.code }}
+      version_code: ${{ steps.cloud.outputs.version_code }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Validate release tooling
         run: python3 -m unittest discover -s ci -v
-      - name: Check Unity activation
+      - name: Compile Android in Unity Build Automation
+        id: cloud
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-        run: |
-          python3 - <<'PY'
-          import os
-          missing = [n for n in ('UNITY_LICENSE', 'UNITY_EMAIL', 'UNITY_PASSWORD') if not os.environ.get(n)]
-          if missing:
-              raise SystemExit('Configure GitHub secrets before building: ' + ', '.join(missing))
-          PY
-      - name: Set increasing Play version code
-        id: version
-        run: echo "code=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_OUTPUT"
+          UNITY_BUILD_AUTH: ${{ secrets.UNITY_BUILD_AUTH }}
+          UNITY_BUILD_ORG: ${{ vars.UNITY_BUILD_ORG }}
+          UNITY_BUILD_PROJECT: ${{ vars.UNITY_BUILD_PROJECT }}
+          UNITY_BUILD_TARGET: ${{ vars.UNITY_BUILD_TARGET }}
+        run: python3 ci/unity_cloud_build.py --commit "$GITHUB_SHA" --timeout-minutes 85
       - name: Prepare private upload signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_CODE: ${{ steps.cloud.outputs.version_code }}
           VERSION_NAME: ${{ vars.ANDROID_VERSION_NAME || '1.1.0' }}
         run: python3 ci/android_release.py prepare --project "$PROJECT_PATH" --version-name "$VERSION_NAME" --version-code "$VERSION_CODE"
-      - name: Make space for Unity Android image
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
-          df -h /
-      - name: Build the native Unity game
-        uses: game-ci/unity-builder@4423ee75828dff56037d1d1cfdac6b68e3a6ba00 # v4
+      - name: Sign Android using the GitHub upload key
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-        with:
-          projectPath: ${{ env.PROJECT_PATH }}
-          unityVersion: ${{ env.UNITY_VERSION }}
-          targetPlatform: Android
-          buildMethod: CarCrashEditor.AndroidReleaseBuilder.Build
-          androidExportType: androidAppBundle
-          androidTargetSdkVersion: 36
-          allowDirtyBuild: true
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: python3 ci/android_release.py sign-cloud --project "$PROJECT_PATH" --source build/Android/CrashCar-cloud.aab --aab build/Android/CrashCar.aab
       - name: Verify signature, package, SDK and 16 KB native support
         env:
-          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_CODE: ${{ steps.cloud.outputs.version_code }}
           CERTIFICATE_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
         run: |
           curl --fail --location --retry 3 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output "$RUNNER_TEMP/bundletool.jar"
@@ -112,15 +93,24 @@ jobs:
       - name: Save the verified release
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: crash-car-android-${{ steps.version.outputs.code }}
+          name: crash-car-android-${{ steps.cloud.outputs.version_code }}
           path: |
             build/Android/CrashCar.aab
             build/Android/release-manifest.json
+            build/Android/cloud-build.json
           if-no-files-found: error
           retention-days: 14
       - name: Remove private signing inputs
         if: always()
         run: sudo rm -rf "$PROJECT_PATH/.ci"
+      - name: Stop an unfinished cloud build after cancellation or failure
+        if: failure() || cancelled()
+        env:
+          UNITY_BUILD_AUTH: ${{ secrets.UNITY_BUILD_AUTH }}
+          UNITY_BUILD_ORG: ${{ vars.UNITY_BUILD_ORG }}
+          UNITY_BUILD_PROJECT: ${{ vars.UNITY_BUILD_PROJECT }}
+          UNITY_BUILD_TARGET: ${{ vars.UNITY_BUILD_TARGET }}
+        run: python3 ci/unity_cloud_build.py --cancel-receipt build/Android/cloud-build.json
 
   publish:
     name: Upload Android internal test

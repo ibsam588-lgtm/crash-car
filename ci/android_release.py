@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import struct
 import subprocess
 import xml.etree.ElementTree as ET
@@ -97,6 +98,47 @@ def run(command: list[str]) -> str:
     return result.stdout
 
 
+def unsigned_copy(source: Path, destination: Path) -> None:
+    """Remove only JAR signing metadata; preserve all game and bundle entries."""
+    if source.resolve() == destination.resolve():
+        raise ValueError("The cloud bundle and signing output must be different files")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with zipfile.ZipFile(source) as original, zipfile.ZipFile(destination, "w") as output:
+            names = original.namelist()
+            if len(names) != len(set(names)) or "BundleConfig.pb" not in names or "base/manifest/AndroidManifest.xml" not in names:
+                raise ValueError("Expected an Android App Bundle with unique entries")
+            for entry in original.infolist():
+                name = entry.filename.upper()
+                if name.startswith("META-INF/") and "/" not in name[len("META-INF/"):]:
+                    leaf = name[len("META-INF/"):]
+                    if leaf == "MANIFEST.MF" or leaf.startswith("SIG-") or leaf.endswith((".SF", ".RSA", ".DSA", ".EC")):
+                        continue
+                with original.open(entry) as reader, output.open(entry, "w") as writer:
+                    shutil.copyfileobj(reader, writer, 1024 * 1024)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+
+
+def sign_cloud_bundle(project: Path, source: Path, destination: Path, jarsigner: str) -> None:
+    config = json.loads((project / ".ci/android-signing.json").read_text(encoding="utf-8"))
+    if config.get("packageName") != PACKAGE or not all(os.environ.get(key) for key in SIGNING_NAMES[1:]):
+        raise ValueError("Private upload signing inputs are incomplete")
+    keystore = (project / config["keystore"]).resolve()
+    if not keystore.is_relative_to((project / ".ci").resolve()) or not keystore.is_file():
+        raise ValueError("Upload keystore must be inside the private CI directory")
+    unsigned_copy(source, destination)
+    try:
+        run([jarsigner, "-J-Duser.language=en", "-keystore", str(keystore),
+             "-storepass:env", SIGNING_NAMES[1], "-keypass:env", SIGNING_NAMES[3],
+             "-digestalg", "SHA-256", "-sigalg", "SHA256withRSA", str(destination), config["keyAlias"]])
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+    print("Signed the cloud Android bundle with the GitHub upload key")
+
+
 def verify(aab: Path, bundletool: Path, java: str, jarsigner: str, keytool: str, code: int, fingerprint: str) -> None:
     expected = re.sub(r"[^A-Fa-f0-9]", "", fingerprint).upper()
     if len(expected) != 64:
@@ -137,6 +179,11 @@ def main() -> None:
     prep.add_argument("--project", type=Path, required=True)
     prep.add_argument("--version-name", default="1.1.0")
     prep.add_argument("--version-code", required=True)
+    sign = sub.add_parser("sign-cloud")
+    sign.add_argument("--project", type=Path, required=True)
+    sign.add_argument("--source", type=Path, required=True)
+    sign.add_argument("--aab", type=Path, required=True)
+    sign.add_argument("--jarsigner", default="jarsigner")
     check = sub.add_parser("verify")
     check.add_argument("--aab", type=Path, required=True)
     check.add_argument("--bundletool", type=Path, required=True)
@@ -149,6 +196,8 @@ def main() -> None:
     try:
         if args.operation == "prepare":
             prepare(args.project, args.version_name, args.version_code)
+        elif args.operation == "sign-cloud":
+            sign_cloud_bundle(args.project, args.source, args.aab, args.jarsigner)
         else:
             verify(args.aab, args.bundletool, args.java, args.jarsigner, args.keytool, args.version_code, args.certificate_sha256)
     except (ValueError, OSError, zipfile.BadZipFile, ET.ParseError) as error:
