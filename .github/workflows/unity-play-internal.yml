@@ -16,9 +16,20 @@ on:
     branches: [main]
     paths:
       - 'unity/CarCrashUnityPrototype/Assets/**'
+      # Apple-only native plugins and editor builders cannot change the Android AAB.
+      - '!unity/CarCrashUnityPrototype/Assets/**/iOS/**'
+      - '!unity/CarCrashUnityPrototype/Assets/**/IOS/**'
+      - '!unity/CarCrashUnityPrototype/Assets/**/Ios/**'
+      - '!unity/CarCrashUnityPrototype/Assets/**/iOS.meta'
+      - '!unity/CarCrashUnityPrototype/Assets/**/IOS.meta'
+      - '!unity/CarCrashUnityPrototype/Assets/**/Ios.meta'
+      - '!unity/CarCrashUnityPrototype/Assets/**/iOS*.cs*'
+      - '!unity/CarCrashUnityPrototype/Assets/**/IOS*.cs*'
+      - '!unity/CarCrashUnityPrototype/Assets/**/Ios*.cs*'
       - 'unity/CarCrashUnityPrototype/Packages/**'
       - 'unity/CarCrashUnityPrototype/ProjectSettings/**'
-      - 'ci/**'
+      - 'ci/android_release.py'
+      - 'ci/test_android_release.py'
       - '.github/workflows/unity-play-internal.yml'
 
 permissions:
@@ -35,6 +46,7 @@ env:
 
 jobs:
   build:
+    name: Build Android app bundle
     # Enable automatic main builds after Unity activation and signing are configured.
     if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.UNITY_CI_ENABLED == 'true')
     runs-on: ubuntu-22.04
@@ -111,6 +123,7 @@ jobs:
         run: sudo rm -rf "$PROJECT_PATH/.ci"
 
   publish:
+    name: Upload Android internal test
     needs: build
     if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && vars.PLAY_PUBLISH_ENABLED == 'true'))
     runs-on: ubuntu-22.04

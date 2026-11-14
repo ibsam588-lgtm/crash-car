@@ -24,6 +24,25 @@ to `1.1.0`; version codes are `GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT`,
 including a new code on reruns. Do not recreate the workflow or manually upload a
 higher code without adjusting this sequence.
 
+### Platform-specific triggers
+
+This repository currently has an Android release workflow only. Its two jobs are
+**Build Android app bundle** and **Upload Android internal test**; neither builds
+or uploads iOS. An iOS release needs its own separate workflow and credentials.
+
+Android push builds ignore Unity's `iOS`, `IOS` and `Ios` plugin/editor folders,
+and editor C# files beginning with those prefixes. An iOS-only change in those
+locations cannot launch Android. Android tooling changes trigger only the Android
+release workflow; unrelated future `ci/ios_*` files do not trigger it.
+
+Shared gameplay, scenes, models, packages and shared ProjectSettings files still
+affect the Android game and trigger its build once automatic builds are enabled.
+When an iOS pipeline is added, shared changes should rebuild both platforms.
+Keep platform-only code in the corresponding platform folders to avoid treating
+it as a shared change. A manual run targets only the workflow selected in Actions.
+The separate **Release tooling checks (no app builds)** workflow can test CI edits
+without producing or publishing either app.
+
 ## GitHub secrets and variables
 
 Use Settings → Secrets and variables → Actions. Never paste keys or account
