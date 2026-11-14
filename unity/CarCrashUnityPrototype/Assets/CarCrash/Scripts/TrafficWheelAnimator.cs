@@ -10,11 +10,13 @@ namespace CarCrash
 
         private float _spin;
         private Rigidbody _body;
+        private MovingTrafficObstacle _mover;
         private Quaternion[] _baseRotations = System.Array.Empty<Quaternion>();
 
         private void Awake()
         {
             _body = GetComponent<Rigidbody>();
+            _mover = GetComponent<MovingTrafficObstacle>();
             _baseRotations = new Quaternion[wheels.Length];
             for (var i = 0; i < wheels.Length; i++)
             {
@@ -24,9 +26,10 @@ namespace CarCrash
 
         private void Update()
         {
+            if (Time.timeScale <= 0f) return;
             var currentSpeed = _body != null && !_body.isKinematic
                 ? _body.linearVelocity.magnitude
-                : speedMetersPerSecond;
+                : _mover != null ? _mover.CurrentCruiseSpeed : speedMetersPerSecond;
             var angularDegrees = Mathf.Rad2Deg * currentSpeed / Mathf.Max(0.05f, wheelRadius);
             _spin -= angularDegrees * Time.deltaTime;
             for (var i = 0; i < wheels.Length; i++)

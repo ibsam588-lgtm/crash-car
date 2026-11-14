@@ -1,0 +1,157 @@
+{
+  "materials": [
+    {
+      "name": "M_Garage_Trim_pickup_0",
+      "role": "Trim",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.47999998927116394,
+      "baseTexture": "pickup_00.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Alloy_pickup_1",
+      "role": "Alloy",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.17000000178813934,
+      "baseTexture": "pickup_01.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Headlamp_pickup_2",
+      "role": "Headlamp",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.05999999865889549,
+      "baseTexture": "pickup_02.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Glass_pickup_3",
+      "role": "Glass",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.06499999761581421,
+      "baseTexture": "pickup_03.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Interior_pickup_4",
+      "role": "Interior",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.75,
+      "baseTexture": "pickup_04.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Paint_pickup_5",
+      "role": "Paint",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.23999999463558197,
+      "baseTexture": "pickup_05.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Taillamp_pickup_6",
+      "role": "Taillamp",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.14000000059604645,
+      "baseTexture": "pickup_06.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Tire_pickup_7",
+      "role": "Tire",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "baseTexture": "pickup_07.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Steel_pickup_8",
+      "role": "Steel",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.3199999928474426,
+      "baseTexture": "pickup_08.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Trim_pickup_9",
+      "role": "Trim",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.30000001192092896,
+      "baseTexture": "pickup_09.png",
+      "normalTexture": ""
+    }
+  ],
+  "wheelRadius": 0.3901074528694153,
+  "wheelCenters": [
+    [
+      -0.8850001096725464,
+      0.3941240906715393,
+      1.8266801834106445
+    ],
+    [
+      0.8849998712539673,
+      0.3941240906715393,
+      1.826680302619934
+    ],
+    [
+      -0.8849998712539673,
+      0.3941240906715393,
+      -1.761069893836975
+    ],
+    [
+      0.8850001096725464,
+      0.3941240906715393,
+      -1.7610697746276855
+    ]
+  ]
+}

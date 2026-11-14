@@ -1,0 +1,186 @@
+{
+  "materials": [
+    {
+      "name": "Ped_maya_00",
+      "sourceName": "Accessory detail",
+      "color": [
+        0.054999999701976776,
+        0.0949999988079071,
+        0.11999999731779099,
+        1.0
+      ],
+      "roughness": 0.23999999463558197,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_01",
+      "sourceName": "Maya | anatomical body.body",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.5400000214576721,
+      "cutout": false,
+      "baseTexture": "maya_00.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_02",
+      "sourceName": "Maya | anatomical body.eyebrow006",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "maya_01.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_03",
+      "sourceName": "Maya | anatomical body.eyelashes01",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "maya_02.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_04",
+      "sourceName": "Maya | anatomical body.low-poly",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "maya_03.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_05",
+      "sourceName": "Maya | anatomical body.ponytail01",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "maya_04.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_06",
+      "sourceName": "Maya | anatomical body.shoes03",
+      "color": [
+        0.01600000075995922,
+        0.012000000104308128,
+        0.02199999988079071,
+        1.0
+      ],
+      "roughness": 0.3400000035762787,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_07",
+      "sourceName": "Maya | anatomical body.teeth_base",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "maya_05.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_08",
+      "sourceName": "Maya | charcoal tailored trousers",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.5799999833106995,
+      "cutout": false,
+      "baseTexture": "maya_06.png",
+      "normalTexture": "maya_07.png"
+    },
+    {
+      "name": "Ped_maya_09",
+      "sourceName": "Maya | fine hair roots",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "maya_08.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_10",
+      "sourceName": "Maya | plum satin full-length top",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.4000000059604645,
+      "cutout": false,
+      "baseTexture": "maya_09.png",
+      "normalTexture": "maya_07.png"
+    },
+    {
+      "name": "Ped_maya_11",
+      "sourceName": "Original accessory body",
+      "color": [
+        0.02500000037252903,
+        0.019999999552965164,
+        0.017999999225139618,
+        1.0
+      ],
+      "roughness": 0.47999998927116394,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_maya_12",
+      "sourceName": "Original dark ankle lining",
+      "color": [
+        0.017999999225139618,
+        0.01600000075995922,
+        0.020999999716877937,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    }
+  ]
+}

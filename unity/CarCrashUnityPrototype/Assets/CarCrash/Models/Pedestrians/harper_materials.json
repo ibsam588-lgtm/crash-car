@@ -1,0 +1,172 @@
+{
+  "materials": [
+    {
+      "name": "Ped_harper_00",
+      "sourceName": "Accessory detail",
+      "color": [
+        0.054999999701976776,
+        0.0949999988079071,
+        0.11999999731779099,
+        1.0
+      ],
+      "roughness": 0.23999999463558197,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_01",
+      "sourceName": "Harper | anatomical body.body",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.5400000214576721,
+      "cutout": false,
+      "baseTexture": "harper_00.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_02",
+      "sourceName": "Harper | anatomical body.eyebrow006",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "harper_01.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_03",
+      "sourceName": "Harper | anatomical body.eyelashes01",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "harper_02.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_04",
+      "sourceName": "Harper | anatomical body.low-poly",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "harper_03.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_05",
+      "sourceName": "Harper | anatomical body.shoes04",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "harper_04.png",
+      "normalTexture": "harper_05.png"
+    },
+    {
+      "name": "Ped_harper_06",
+      "sourceName": "Harper | anatomical body.short01",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "harper_06.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_07",
+      "sourceName": "Harper | anatomical body.teeth_base",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": false,
+      "baseTexture": "harper_07.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_08",
+      "sourceName": "Harper | fine hair roots",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7200000286102295,
+      "cutout": true,
+      "baseTexture": "harper_08.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_09",
+      "sourceName": "Harper | original tailored business fabric",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.6399999856948853,
+      "cutout": false,
+      "baseTexture": "harper_09.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_10",
+      "sourceName": "Original accessory body",
+      "color": [
+        0.02500000037252903,
+        0.019999999552965164,
+        0.017999999225139618,
+        1.0
+      ],
+      "roughness": 0.47999998927116394,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    },
+    {
+      "name": "Ped_harper_11",
+      "sourceName": "Original dark ankle lining",
+      "color": [
+        0.017999999225139618,
+        0.01600000075995922,
+        0.020999999716877937,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "cutout": false,
+      "baseTexture": "",
+      "normalTexture": ""
+    }
+  ]
+}

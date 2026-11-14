@@ -1,0 +1,20 @@
+[
+  {
+    "name": "pickup",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/crew-cab-pickup-with-open-bed-4f02e0cc",
+    "license": "CC0-1.0",
+    "sha256": "53d0ae5155f7cc0de03613624f409e45fd3ce49727ea54cc7c3dfb491d39af73"
+  },
+  {
+    "name": "suv",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/charcoal-five-door-crossover-suv-a1996830",
+    "license": "CC0-1.0",
+    "sha256": "2b9d026a1592d3254da73e8204e7ceb72f7a45b619ea1f0a5ece35014cb3efe9"
+  },
+  {
+    "name": "hauler",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/7-5-t-class-box-truck-with-roll-up-door-12baea66",
+    "license": "CC0-1.0",
+    "sha256": "6b983b515ee6bf044489a88cccab0ba4cbdb8d9b873b0c023098f9ecd15f4115"
+  }
+]

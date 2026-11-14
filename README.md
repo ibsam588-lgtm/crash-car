@@ -23,10 +23,18 @@ Open `unity/CarCrashUnityPrototype` in Unity `6000.0.43f1`, then use:
 
 The tested production slice includes a modeled sports car with independent WheelColliders, animated wheels and lights, moving traffic, a textured downtown arena, touch/keyboard steering, boost, high-speed collisions, detachable panels, windshield damage, impact slow motion, scoring, and a retryable result screen.
 
+The Unity home screen offers untimed Free Drive, an optional 60 second Impact Run, a driving guide, and the live 3D garage. Nearby lane traffic uses detailed car meshes with proper bodywork, glass, tires, wheels, and lights. Driving adds compact instruments, a live street minimap, nitro and damage meters, three camera views, impact feedback, pause/resume, and personal-best results. The Elysian city scene includes a sunset HDR sky, textured roads and brickwork, intersections, palms, storefronts, and skyline towers. Press `Enter` for Free Drive, `G` for the garage, `W/A/S/D` to drive, `B` for nitro, `C` for the camera, `R` for manual recovery, and `P` to pause. Free Drive does not end after a minute or a stopped crash, and driving beyond the old camera boundaries never teleports the player. Touch controls work while held. See the [Unity UI and validation guide](unity/CarCrashUnityPrototype/README.md#dynamic-racing-ui).
+
+Hold `W` with `A` or `D` to turn from rest. Hold `Q` or the dedicated `REV` pedal to reverse; while moving forward, it brakes first. `S` also brakes then reverses; `Space` brakes without reversing. Trees and street furniture have solid collision, cameras avoid walls, and 96 textured human pedestrians walk sidewalk routes.
+
+The open world covers 620 by 1,060 metres with seven avenues, thirteen connecting cross streets, a coastal access road and approximately 15.5 km of road centerlines. Explore Old Town, Sunset Marina, Vista Beach, Paloma Park, the freight yard and Apex Motor Park. Press `M` or MAP to browse the city and select a destination for road navigation; browsing pauses the drive. Gentle pavement slopes, suspension-aware chassis clearance and movable traffic at low speed help prevent sticking. `R` / RECOVER finds a clear road position for the selected vehicle and preserves score and elapsed time.
+
+The garage offers six playable vehicles: Roadbreaker GT, Apex GT, Summit AWD, Ridgeback 4x4 pickup, Atlas Hauler cargo truck, and Ironclaw Monster. Each has its own dimensions, weight, wheel setup, suspension, speed and handling. Collisions throw sparks, glass flecks, dust and expanding ground splashes. Menu labels use a larger Atkinson Hyperlegible font with brighter text and darker panels. Validation covers actual forward and reverse travel for every vehicle, collision effects, solid scenery, the full driving session, and readable UI controls; see the Unity guide for the validation commands.
+
 Serve the WebGL output locally from the Unity project:
 
 ```powershell
-python -m http.server 8092 --bind 127.0.0.1 --directory Builds/WebGL
+python -m http.server 8094 --bind 127.0.0.1 --directory Builds/WebGL
 ```
 
 ## Run

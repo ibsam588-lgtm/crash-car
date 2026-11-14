@@ -1,0 +1,157 @@
+{
+  "materials": [
+    {
+      "name": "M_Garage_Amber_hauler_0",
+      "role": "Amber",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.17000000178813934,
+      "baseTexture": "hauler_00.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Trim_hauler_1",
+      "role": "Trim",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.47999998927116394,
+      "baseTexture": "hauler_01.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Alloy_hauler_2",
+      "role": "Alloy",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.17000000178813934,
+      "baseTexture": "hauler_02.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Headlamp_hauler_3",
+      "role": "Headlamp",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.05999999865889549,
+      "baseTexture": "hauler_03.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Glass_hauler_4",
+      "role": "Glass",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.06499999761581421,
+      "baseTexture": "hauler_04.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Interior_hauler_5",
+      "role": "Interior",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.75,
+      "baseTexture": "hauler_05.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Paint_hauler_6",
+      "role": "Paint",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.23999999463558197,
+      "baseTexture": "hauler_06.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Taillamp_hauler_7",
+      "role": "Taillamp",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.14000000059604645,
+      "baseTexture": "hauler_07.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Tire_hauler_8",
+      "role": "Tire",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.7799999713897705,
+      "baseTexture": "hauler_08.png",
+      "normalTexture": ""
+    },
+    {
+      "name": "M_Garage_Steel_hauler_9",
+      "role": "Steel",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "roughness": 0.3199999928474426,
+      "baseTexture": "hauler_09.png",
+      "normalTexture": ""
+    }
+  ],
+  "wheelRadius": 0.4650000035762787,
+  "wheelCenters": [
+    [
+      -0.9430001974105835,
+      0.47200003266334534,
+      2.509999990463257
+    ],
+    [
+      0.9429998397827148,
+      0.47200003266334534,
+      2.509999990463257
+    ],
+    [
+      -0.9404998421669006,
+      0.47200003266334534,
+      -1.9000000953674316
+    ],
+    [
+      0.9405001401901245,
+      0.47200003266334534,
+      -1.899999976158142
+    ]
+  ]
+}

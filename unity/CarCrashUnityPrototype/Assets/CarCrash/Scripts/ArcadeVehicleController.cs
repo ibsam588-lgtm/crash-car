@@ -31,12 +31,17 @@ namespace CarCrash
         public float collisionVelocityCapKmh = 235f;
         public float lateralDamping = 3.6f;
         public float uprightAssist = 4.2f;
+        public float reverseSpeedKmh = 32f;
+        public bool allWheelDrive;
 
         public float SpeedKmh { get; private set; }
+        public float ForwardSpeedKmh => _body != null ? Vector3.Dot(_body.linearVelocity, transform.forward) * 3.6f : 0f;
+        public bool Reversing => CurrentThrottle < -0.01f || ForwardSpeedKmh < -1f;
         public float CurrentSteer { get; private set; }
         public float CurrentThrottle { get; private set; }
         public float CurrentBrake { get; private set; }
         public bool BoostActive => _boostTimer > 0f;
+        public float BoostCharge { get; private set; } = 1f;
         public bool LaunchReady => Time.time >= _launchAt;
 
         private Rigidbody _body;
@@ -46,12 +51,34 @@ namespace CarCrash
         private bool _useMobileInput;
         private float _boostTimer;
         private float _launchAt;
+        private float _wheelResetUntil;
         private Vector3 _spawnPosition;
         private Quaternion _spawnRotation;
         private Quaternion _frontLeftRotationOffset = Quaternion.identity;
         private Quaternion _frontRightRotationOffset = Quaternion.identity;
         private Quaternion _rearLeftRotationOffset = Quaternion.identity;
         private Quaternion _rearRightRotationOffset = Quaternion.identity;
+
+        public void ConfigureVehicle(GarageVehicle spec)
+        {
+            if (_body == null) _body = GetComponent<Rigidbody>();
+            _body.mass = spec.mass;
+            _body.centerOfMass = new Vector3(0f, spec.size.y > 2f ? 0.35f : -0.22f, 0.10f);
+            maxSpeedKmh = spec.topSpeed;
+            reverseSpeedKmh = spec.reverseSpeed;
+            // Torque follows wheel radius and supported weight instead of spinning
+            // a large tire thousands of RPM while the chassis barely moves.
+            maxMotorTorque = spec.mass * spec.wheelRadius * 1.8f;
+            allWheelDrive = spec.allWheelDrive;
+            arcadeDriveAcceleration = spec.acceleration;
+            maxSteerAngle = spec.steering;
+            brakeTorque = spec.mass * 4.8f;
+            handbrakeTorque = spec.mass * 7f;
+            _frontLeftRotationOffset = WheelRotationOffset(frontLeftCollider, frontLeftVisual);
+            _frontRightRotationOffset = WheelRotationOffset(frontRightCollider, frontRightVisual);
+            _rearLeftRotationOffset = WheelRotationOffset(rearLeftCollider, rearLeftVisual);
+            _rearRightRotationOffset = WheelRotationOffset(rearRightCollider, rearRightVisual);
+        }
 
         private void Awake()
         {
@@ -89,12 +116,25 @@ namespace CarCrash
 
         public void Boost(float seconds = 1.4f)
         {
-            _boostTimer = Mathf.Max(_boostTimer, seconds);
+            TryBoost(seconds);
+        }
+
+        public bool TryBoost(float seconds = 1.4f)
+        {
+            if (!LaunchReady || BoostActive || BoostCharge < 0.35f || Time.timeScale <= 0f)
+            {
+                return false;
+            }
+            BoostCharge -= 0.35f;
+            _boostTimer = Mathf.Clamp(seconds, 0.1f, 2f);
+            return true;
         }
 
         public void ResetForRelaunch(float delaySeconds = 1.15f)
         {
             transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
+            _body.position = _spawnPosition;
+            _body.rotation = _spawnRotation;
             _body.linearVelocity = Vector3.zero;
             _body.angularVelocity = Vector3.zero;
             _boostTimer = 0f;
@@ -102,6 +142,17 @@ namespace CarCrash
             _mobileThrottle = 0f;
             _mobileBrake = 0f;
             _launchAt = Time.time + delaySeconds;
+            _wheelResetUntil = Time.time + 0.25f;
+            ResetWheelSpin();
+            Physics.SyncTransforms();
+        }
+
+        public void RecoverAt(Vector3 position, Quaternion rotation)
+        {
+            _spawnPosition = position;
+            _spawnRotation = rotation;
+            ResetForRelaunch(0f);
+            SpeedKmh = CurrentSteer = CurrentThrottle = CurrentBrake = 0f;
         }
 
         private void FixedUpdate()
@@ -109,6 +160,13 @@ namespace CarCrash
             if (!LaunchReady)
             {
                 HoldAtLaunch();
+                return;
+            }
+            if (Time.time < _wheelResetUntil)
+            {
+                ResetWheelSpin();
+                _body.linearVelocity = Vector3.zero;
+                _body.angularVelocity = Vector3.zero;
                 return;
             }
 
@@ -119,6 +177,10 @@ namespace CarCrash
 
             SpeedKmh = _body.linearVelocity.magnitude * 3.6f;
             _boostTimer = Mathf.Max(0f, _boostTimer - Time.fixedDeltaTime);
+            if (!BoostActive)
+            {
+                BoostCharge = Mathf.Min(1f, BoostCharge + Time.fixedDeltaTime * 0.10f);
+            }
             if (autoAccelerate && !_useMobileInput && Mathf.Abs(throttle) < 0.05f && brake < 0.05f)
             {
                 throttle = 1f;
@@ -128,7 +190,7 @@ namespace CarCrash
             CurrentThrottle = throttle;
             CurrentBrake = brake;
 
-            var speedLimit = _boostTimer > 0f ? maxSpeedKmh * 1.10f : maxSpeedKmh;
+            var speedLimit = throttle < 0f ? reverseSpeedKmh : _boostTimer > 0f ? maxSpeedKmh * 1.10f : maxSpeedKmh;
             var torqueFalloff = Mathf.Clamp01(1f - Mathf.InverseLerp(speedLimit * 0.82f, speedLimit, SpeedKmh));
             var torque = throttle * maxMotorTorque * torqueFalloff;
             if (_boostTimer > 0f && throttle > 0.1f)
@@ -136,17 +198,17 @@ namespace CarCrash
                 torque *= boostMultiplier;
             }
 
-            if (arcadeDriveAcceleration > 0f && throttle > 0.01f)
+            if (arcadeDriveAcceleration > 0f && Mathf.Abs(throttle) > 0.01f)
             {
-                var boostForce = _boostTimer > 0f ? 1.18f : 1f;
+                var boostForce = _boostTimer > 0f && throttle > 0f ? 1.18f : throttle < 0f ? 0.65f : 1f;
                 _body.AddForce(transform.forward * (throttle * arcadeDriveAcceleration * torqueFalloff * boostForce), ForceMode.Acceleration);
             }
 
             frontLeftCollider.steerAngle = steer * maxSteerAngle;
             frontRightCollider.steerAngle = steer * maxSteerAngle;
 
-            rearLeftCollider.motorTorque = torque;
-            rearRightCollider.motorTorque = torque;
+            frontLeftCollider.motorTorque = frontRightCollider.motorTorque = allWheelDrive ? torque*.5f : 0f;
+            rearLeftCollider.motorTorque = rearRightCollider.motorTorque = allWheelDrive ? torque*.5f : torque;
 
             var wheelBrake = brake * brakeTorque + handbrake * handbrakeTorque;
             frontLeftCollider.brakeTorque = brake * brakeTorque;
@@ -189,6 +251,7 @@ namespace CarCrash
 
         private void HoldAtLaunch()
         {
+            ResetWheelSpin();
             SpeedKmh = 0f;
             CurrentSteer = 0f;
             CurrentThrottle = 0f;
@@ -197,6 +260,14 @@ namespace CarCrash
             _body.angularVelocity = Vector3.zero;
             _body.MovePosition(_spawnPosition);
             _body.MoveRotation(_spawnRotation);
+        }
+
+        private void ResetWheelSpin()
+        {
+            frontLeftCollider.motorTorque = frontRightCollider.motorTorque = rearLeftCollider.motorTorque = rearRightCollider.motorTorque = 0f;
+            // Vehicle swaps can change tire inertia by an order of magnitude.
+            // Clear stored angular momentum while the chassis is held at its pose.
+            frontLeftCollider.brakeTorque = frontRightCollider.brakeTorque = rearLeftCollider.brakeTorque = rearRightCollider.brakeTorque = 1000000f;
         }
 
         private void ApplyStability(float speedLimit)

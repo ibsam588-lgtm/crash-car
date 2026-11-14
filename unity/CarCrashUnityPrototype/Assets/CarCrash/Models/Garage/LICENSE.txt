@@ -1,0 +1,9 @@
+Detailed pickup, crossover SUV and cargo truck: Innerscene original models.
+License: Creative Commons CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Source URLs and SHA-256 hashes are listed in sources.json beside these files.
+Converted for this game: orientation normalization, mesh consolidation and
+reduction, wheel grouping, material preparation and FBX export.
+The monster truck is a modified pickup with a lifted body, enlarged tires,
+chevron tread blocks, exposed axles and long-travel shocks.

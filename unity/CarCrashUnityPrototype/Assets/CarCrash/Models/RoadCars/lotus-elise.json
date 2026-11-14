@@ -1,0 +1,567 @@
+{
+  "materials": [
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_0",
+      "role": "Trim",
+      "color": [
+        0.013745823521167039,
+        0.013745823521167039,
+        0.013745823521167039,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.7395198345184326,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_00_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Paint_1_1",
+      "role": "Paint_1",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_01_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Alloy_2",
+      "role": "Alloy",
+      "color": [
+        0.36056332054648693,
+        0.36056332054648693,
+        0.36056332054648693,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.14195884764194489,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_02_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_3",
+      "role": "Trim",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 0.9200000166893005,
+      "roughness": 0.05999999865889549,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_03_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Taillamp_4",
+      "role": "Taillamp",
+      "color": [
+        0.2722330263038003,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.05999999865889549,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_04_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Amber_5",
+      "role": "Amber",
+      "color": [
+        0.24208472874713005,
+        0.17601575275030237,
+        0.07318130629223299,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_05_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_6",
+      "role": "Trim",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.8999999761581421,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_06_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_7",
+      "role": "Trim",
+      "color": [
+        0.31390533483309946,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_07_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Amber_8",
+      "role": "Amber",
+      "color": [
+        0.4116451625365643,
+        0.329077285138228,
+        0.20834488779042748,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_08_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Taillamp_9",
+      "role": "Taillamp",
+      "color": [
+        0.31390533483309946,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_09_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Headlamp_10",
+      "role": "Headlamp",
+      "color": [
+        0.32718543153263663,
+        0.32718543153263663,
+        0.32718543153263663,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_10_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Headlamp_11",
+      "role": "Headlamp",
+      "color": [
+        0.3183315199405834,
+        0.3183315199405834,
+        0.3183315199405834,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_11_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Headlamp_12",
+      "role": "Headlamp",
+      "color": [
+        0.33980227113974504,
+        0.33576110855264757,
+        0.3308330351946235,
+        1.0
+      ],
+      "metallic": 0.8999999761581421,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_12_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_13",
+      "role": "Trim",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_13_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Mirror_14",
+      "role": "Mirror",
+      "color": [
+        0.3767750610375222,
+        0.3767750610375222,
+        0.3767750610375222,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.06878811120986938,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_14_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_15",
+      "role": "Trim",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 0.3499999940395355,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_15_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Glass_16",
+      "role": "Glass",
+      "color": [
+        0.10010558681456228,
+        0.10010558681456228,
+        0.10010558681456228,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.2883003056049347,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_16_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Fabric_17",
+      "role": "Fabric",
+      "color": [
+        0.11207493995948536,
+        0.12315819885651544,
+        0.13335151928495648,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.9399999976158142,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_17_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Tire_18",
+      "role": "Tire",
+      "color": [
+        0.11207493995948536,
+        0.12315819885651544,
+        0.13335151928495648,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.8700000047683716,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_18_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Tire_19",
+      "role": "Tire",
+      "color": [
+        0.11207493995948536,
+        0.12315819885651544,
+        0.13335151928495648,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.8700000047683716,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_19_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Tire_20",
+      "role": "Tire",
+      "color": [
+        0.11207493995948536,
+        0.12315819885651544,
+        0.13335151928495648,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.8700000047683716,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_20_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Tire_21",
+      "role": "Tire",
+      "color": [
+        0.11207493995948536,
+        0.12315819885651544,
+        0.13335151928495648,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.8700000047683716,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_21_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_22",
+      "role": "Trim",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.5,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_22_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_23",
+      "role": "Trim",
+      "color": [
+        0.11871419973238512,
+        0.1254252651905578,
+        0.13488179009733797,
+        1.0
+      ],
+      "metallic": 0.6000000238418579,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_23_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_24",
+      "role": "Trim",
+      "color": [
+        0.10310537719128066,
+        0.10310537719128066,
+        0.10310537719128066,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.26391005516052246,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_24_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_25",
+      "role": "Trim",
+      "color": [
+        0.15371650195061357,
+        0.15371650195061357,
+        0.15371650195061357,
+        1.0
+      ],
+      "metallic": 0.6000000238418579,
+      "roughness": 0.1599999964237213,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_25_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_26",
+      "role": "Trim",
+      "color": [
+        0.5259221665507476,
+        0.5259221665507476,
+        0.5259221665507476,
+        1.0
+      ],
+      "metallic": 0.6000000238418579,
+      "roughness": 0.05999999865889549,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_26_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_27",
+      "role": "Trim",
+      "color": [
+        0.1419665155731114,
+        0.1419665155731114,
+        0.1419665155731114,
+        1.0
+      ],
+      "metallic": 0.3499999940395355,
+      "roughness": 0.75,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_27_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Glass_28",
+      "role": "Glass",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.8600000143051147,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_28_mask.png"
+    },
+    {
+      "name": "M_RoadCar_lotus_elise_Trim_29",
+      "role": "Trim",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.5,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "lotus-elise_00.png",
+      "metalTexture": "",
+      "packedSource": true,
+      "maskTexture": "lotus-elise_29_mask.png"
+    }
+  ],
+  "wheelRadius": 0.3417000137269497,
+  "wheelCenters": [
+    [
+      -0.7138928771018982,
+      0.342201292514801,
+      1.1507327556610107
+    ],
+    [
+      0.7140920758247375,
+      0.34170001745224,
+      1.1507328748703003
+    ],
+    [
+      -0.7138926386833191,
+      0.3420901894569397,
+      -1.1848727464675903
+    ],
+    [
+      0.7140923142433167,
+      0.34205126762390137,
+      -1.1848726272583008
+    ]
+  ]
+}

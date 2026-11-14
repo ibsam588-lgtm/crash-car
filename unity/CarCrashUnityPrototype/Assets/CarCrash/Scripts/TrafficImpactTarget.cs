@@ -14,6 +14,20 @@ namespace CarCrash
 
         private MovingTrafficObstacle _mover;
         private TrafficCrashVisual _crashVisual;
+        private float _nudgeSeconds;
+
+        private void OnCollisionStay(Collision collision)
+        {
+            if(_mover==null||_mover.IsReleased||collision.rigidbody==null)return;
+            var player=collision.rigidbody.GetComponent<ArcadeVehicleController>();
+            if(player==null)return;
+            var direction=player.transform.forward*player.CurrentThrottle;
+            var toTraffic=transform.position-player.transform.position;toTraffic.y=0;
+            var pushing=Mathf.Abs(player.CurrentThrottle)>.2f&&player.CurrentBrake<.1f&&player.SpeedKmh<14f&&Vector3.Dot(direction.normalized,toTraffic.normalized)>.35f;
+            _nudgeSeconds=pushing ? _nudgeSeconds+Time.fixedDeltaTime : 0;
+            if(_nudgeSeconds>.3f)_mover.ReleaseForNudge(collision.rigidbody);
+        }
+        private void OnCollisionExit(Collision collision)=>_nudgeSeconds=0;
 
         private void Awake()
         {
@@ -40,6 +54,11 @@ namespace CarCrash
             }
 
             var impactKmh = Mathf.Min(collision.relativeVelocity.magnitude * 3.6f, 240f);
+            if(player!=null&&impactKmh<(scoring!=null ? scoring.minimumImpactKmh : 28f)&&Mathf.Abs(player.CurrentThrottle)>.2f&&player.CurrentBrake<.1f)
+            {
+                _mover.ReleaseForNudge(collision.rigidbody);
+                return;
+            }
             if (impactKmh < minimumImpactKmh || collision.contactCount == 0)
             {
                 return;

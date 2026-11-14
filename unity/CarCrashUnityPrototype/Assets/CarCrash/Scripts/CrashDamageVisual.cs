@@ -8,6 +8,7 @@ namespace CarCrash
         public Renderer[] windshieldCracks = System.Array.Empty<Renderer>();
 
         private int _observedHits;
+        private bool _cracked;
 
         private void Update()
         {
@@ -17,8 +18,9 @@ namespace CarCrash
             }
 
             _observedHits = scoring.Hits;
-            if (_observedHits == 1)
+            if (!_cracked && scoring.LastImpactKmh >= 55f)
             {
+                _cracked = true;
                 foreach (var renderer in windshieldCracks)
                 {
                     if (renderer != null)

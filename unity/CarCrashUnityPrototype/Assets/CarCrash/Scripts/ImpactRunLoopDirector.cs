@@ -7,34 +7,46 @@ namespace CarCrash
         public ArcadeVehicleController vehicle;
         public Transform player;
         public Rigidbody playerBody;
-        public float resetBeyondZ = 39f;
-        public float resetBelowY = -1.5f;
-        public float resetAboveY = 5.0f;
-        public float resetBeyondX = 11.5f;
-        public float relaunchDelaySeconds = 1.15f;
-
-        private float _nextResetTime;
+        public bool RecoverySuggested { get; private set; }
+        private Vector3 _lastPosition;
+        private float _blockedSeconds;
 
         private void LateUpdate()
         {
-            if (vehicle == null || player == null || playerBody == null || Time.time < _nextResetTime)
-            {
-                return;
-            }
-
+            if (player == null) return;
             var position = player.position;
-            var outOfShot = position.z > resetBeyondZ ||
-                            position.y < resetBelowY ||
-                            position.y > resetAboveY ||
-                            Mathf.Abs(position.x) > resetBeyondX;
+            var trying=vehicle!=null&&Mathf.Abs(vehicle.CurrentThrottle)>.2f&&vehicle.CurrentBrake<.1f;
+            var travel=Vector3.Distance(position,_lastPosition);
+            _blockedSeconds=Time.timeScale>0&&trying&&travel<.35f*Time.deltaTime ? _blockedSeconds+Time.deltaTime : Mathf.Max(0,_blockedSeconds-Time.deltaTime*2f);
+            _lastPosition=position;
+            RecoverySuggested=position.y < -2f||Vector3.Dot(player.up,Vector3.up)<.3f||!CityRoadNetwork.InsideWorld(position)||_blockedSeconds>2.5f;
+        }
 
-            if (!outOfShot)
+        // There are no automatic shot-boundary resets. Recovery is an explicit
+        // player action and keeps the current score and elapsed driving time.
+        public void RecoverVehicle()
+        {
+            if (vehicle == null || player == null) return;
+            CityRoadNetwork.NearestRoadPose(player.position, player.forward, out var position, out var rotation);
+            var roadPosition = position;
+            for (var attempt = 0; attempt < 32; attempt++)
             {
+                var offset = attempt == 0 ? 0 : ((attempt + 1) / 2) * 6f * (attempt % 2 == 0 ? 1f : -1f);
+                position = roadPosition + rotation * Vector3.forward * offset;
+                if (!CityRoadNetwork.InsideWorld(position,12f)) continue;
+                var occupied = false;
+                var chassis=vehicle.GetComponent<BoxCollider>();
+                var halfSize=chassis.size*.5f+new Vector3(.3f,.08f,.6f);
+                foreach (var collider in Physics.OverlapBox(position+rotation*chassis.center,halfSize,rotation,~0,QueryTriggerInteraction.Ignore))
+                    if (collider.attachedRigidbody != playerBody && collider.bounds.max.y > position.y + 0.28f)
+                        occupied = true;
+                if (occupied) continue;
+                vehicle.RecoverAt(position, rotation);
+                RecoverySuggested = false;
+                _blockedSeconds=0;_lastPosition=position;
                 return;
             }
-
-            vehicle.ResetForRelaunch(relaunchDelaySeconds);
-            _nextResetTime = Time.time + relaunchDelaySeconds + 0.35f;
+            RecoverySuggested = true;
         }
     }
 }

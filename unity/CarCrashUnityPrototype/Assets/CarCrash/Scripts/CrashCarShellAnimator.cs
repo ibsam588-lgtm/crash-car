@@ -19,6 +19,18 @@ namespace CarCrash
         private Quaternion[] _wheelBaseRotations = System.Array.Empty<Quaternion>();
         private float _wheelSpin;
 
+        public void BindShell(Transform shell)
+        {
+            visibleShell = shell;
+            _shellBasePosition = shell.localPosition;
+            _shellBaseRotation = shell.localRotation;
+            var lamps = new System.Collections.Generic.List<Renderer>();
+            foreach (var renderer in shell.GetComponentsInChildren<Renderer>())
+                if (renderer.name.Contains("Taillight") || renderer.name.Contains("TailLamp")) lamps.Add(renderer);
+            tailLightRenderers = lamps.ToArray();
+            spinningWheels = System.Array.Empty<Transform>();
+        }
+
         private void Awake()
         {
             if (visibleShell != null)
@@ -80,7 +92,7 @@ namespace CarCrash
             {
                 if (glow != null)
                 {
-                    glow.intensity = Mathf.Lerp(1.2f, 4.2f, lightAmount);
+                    glow.intensity = Mathf.Lerp(0.08f, 0.65f, lightAmount);
                 }
             }
         }

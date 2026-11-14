@@ -1,0 +1,334 @@
+{
+  "materials": [
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Trim_0",
+      "role": "Trim",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_00_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Alloy_1",
+      "role": "Alloy",
+      "color": [
+        0.5703476623586139,
+        0.5703476623586139,
+        0.5703476623586139,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.20000000298023224,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_01_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Trim_2",
+      "role": "Trim",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.19999998807907104,
+      "baseTexture": "bmw-m3-e30_00.png",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "bmw-m3-e30_01.png",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_02_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Headlamp_3",
+      "role": "Headlamp",
+      "color": [
+        0.48452920783154513,
+        0.48452920783154513,
+        0.48452920783154513,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.30000001192092896,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_03_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Lens_4",
+      "role": "Lens",
+      "color": [
+        0.9999999999999999,
+        0.9999999999999999,
+        0.9999999999999999,
+        1.0
+      ],
+      "metallic": 0,
+      "roughness": 0.5,
+      "baseTexture": "bmw-m3-e30_lens_tint.png",
+      "normalTexture": "bmw-m3-e30_03.png",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "sourceBaseTexture": "bmw-m3-e30_02.png",
+      "maskTexture": "bmw-m3-e30_04_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Paint_1_5",
+      "role": "Paint_1",
+      "color": [
+        0.906331789156457,
+        0.13014405231908807,
+        0.0,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.8500000238418579,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_05_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Trim_6",
+      "role": "Trim",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.30000001192092896,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_06_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Alloy_7",
+      "role": "Alloy",
+      "color": [
+        0.906331789156457,
+        0.7569810982706389,
+        0.7208356835784473,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.6681817770004272,
+      "baseTexture": "",
+      "normalTexture": "bmw-m3-e30_04.png",
+      "roughTexture": "bmw-m3-e30_05.png",
+      "metalTexture": "bmw-m3-e30_06.png",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_07_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Mirror_8",
+      "role": "Mirror",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.2060931921005249,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_08_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Taillamp_9",
+      "role": "Taillamp",
+      "color": [
+        0.48452920783154513,
+        0.48452920783154513,
+        0.48452920783154513,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.30000001192092896,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_09_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Tire_10",
+      "role": "Tire",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.5,
+      "baseTexture": "",
+      "normalTexture": "bmw-m3-e30_07.png",
+      "roughTexture": "bmw-m3-e30_08.png",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_10_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Glass_11",
+      "role": "Glass",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.0,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_11_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Disc_12",
+      "role": "Disc",
+      "color": [
+        0.906331789156457,
+        0.382421904709049,
+        0.0,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.2818181812763214,
+      "baseTexture": "",
+      "normalTexture": "bmw-m3-e30_09.png",
+      "roughTexture": "bmw-m3-e30_10.png",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_12_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Caliper_13",
+      "role": "Caliper",
+      "color": [
+        0.906331789156457,
+        0.12038525822494914,
+        0.0,
+        1.0
+      ],
+      "metallic": 1.0,
+      "roughness": 0.3272727131843567,
+      "baseTexture": "",
+      "normalTexture": "bmw-m3-e30_11.png",
+      "roughTexture": "bmw-m3-e30_12.png",
+      "metalTexture": "bmw-m3-e30_13.png",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_13_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Trim_14",
+      "role": "Trim",
+      "color": [
+        0.9063317593127924,
+        0.9063317593127924,
+        0.9063317593127924,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.5,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_14_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Trim_15",
+      "role": "Trim",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.3261649012565613,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_15_mask.png"
+    },
+    {
+      "name": "M_RoadCar_bmw_m3_e30_Trim_16",
+      "role": "Trim",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.5,
+      "baseTexture": "",
+      "normalTexture": "",
+      "roughTexture": "",
+      "metalTexture": "",
+      "packedSource": false,
+      "maskTexture": "bmw-m3-e30_16_mask.png"
+    }
+  ],
+  "wheelRadius": 0.31145720183849335,
+  "wheelCenters": [
+    [
+      -0.6969610452651978,
+      0.31145721673965454,
+      1.4084728956222534
+    ],
+    [
+      0.6969610452651978,
+      0.31145721673965454,
+      1.4084728956222534
+    ],
+    [
+      -0.7091161608695984,
+      0.31145721673965454,
+      -1.18142569065094
+    ],
+    [
+      0.7091161608695984,
+      0.31145721673965454,
+      -1.18142569065094
+    ]
+  ]
+}

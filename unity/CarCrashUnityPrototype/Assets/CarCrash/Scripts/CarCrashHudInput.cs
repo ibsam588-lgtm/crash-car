@@ -5,468 +5,346 @@ namespace CarCrash
 {
     public sealed class CarCrashHudInput : MonoBehaviour
     {
+        public enum RunPhase { Home, Showroom, Countdown, Driving, Paused, Results }
+        public enum DriveMode { FreeDrive, ImpactRun }
         public ArcadeVehicleController vehicle;
         public CrashScoring scoring;
-
-        private Texture2D _panel;
-        private Texture2D _buttonCircle;
-        private Texture2D _boostGlow;
-        private Texture2D _gasPedal;
-        private Texture2D _brakePedal;
-        private Texture2D _gauge;
-        private Texture2D _shade;
-        private GUIStyle _smallLeft;
-        private GUIStyle _metric;
-        private GUIStyle _score;
-        private GUIStyle _center;
-        private GUIStyle _button;
-        private bool _paused;
-        private bool _runComplete;
-        private bool _acceleratorLatched;
-        private float _brakeUntilRealtime = -1f;
-        private float _steerUntilRealtime = -1f;
-        private float _touchSteer;
-        private float _finishAtRealtime = -1f;
+        public const float RunDuration = 60f;
+        public static readonly Color[] PaintColors =
+        {
+            new(0.22f, 0.26f, 0.30f), new(0.70f, 0.75f, 0.80f),
+            new(0.06f, 0.24f, 0.42f), new(0.60f, 0.035f, 0.025f), new(0.86f, 0.87f, 0.84f)
+        };
+        public static readonly string[] PaintNames = { "MIDNIGHT GRAPHITE", "ARCTIC SILVER", "OCEAN BLUE", "CARMINE RED", "PEARL WHITE" };
+        public RunPhase Phase { get; private set; } = RunPhase.Home;
+        public DriveMode Mode { get; private set; } = DriveMode.FreeDrive;
+        public bool IsTimed => Mode == DriveMode.ImpactRun;
+        public float ElapsedSeconds { get; private set; }
+        public float PeakSpeed { get; private set; }
+        public float CountdownRemaining { get; private set; }
+        public int BestScore { get; private set; }
+        public int PaintIndex { get; private set; }
+        public bool NewBest { get; private set; }
+        public CarCrashCameraFollow CameraRig { get; private set; }
+        public RacingHudView Hud { get; private set; }
+        public VehicleGarage Garage { get; private set; }
+        public CityNavigator Navigation { get; private set; }
+        public bool MapVisible { get; private set; }
+        private bool _resumeAfterMap;
+        private static bool _retryImmediately;
+        private static RunPhase _nextMenu = RunPhase.Home;
+        private static DriveMode _selectedMode = DriveMode.FreeDrive;
+        private MaterialPropertyBlock _paintBlock;
+        private bool _focused = true;
+        private ImpactRunLoopDirector _recovery;
+        private float _reverseHoldSeconds;
 
         private void Awake()
         {
+            _paintBlock = new MaterialPropertyBlock();
             Time.timeScale = 1f;
             Time.fixedDeltaTime = 0.02f;
         }
 
-        private void OnDisable()
+        private void Start()
         {
-            if (!Application.isPlaying)
+            if (vehicle == null || scoring == null)
             {
-                Time.timeScale = 1f;
-                Time.fixedDeltaTime = 0.02f;
+                Debug.LogError("The racing UI requires a vehicle and scoring component.", this);
+                enabled = false;
+                return;
+            }
+            CameraRig = GetComponent<CarCrashCameraFollow>();
+            _recovery = GetComponent<ImpactRunLoopDirector>();
+            Mode = _selectedMode;
+            Phase = _nextMenu;
+            _nextMenu = RunPhase.Home;
+            BestScore = PlayerPrefs.GetInt("CarCrash.BestImpactScore", 0);
+            PaintIndex = Mathf.Clamp(PlayerPrefs.GetInt("CarCrash.Paint", 0), 0, PaintColors.Length - 1);
+            Garage = vehicle.GetComponent<VehicleGarage>();
+            if (Garage != null) Garage.Select(PlayerPrefs.GetInt("CarCrash.Vehicle", 0));
+            Navigation=gameObject.AddComponent<CityNavigator>();Navigation.player=vehicle.transform;
+            ApplyPaint(PaintIndex);
+            scoring.SetSimulationPaused(true);
+            CameraRig.SetShowcase(true);
+            CameraRig.HomeScreen = Phase == RunPhase.Home;
+            Hud = gameObject.AddComponent<RacingHudView>();
+            Hud.Initialize(this);
+            if (_retryImmediately)
+            {
+                _retryImmediately = false;
+                Phase = RunPhase.Showroom;
+                BeginRun();
             }
         }
 
-        private void OnGUI()
+        private void Update()
         {
-            if (vehicle == null)
+            if (Hud == null) return;
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P))
             {
-                return;
+                if(MapVisible)CloseMap();
+                else if (Hud.HelpVisible) Hud.ShowHelp(false);
+                else if (Phase == RunPhase.Showroom) ReturnHome();
+                else if (Phase == RunPhase.Driving) PauseRun();
+                else if (Phase == RunPhase.Paused) ResumeRun();
             }
+            if(Input.GetKeyDown(KeyCode.M))ToggleMap();
+            if (Phase == RunPhase.Home && !Hud.HelpVisible)
+            {
+                if (Input.GetKeyDown(KeyCode.Return)) StartFreeDrive();
+                if (Input.GetKeyDown(KeyCode.G)) OpenGarage();
+            }
+            if (Phase == RunPhase.Showroom && Input.GetKeyDown(KeyCode.Return)) BeginRun();
+            if (Phase == RunPhase.Results && Input.GetKeyDown(KeyCode.R)) RestartRun();
+            if (Phase == RunPhase.Countdown)
+            {
+                if (!_focused) return;
+                CountdownRemaining -= Time.unscaledDeltaTime;
+                if (CountdownRemaining <= 0f)
+                {
+                    vehicle.ResetForRelaunch(0f);
+                    Phase = RunPhase.Driving;
+                    scoring.SetSimulationPaused(false);
+                    Hud.RefreshPhase();
+                }
+            }
+            else if (Phase == RunPhase.Driving)
+            {
+                ElapsedSeconds += Time.unscaledDeltaTime;
+                PeakSpeed = Mathf.Max(PeakSpeed, vehicle.SpeedKmh);
+                if (Input.GetKeyDown(KeyCode.C)) CycleCamera();
+                if (Input.GetKeyDown(KeyCode.B) || Input.GetKeyDown(KeyCode.LeftControl)) ActivateBoost();
+                if (Input.GetKeyDown(KeyCode.R)) RecoverVehicle();
+                var left = Hud.LeftHeld || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow);
+                var right = Hud.RightHeld || Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow);
+                var gas = Hud.GasHeld || Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow);
+                var brakeReverse = Hud.BrakeHeld || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow);
+                var explicitReverse = Hud.ReverseHeld || Input.GetKey(KeyCode.Q);
+                var hardBrake = Input.GetKey(KeyCode.Space);
+                _reverseHoldSeconds = brakeReverse && !gas && !hardBrake && vehicle.ForwardSpeedKmh < 2f
+                    ? _reverseHoldSeconds + Time.deltaTime : 0f;
+                var reverse = !gas && ((_reverseHoldSeconds >= 0.35f) || (explicitReverse && vehicle.ForwardSpeedKmh < 1.8f));
+                var brake = hardBrake || ((brakeReverse || explicitReverse) && !reverse) || (gas && vehicle.ForwardSpeedKmh < -2f);
+                var throttle = brake ? 0f : reverse ? -1f : gas ? 1f : 0f;
+                vehicle.SetMobileInput((right ? 1f : 0f) - (left ? 1f : 0f), throttle, brake ? 1f : 0f);
+                // Only the challenge owns a time limit. Stopping after a collision
+                // never ends a drive, and Free Drive stays open until the player exits.
+                if (IsTimed && (ElapsedSeconds >= RunDuration || scoring.Damage >= 100f)) FinishRun();
+            }
+            Hud.RefreshTelemetry();
+        }
 
-            EnsureStyles();
-            GUI.depth = -20;
-            var width = Screen.width;
-            var height = Screen.height;
-            var scale = Mathf.Clamp(width / 576f, 0.72f, 1.38f);
-            UpdateRunState();
+        public void BeginRun()
+        {
+            if (Phase != RunPhase.Showroom && Phase != RunPhase.Home) return;
+            _selectedMode = Mode;
+            Phase = RunPhase.Countdown;
+            CountdownRemaining = 3f;
+            vehicle.SetMobileInput(0f, 0f, 0f);
+            CameraRig.SetShowcase(false);
+            Hud.RefreshPhase();
+        }
 
-            DrawScoreCard(scale);
-            if (!_runComplete)
+        public void StartFreeDrive()
+        {
+            if (Phase != RunPhase.Home && Phase != RunPhase.Showroom) return;
+            Mode = DriveMode.FreeDrive;
+            BeginRun();
+        }
+
+        public void StartImpactRun()
+        {
+            if (Phase != RunPhase.Home) return;
+            Mode = DriveMode.ImpactRun;
+            BeginRun();
+        }
+
+        public void OpenGarage()
+        {
+            if (Phase != RunPhase.Home) return;
+            Mode = DriveMode.FreeDrive;
+            Phase = RunPhase.Showroom;
+            CameraRig.HomeScreen = false;
+            Hud.ShowHelp(false);
+            Hud.RefreshPhase();
+        }
+
+        public void RecoverVehicle()
+        {
+            if (Phase != RunPhase.Driving && Phase != RunPhase.Paused) return;
+            ReleaseInput();
+            _recovery?.RecoverVehicle();
+            if(_recovery!=null&&!_recovery.RecoverySuggested&&Navigation.Destination>=0)Navigation.NavigateTo(Navigation.Destination);
+            if (Phase == RunPhase.Paused) ResumeRun();
+        }
+
+        public bool RecoverySuggested => _recovery != null && _recovery.RecoverySuggested;
+
+        public void ToggleMap()
+        {
+            if(MapVisible){CloseMap();return;}
+            if(Phase!=RunPhase.Driving&&Phase!=RunPhase.Paused)return;
+            _resumeAfterMap=Phase==RunPhase.Driving;
+            if(_resumeAfterMap)PauseRun();
+            MapVisible=true;Hud.RefreshPhase();
+        }
+        public void CloseMap()
+        {
+            if(!MapVisible)return;MapVisible=false;
+            if(_resumeAfterMap)ResumeRun();else Hud.RefreshPhase();
+        }
+        public void ExploreDestination(int index)
+        {
+            if(!MapVisible)return;Navigation.NavigateTo(index);CloseMap();
+        }
+
+        public void PauseRun()
+        {
+            if (Phase != RunPhase.Driving) return;
+            Phase = RunPhase.Paused;
+            ReleaseInput();
+            scoring.SetSimulationPaused(true);
+            Hud.RefreshPhase();
+        }
+
+        public void ResumeRun()
+        {
+            if (Phase != RunPhase.Paused) return;
+            ReleaseInput();
+            Phase = RunPhase.Driving;
+            scoring.SetSimulationPaused(false);
+            Hud.RefreshPhase();
+        }
+
+        public void FinishRun()
+        {
+            if (Phase != RunPhase.Driving) return;
+            Phase = RunPhase.Results;
+            ReleaseInput();
+            scoring.SetSimulationPaused(true);
+            SaveBestScore();
+            Hud.RefreshPhase();
+        }
+
+        private void SaveBestScore()
+        {
+            NewBest = scoring.Score > BestScore;
+            if (NewBest)
             {
-                DrawPause(width, scale);
-            }
-            DrawImpactCallout(width, height, scale);
-            if (_runComplete)
-            {
-                DrawResultOverlay(width, height, scale);
-            }
-            else
-            {
-                DrawControls(width, height, scale);
+                BestScore = scoring.Score;
+                PlayerPrefs.SetInt("CarCrash.BestImpactScore", BestScore);
+                PlayerPrefs.Save();
             }
         }
 
-        private void UpdateRunState()
+        public void EndSession()
         {
-            if (_runComplete || scoring == null || scoring.Hits <= 0)
-            {
-                return;
-            }
+            if (Phase == RunPhase.Paused) Phase = RunPhase.Driving;
+            FinishRun();
+        }
 
-            _finishAtRealtime = scoring.LastImpactRealtime + 2.75f;
-            if (Time.realtimeSinceStartup < _finishAtRealtime)
-            {
-                return;
-            }
+        public void ActivateBoost()
+        {
+            if (Phase == RunPhase.Driving) vehicle.TryBoost(1.55f);
+        }
+        public void CycleCamera()
+        {
+            if (Phase == RunPhase.Driving) CameraRig.CycleView();
+        }
+        public void SelectPaint(int index)
+        {
+            if (Phase != RunPhase.Showroom || index < 0 || index >= PaintColors.Length) return;
+            ApplyPaint(index);
+            PlayerPrefs.SetInt("CarCrash.Paint", index);
+            PlayerPrefs.Save();
+            Hud.RefreshPaint();
+        }
 
-            _runComplete = true;
-            Time.timeScale = 0f;
+        public void SelectVehicle(int index)
+        {
+            if (Phase != RunPhase.Showroom || Garage == null || index < 0 || index >= Garage.vehicles.Length) return;
+            ReleaseInput();
+            Garage.Select(index);
+            ApplyPaint(PaintIndex);
+            CameraRig.SetShowcase(true);
+            PlayerPrefs.SetInt("CarCrash.Vehicle", index);
+            PlayerPrefs.Save();
+            Hud.RefreshVehicle();
+        }
+        private void ApplyPaint(int index)
+        {
+            PaintIndex = index;
+            // Per-material blocks preserve glass, lights, wheels and shared traffic materials.
+            foreach (var renderer in vehicle.GetComponentsInChildren<Renderer>())
+            {
+                var materials = renderer.sharedMaterials;
+                for (var slot = 0; slot < materials.Length; slot++)
+                {
+                    var material = materials[slot];
+                    if (material == null) continue;
+                    var bodyPaint = material.name.Contains("Competition_Orange") || material.name.Contains("Orange_Shadow") ||
+                        material.name.Contains("Competition_Yellow") || material.name.Contains("Yellow_Shadow") || material.name.Contains("Paint_1") ||
+                        material.name.StartsWith("M_Garage_Paint") || material.name.StartsWith("M_Fleet_Paint");
+                    if (!bodyPaint) continue;
+                    renderer.GetPropertyBlock(_paintBlock, slot);
+                    var color = PaintColors[index];
+                    if (material.name.Contains("Shadow")) color *= 0.7f;
+                    color.a = 1f;
+                    _paintBlock.SetColor("_Color", color);
+                    _paintBlock.SetFloat("_Metallic", 0.38f);
+                    _paintBlock.SetFloat("_Glossiness", 0.76f);
+                    renderer.SetPropertyBlock(_paintBlock, slot);
+                    _paintBlock.Clear();
+                }
+            }
+        }
+        public void RestartRun()
+        {
+            _retryImmediately = true;
+            _selectedMode = Mode;
+            ReloadScene();
+        }
+        public void ReturnToShowroom()
+        {
+            _retryImmediately = false;
+            _selectedMode = Mode;
+            _nextMenu = RunPhase.Showroom;
+            ReloadScene();
+        }
+        public void ReturnHome()
+        {
+            _retryImmediately = false;
+            _nextMenu = RunPhase.Home;
+            ReloadScene();
+        }
+        private void ReloadScene()
+        {
+            SaveBestScore();
+            ReleaseInput();
+            scoring.SetSimulationPaused(false);
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+        private void ReleaseInput()
+        {
+            _reverseHoldSeconds = 0f;
+            Hud?.ReleaseControls();
+            vehicle?.SetMobileInput(0f, 0f, 0f);
+        }
+        private void OnApplicationFocus(bool focused)
+        {
+            _focused = focused;
+            if (!focused) PauseRun();
+        }
+        private void OnApplicationPause(bool paused)
+        {
+            _focused = !paused;
+            if (paused) PauseRun();
+        }
+        private void OnDestroy()
+        {
+            Time.timeScale = 1f;
             Time.fixedDeltaTime = 0.02f;
-        }
-
-        private void DrawResultOverlay(float width, float height, float scale)
-        {
-            GUI.DrawTexture(new Rect(0f, 0f, width, height), _shade, ScaleMode.StretchToFill, true);
-            var panelWidth = Mathf.Min(width - 46f * scale, 430f * scale);
-            var panelHeight = Mathf.Min(360f * scale, height * 0.74f);
-            var panel = new Rect((width - panelWidth) * 0.5f, height * 0.22f, panelWidth, panelHeight);
-            GUI.DrawTexture(panel, _panel, ScaleMode.StretchToFill, true);
-
-            _center.fontSize = Mathf.RoundToInt(33f * scale);
-            _center.normal.textColor = new Color(1f, 0.82f, 0.04f);
-            GUI.Label(new Rect(panel.x + 18f * scale, panel.y + 30f * scale, panel.width - 36f * scale, 48f * scale), "WRECK COMPLETE", _center);
-
-            _smallLeft.fontSize = Mathf.RoundToInt(17f * scale);
-            _smallLeft.normal.textColor = new Color(0.75f, 0.78f, 0.80f);
-            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 105f * scale, panel.width * 0.45f, 28f * scale), "TOTAL SCORE", _smallLeft);
-            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 185f * scale, panel.width * 0.40f, 28f * scale), "VEHICLES HIT", _smallLeft);
-            GUI.Label(new Rect(panel.x + panel.width * 0.58f, panel.y + 185f * scale, panel.width * 0.32f, 28f * scale), "PEAK CHAIN", _smallLeft);
-
-            _score.fontSize = Mathf.RoundToInt(41f * scale);
-            _score.normal.textColor = Color.white;
-            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 130f * scale, panel.width - 72f * scale, 52f * scale), FormatScore(scoring.Score), _score);
-            _metric.fontSize = Mathf.RoundToInt(32f * scale);
-            _metric.normal.textColor = new Color(0.50f, 1f, 0.28f);
-            GUI.Label(new Rect(panel.x + 36f * scale, panel.y + 210f * scale, panel.width * 0.40f, 42f * scale), scoring.Hits.ToString(), _metric);
-            _metric.normal.textColor = new Color(1f, 0.82f, 0.04f);
-            GUI.Label(new Rect(panel.x + panel.width * 0.58f, panel.y + 210f * scale, panel.width * 0.32f, 42f * scale), $"x{scoring.PeakChainDepth + 1}", _metric);
-
-            var retry = new Rect(panel.x + 30f * scale, panel.y + panel.height - 79f * scale, panel.width - 60f * scale, 54f * scale);
-            var oldColor = GUI.color;
-            GUI.color = new Color(1f, 0.82f, 0.04f);
-            GUI.DrawTexture(retry, _panel, ScaleMode.StretchToFill, true);
-            GUI.color = oldColor;
-            _button.fontSize = Mathf.RoundToInt(22f * scale);
-            _button.normal.textColor = Color.black;
-            GUI.Label(retry, "RETRY RUN", _button);
-            if (GUI.Button(retry, string.Empty, GUIStyle.none))
-            {
-                Time.timeScale = 1f;
-                Time.fixedDeltaTime = 0.02f;
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-            }
-        }
-
-        private void DrawScoreCard(float scale)
-        {
-            var card = new Rect(22f * scale, 28f * scale, 158f * scale, 150f * scale);
-            GUI.DrawTexture(card, _panel, ScaleMode.StretchToFill, true);
-
-            _smallLeft.fontSize = Mathf.RoundToInt(16f * scale);
-            _smallLeft.normal.textColor = Color.white;
-            GUI.Label(new Rect(card.x + 15f * scale, card.y + 12f * scale, 100f * scale, 24f * scale), "SCORE", _smallLeft);
-
-            _score.fontSize = Mathf.RoundToInt(32f * scale);
-            _score.normal.textColor = new Color(1f, 0.82f, 0.04f);
-            GUI.Label(new Rect(card.x + 15f * scale, card.y + 34f * scale, card.width - 25f * scale, 42f * scale), FormatScore(scoring != null ? scoring.Score : 0), _score);
-
-            _smallLeft.fontSize = Mathf.RoundToInt(16f * scale);
-            _smallLeft.normal.textColor = Color.white;
-            GUI.Label(new Rect(card.x + 15f * scale, card.y + 82f * scale, 70f * scale, 22f * scale), "HITS", _smallLeft);
-
-            _metric.fontSize = Mathf.RoundToInt(31f * scale);
-            _metric.normal.textColor = new Color(0.50f, 1f, 0.28f);
-            GUI.Label(new Rect(card.x + 15f * scale, card.y + 101f * scale, 65f * scale, 38f * scale), $"{(scoring != null ? scoring.Hits : 0)}", _metric);
-
-            _score.fontSize = Mathf.RoundToInt(24f * scale);
-            _score.alignment = TextAnchor.MiddleRight;
-            _score.normal.textColor = new Color(1f, 0.82f, 0.04f);
-            GUI.Label(new Rect(card.x + 76f * scale, card.y + 95f * scale, 68f * scale, 42f * scale), $"x{ComboValue():0.0}", _score);
-            _score.alignment = TextAnchor.MiddleLeft;
-        }
-
-        private void DrawPause(float width, float scale)
-        {
-            var size = 58f * scale;
-            var rect = new Rect(width - 24f * scale - size, 30f * scale, size, size);
-            GUI.DrawTexture(rect, _panel, ScaleMode.StretchToFill, true);
-            _center.fontSize = Mathf.RoundToInt(29f * scale);
-            _center.normal.textColor = Color.white;
-            GUI.Label(rect, _paused ? ">" : "II", _center);
-
-            if (GUI.Button(rect, string.Empty, GUIStyle.none))
-            {
-                _paused = !_paused;
-                Time.timeScale = _paused ? 0f : 1f;
-                Time.fixedDeltaTime = _paused ? 0.02f : 0.02f;
-            }
-        }
-
-        private void DrawImpactCallout(float width, float height, float scale)
-        {
-            if (scoring == null || Time.realtimeSinceStartup - scoring.LastImpactRealtime > 1.55f)
-            {
-                return;
-            }
-
-            var centerY = height * 0.15f;
-            _center.fontSize = Mathf.RoundToInt(51f * scale);
-            _center.normal.textColor = new Color(1f, 0.80f, 0.03f);
-            var chainLabel = scoring.LastChainDepth > 0
-                ? $"CHAIN {scoring.LastChainDepth + 1}"
-                : $"x{ComboValue():0.0}";
-            DrawShadowLabel(new Rect(width * 0.5f - 145f * scale, centerY, 290f * scale, 62f * scale), chainLabel, _center, 2f * scale);
-
-            _center.fontSize = Mathf.RoundToInt(23f * scale);
-            _center.normal.textColor = Color.white;
-            DrawShadowLabel(
-                new Rect(width * 0.5f - 115f * scale, centerY + 52f * scale, 230f * scale, 32f * scale),
-                scoring.LastChainDepth > 0 ? "CASCADE!" : "SMASH!",
-                _center,
-                2f * scale);
-
-            _center.fontSize = Mathf.RoundToInt(33f * scale);
-            _center.normal.textColor = new Color(1f, 0.80f, 0.03f);
-            DrawShadowLabel(new Rect(width * 0.5f - 130f * scale, centerY + 78f * scale, 260f * scale, 42f * scale), $"+{scoring.LastImpactScore:N0}", _center, 2f * scale);
-        }
-
-        private void DrawControls(float width, float height, float scale)
-        {
-            var controlScale = Mathf.Clamp(width / 576f, 0.72f, 1f);
-            var buttonSize = 78f * controlScale;
-            var gap = 12f * controlScale;
-            var bottom = 18f * controlScale;
-            var left = new Rect(20f * controlScale, height - bottom - buttonSize, buttonSize, buttonSize);
-            var right = new Rect(left.xMax + gap, left.y, buttonSize, buttonSize);
-            var boostSize = 94f * controlScale;
-            var boost = new Rect(width * 0.5f - boostSize * 0.5f, height - bottom - boostSize, boostSize, boostSize);
-            var gaugeSize = 136f * controlScale;
-            var gauge = new Rect(width - 16f * controlScale - gaugeSize, height - bottom - gaugeSize, gaugeSize, gaugeSize);
-            var gasSize = new Vector2(64f * controlScale, 112f * controlScale);
-            var brakeSize = new Vector2(58f * controlScale, 78f * controlScale);
-            Rect gas;
-            Rect brake;
-            if (width < 660f)
-            {
-                var pedalY = gauge.y - 10f * controlScale - gasSize.y;
-                gas = new Rect(width - 16f * controlScale - gasSize.x, pedalY, gasSize.x, gasSize.y);
-                brake = new Rect(gas.x - 10f * controlScale - brakeSize.x, pedalY + gasSize.y - brakeSize.y, brakeSize.x, brakeSize.y);
-            }
-            else
-            {
-                gas = new Rect(gauge.x - gap - gasSize.x, height - bottom - gasSize.y, gasSize.x, gasSize.y);
-                brake = new Rect(gas.x - 10f * controlScale - brakeSize.x, height - bottom - brakeSize.y, brakeSize.x, brakeSize.y);
-            }
-
-            GUI.DrawTexture(left, _buttonCircle, ScaleMode.StretchToFill, true);
-            GUI.DrawTexture(right, _buttonCircle, ScaleMode.StretchToFill, true);
-            _button.fontSize = Mathf.RoundToInt(42f * controlScale);
-            _button.normal.textColor = Color.white;
-            GUI.Label(left, "<", _button);
-            GUI.Label(right, ">", _button);
-
-            var steer = Input.GetAxisRaw("Horizontal");
-            if (GUI.RepeatButton(left, string.Empty, GUIStyle.none))
-            {
-                _touchSteer = -1f;
-                _steerUntilRealtime = Time.realtimeSinceStartup + 0.16f;
-            }
-            if (GUI.RepeatButton(right, string.Empty, GUIStyle.none))
-            {
-                _touchSteer = 1f;
-                _steerUntilRealtime = Time.realtimeSinceStartup + 0.16f;
-            }
-            if (Mathf.Abs(steer) < 0.05f && Time.realtimeSinceStartup < _steerUntilRealtime)
-            {
-                steer = _touchSteer;
-            }
-
-            var verticalInput = Input.GetAxisRaw("Vertical");
-            var throttle = Mathf.Clamp01(verticalInput);
-            var brakeInput = Mathf.Clamp01(-verticalInput);
-            if (Input.GetKey(KeyCode.Space))
-            {
-                brakeInput = 1f;
-            }
-
-            var gasActive = _acceleratorLatched || throttle > 0.05f;
-            GUI.DrawTexture(gas, gasActive ? _gasPedal : _panel, ScaleMode.StretchToFill, true);
-            _button.fontSize = Mathf.RoundToInt(17f * controlScale);
-            _button.normal.textColor = gasActive ? new Color(0.52f, 1f, 0.34f) : Color.white;
-            GUI.Label(gas, "GAS", _button);
-            if (GUI.Button(gas, string.Empty, GUIStyle.none))
-            {
-                _acceleratorLatched = true;
-                _brakeUntilRealtime = -1f;
-                Debug.Log("[Controls] accelerator engaged");
-            }
-
-            var brakeActive = brakeInput > 0.05f || Time.realtimeSinceStartup < _brakeUntilRealtime;
-            GUI.DrawTexture(brake, brakeActive ? _brakePedal : _panel, ScaleMode.StretchToFill, true);
-            _button.fontSize = Mathf.RoundToInt(13f * controlScale);
-            _button.normal.textColor = brakeActive ? new Color(1f, 0.30f, 0.18f) : Color.white;
-            GUI.Label(brake, "BRAKE", _button);
-            if (GUI.RepeatButton(brake, string.Empty, GUIStyle.none))
-            {
-                _acceleratorLatched = false;
-                _brakeUntilRealtime = Time.realtimeSinceStartup + 0.85f;
-                brakeInput = 1f;
-            }
-
-            var boostPulse = 1f + Mathf.Sin(Time.unscaledTime * 5.8f) * 0.035f;
-            var glowRect = ScaleAroundCenter(boost, boostPulse);
-            GUI.DrawTexture(glowRect, _boostGlow, ScaleMode.StretchToFill, true);
-            _button.fontSize = Mathf.RoundToInt(17f * controlScale);
-            _button.normal.textColor = new Color(0.22f, 0.82f, 1f);
-            GUI.Label(boost, "BOOST", _button);
-            if (GUI.Button(boost, string.Empty, GUIStyle.none))
-            {
-                vehicle.Boost(1.55f);
-            }
-
-            GUI.DrawTexture(gauge, _gauge, ScaleMode.StretchToFill, true);
-            _center.fontSize = Mathf.RoundToInt(39f * controlScale);
-            _center.normal.textColor = Color.white;
-            GUI.Label(new Rect(gauge.x, gauge.y + 31f * controlScale, gauge.width, 50f * controlScale), $"{vehicle.SpeedKmh:0}", _center);
-            _center.fontSize = Mathf.RoundToInt(14f * controlScale);
-            GUI.Label(new Rect(gauge.x, gauge.y + 77f * controlScale, gauge.width, 23f * controlScale), "KM/H", _center);
-            _center.fontSize = Mathf.RoundToInt(18f * controlScale);
-            GUI.Label(new Rect(gauge.x, gauge.y + 99f * controlScale, gauge.width, 22f * controlScale), GearValue().ToString(), _center);
-
-            if (!_paused)
-            {
-                if (_acceleratorLatched)
-                {
-                    throttle = 1f;
-                }
-                if (Time.realtimeSinceStartup < _brakeUntilRealtime)
-                {
-                    brakeInput = 1f;
-                }
-                if (brakeInput > 0.05f)
-                {
-                    throttle = 0f;
-                }
-                vehicle.SetMobileInput(Mathf.Clamp(steer, -1f, 1f), throttle, brakeInput);
-            }
-        }
-
-        private void EnsureStyles()
-        {
-            if (_panel != null)
-            {
-                return;
-            }
-
-            _panel = MakeRoundedPanel(96, new Color(0.015f, 0.018f, 0.021f, 0.72f), 17f);
-            _buttonCircle = MakeCircleTexture(192, new Color(0.015f, 0.018f, 0.022f, 0.67f), new Color(0.86f, 0.66f, 0.27f, 0.76f), 5f);
-            _boostGlow = MakeCircleTexture(192, new Color(0.02f, 0.12f, 0.21f, 0.80f), new Color(0.14f, 0.74f, 1f, 1f), 8f);
-            _gasPedal = MakeRoundedPanel(96, new Color(0.025f, 0.20f, 0.08f, 0.90f), 14f);
-            _brakePedal = MakeRoundedPanel(96, new Color(0.28f, 0.035f, 0.018f, 0.92f), 14f);
-            _gauge = MakeGaugeTexture(256);
-            _shade = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            _shade.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.76f));
-            _shade.Apply();
-
-            _smallLeft = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                fontStyle = FontStyle.Bold,
-                clipping = TextClipping.Clip
-            };
-            _metric = new GUIStyle(_smallLeft) { fontStyle = FontStyle.Bold };
-            _score = new GUIStyle(_smallLeft) { fontStyle = FontStyle.Bold };
-            _center = new GUIStyle(_smallLeft)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontStyle = FontStyle.Bold
-            };
-            _button = new GUIStyle(_center) { fontStyle = FontStyle.Bold };
-        }
-
-        private static void DrawShadowLabel(Rect rect, string text, GUIStyle style, float offset)
-        {
-            var color = style.normal.textColor;
-            style.normal.textColor = new Color(0f, 0f, 0f, 0.72f);
-            GUI.Label(new Rect(rect.x + offset, rect.y + offset, rect.width, rect.height), text, style);
-            style.normal.textColor = color;
-            GUI.Label(rect, text, style);
-        }
-
-        private static Rect ScaleAroundCenter(Rect rect, float scale)
-        {
-            var width = rect.width * scale;
-            var height = rect.height * scale;
-            return new Rect(rect.center.x - width * 0.5f, rect.center.y - height * 0.5f, width, height);
-        }
-
-        private float ComboValue()
-        {
-            return scoring != null ? Mathf.Clamp(scoring.LastMultiplier, 1f, 9f) : 1f;
-        }
-
-        private int GearValue()
-        {
-            return Mathf.Clamp(Mathf.FloorToInt(vehicle.SpeedKmh / 42f) + 1, 1, 7);
-        }
-
-        private static string FormatScore(int value)
-        {
-            return value.ToString("N0");
-        }
-
-        private static Texture2D MakeRoundedPanel(int size, Color color, float radius)
-        {
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            for (var y = 0; y < size; y++)
-            {
-                for (var x = 0; x < size; x++)
-                {
-                    var dx = Mathf.Max(radius - x, 0f, x - (size - radius));
-                    var dy = Mathf.Max(radius - y, 0f, y - (size - radius));
-                    var inside = dx * dx + dy * dy <= radius * radius;
-                    texture.SetPixel(x, y, inside ? color : Color.clear);
-                }
-            }
-            texture.Apply();
-            return texture;
-        }
-
-        private static Texture2D MakeCircleTexture(int size, Color fill, Color ring, float ringWidth)
-        {
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            var center = (size - 1) * 0.5f;
-            var outer = center - 2f;
-            var inner = outer - ringWidth;
-            for (var y = 0; y < size; y++)
-            {
-                for (var x = 0; x < size; x++)
-                {
-                    var distance = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                    texture.SetPixel(x, y, distance <= inner ? fill : distance <= outer ? ring : Color.clear);
-                }
-            }
-            texture.Apply();
-            return texture;
-        }
-
-        private static Texture2D MakeGaugeTexture(int size)
-        {
-            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            var center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
-            var outer = size * 0.48f;
-            var inner = size * 0.39f;
-            for (var y = 0; y < size; y++)
-            {
-                for (var x = 0; x < size; x++)
-                {
-                    var delta = new Vector2(x, y) - center;
-                    var distance = delta.magnitude;
-                    if (distance > outer)
-                    {
-                        texture.SetPixel(x, y, Color.clear);
-                        continue;
-                    }
-                    if (distance < inner)
-                    {
-                        texture.SetPixel(x, y, new Color(0.012f, 0.014f, 0.018f, 0.78f));
-                        continue;
-                    }
-                    var angle = Mathf.Repeat(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg + 360f, 360f);
-                    var active = angle >= 120f || angle <= 48f;
-                    if (!active)
-                    {
-                        texture.SetPixel(x, y, new Color(0.38f, 0.39f, 0.38f, 0.58f));
-                    }
-                    else if (angle > 120f && angle < 305f)
-                    {
-                        texture.SetPixel(x, y, new Color(0.98f, 0.88f, 0.06f, 1f));
-                    }
-                    else
-                    {
-                        texture.SetPixel(x, y, new Color(0.92f, 0.16f, 0.04f, 1f));
-                    }
-                }
-            }
-            texture.Apply();
-            return texture;
         }
     }
 }

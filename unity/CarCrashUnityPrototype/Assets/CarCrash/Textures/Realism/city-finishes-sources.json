@@ -1,0 +1,164 @@
+[
+  {
+    "asset": "concrete_pavement",
+    "map": "diff",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_pavement/concrete_pavement_diff_2k.png",
+    "license": "CC0",
+    "file": "concrete_pavement_diff.png",
+    "source_sha256": "5f3b4da237d02b74c72176eb1f86591a752e8ab4ef24cc430fe93ee85c8cee65",
+    "sha256": "b92384fedaf8c959567c4f20e03c1dddddf946c40e9d25f731a1feb0b47495e5"
+  },
+  {
+    "asset": "concrete_pavement",
+    "map": "nor_gl",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_pavement/concrete_pavement_nor_gl_2k.png",
+    "license": "CC0",
+    "file": "concrete_pavement_nor_gl.png",
+    "source_sha256": "f321f48798e0fa82c8f846a6df4dc9c5880d4945703878504cc53bc798520643",
+    "sha256": "9db447c9711e86a3725691fb43f9b7d6ecfb2262ce9052ba88b84746624d2c52"
+  },
+  {
+    "asset": "concrete_pavement",
+    "map": "rough",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_pavement/concrete_pavement_rough_2k.png",
+    "license": "CC0",
+    "file": "concrete_pavement_rough.png",
+    "source_sha256": "84a5ac02feb2e4356e2fe7a4ffe888b514b8437e97e6001c789aa7a3ea8f9566",
+    "sha256": "6ec7136e2cda52b7782a69f85e4196165c5cba7eb0745611b42ec58336ca9c05"
+  },
+  {
+    "asset": "concrete_pavement",
+    "map": "ao",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/concrete_pavement/concrete_pavement_ao_2k.png",
+    "license": "CC0",
+    "file": "concrete_pavement_ao.png",
+    "source_sha256": "f76f1cc7e90482ade34ccb4225c3e98704fa612c4dcdd39418f1f34b7abbf4aa",
+    "sha256": "4dca3a6b8e7e40aaa435d58cc2bfa2d123f383c417a0b8bc1032717b31efcd97"
+  },
+  {
+    "asset": "plastered_wall_02",
+    "map": "diff",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/plastered_wall_02/plastered_wall_02_diff_2k.png",
+    "license": "CC0",
+    "file": "plastered_wall_02_diff.png",
+    "source_sha256": "860b571ef9fc6cb8013143b6cd8ad96d8f09b2538a17c437d5e6c89a0d409c3b",
+    "sha256": "7f762dee1a578e21d45ecf407faac87e232dc353763e273537b713483bfd31d6"
+  },
+  {
+    "asset": "plastered_wall_02",
+    "map": "nor_gl",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/plastered_wall_02/plastered_wall_02_nor_gl_2k.png",
+    "license": "CC0",
+    "file": "plastered_wall_02_nor_gl.png",
+    "source_sha256": "b8ce6c6a957a41d77b9273f1ee03d0695df1be6d1225c4efb180cc5775a9a007",
+    "sha256": "aa0fe56b50a486dc655610542ceef8bc4327624c47c48df756f49e3dd276f0f2"
+  },
+  {
+    "asset": "plastered_wall_02",
+    "map": "rough",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/plastered_wall_02/plastered_wall_02_rough_2k.png",
+    "license": "CC0",
+    "file": "plastered_wall_02_rough.png",
+    "source_sha256": "12a0bed97f824cdc03c7206fb2d5c8e16a548598463ec63cccd5b5f9ba88dfc2",
+    "sha256": "2774cb00e333ec081fadddb589105fad653e884824cf78fd35b41a67eab37339"
+  },
+  {
+    "asset": "plastered_wall_02",
+    "map": "ao",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/plastered_wall_02/plastered_wall_02_ao_2k.png",
+    "license": "CC0",
+    "file": "plastered_wall_02_ao.png",
+    "source_sha256": "34c63f370dae1b18b03436c55a9bb5e70491230d60ccd49b47ae19ad17e8adbc",
+    "sha256": "be62ca763807b71e0b626ae9c234ac42d7d5681cd1e40a716f053e1900eb8bfc"
+  },
+  {
+    "asset": "asphalt_02",
+    "map": "ao",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/asphalt_02/asphalt_02_ao_2k.png",
+    "license": "CC0",
+    "file": "asphalt_02_ao.png",
+    "source_sha256": "51fdd35bd09b51f4563e021d5ccab5d2511758d4f4feb1e0acb01b72eb9028ae",
+    "sha256": "e03b0c0f02caea7ef1adabed9dbb993ded706672404dc44899d731b72919419a"
+  },
+  {
+    "asset": "brick_wall_003",
+    "map": "ao",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/brick_wall_003/brick_wall_003_ao_2k.png",
+    "license": "CC0",
+    "file": "brick_wall_003_ao.png",
+    "source_sha256": "470dbaa99559776a5c67937a156030a7bf9450d1aca0b9f465a1b293e2e3ad61",
+    "sha256": "435df7f7ef3a4f7242833545340a7fb5e6d5917cceff2867dd49c574d56f0cb5"
+  },
+  {
+    "asset": "leafy_grass",
+    "map": "diff",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/leafy_grass/leafy_grass_diff_2k.png",
+    "license": "CC0",
+    "file": "leafy_grass_diff.png",
+    "source_sha256": "9ae7994a36a7aedf5fe65dac49d5e096e9a8ff1d8a8e8ccb28df0c9c3a7a2d34",
+    "sha256": "b1f91a0de6338e5fbe390b2d9af23e268ceafb5d0eeec4a1b2686a91a23125c2"
+  },
+  {
+    "asset": "leafy_grass",
+    "map": "nor_gl",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/leafy_grass/leafy_grass_nor_gl_2k.png",
+    "license": "CC0",
+    "file": "leafy_grass_nor_gl.png",
+    "source_sha256": "476a34f2f60186f51644c3b9560d7659531a033f993b01f274f939e447f3de25",
+    "sha256": "90a4d0d14cb58f75fc9f11d706834e68cfc020ff5eee6b9eb3e2c02cd7afdb97"
+  },
+  {
+    "asset": "leafy_grass",
+    "map": "rough",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/leafy_grass/leafy_grass_rough_2k.png",
+    "license": "CC0",
+    "file": "leafy_grass_rough.png",
+    "source_sha256": "71d2c187fd8cb7182c8877710431af23257904fb167c38218ed0abf21c2e73b6",
+    "sha256": "3baa0afe41f44dbf705e7d99af7e2977b4b3bdc7d3e342f196a337b243a02ed0"
+  },
+  {
+    "asset": "leafy_grass",
+    "map": "ao",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/leafy_grass/leafy_grass_ao_2k.png",
+    "license": "CC0",
+    "file": "leafy_grass_ao.png",
+    "source_sha256": "747b1ebcb1d8a75ebcb5df1dd4fbdcd9e5cb283fe67a924200db5525f75a10ca",
+    "sha256": "2dee19cf0aad1e871239ead7327443ce5743f6b12b944fde3ae87ff9d6ef3932"
+  },
+  {
+    "asset": "wood_planks",
+    "map": "diff",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks/wood_planks_diff_2k.png",
+    "license": "CC0",
+    "file": "wood_planks_diff.png",
+    "source_sha256": "547552b9a8a34829a9bc5eddf1d6b50162504147f28dc623fa9632623ce01308",
+    "sha256": "9230de5ff57595ca4259b4b8a5a77e381c62a2619bf6df33c144364353822891"
+  },
+  {
+    "asset": "wood_planks",
+    "map": "nor_gl",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks/wood_planks_nor_gl_2k.png",
+    "license": "CC0",
+    "file": "wood_planks_nor_gl.png",
+    "source_sha256": "322e30f9ccf72979e81a69641b2fa4a3f5530a8fffa498a1a0d9f8512b1ea1f1",
+    "sha256": "8e8351fdf3d0a339a17f0e897bd4167254b504e93a94e4da97f91f2af4d679fb"
+  },
+  {
+    "asset": "wood_planks",
+    "map": "rough",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks/wood_planks_rough_2k.png",
+    "license": "CC0",
+    "file": "wood_planks_rough.png",
+    "source_sha256": "d74ceb15426018d526fb86b5cf09d4a893b127a2071c88bd1b5c553baefdc178",
+    "sha256": "26c4eb4d75acb6f4f0d4e9679470352a71b7e95a8b6e0c1b48623577a8bbdd1a"
+  },
+  {
+    "asset": "wood_planks",
+    "map": "ao",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/wood_planks/wood_planks_ao_2k.png",
+    "license": "CC0",
+    "file": "wood_planks_ao.png",
+    "source_sha256": "ec72c3a002d773c4059c9f1c4dd1704fe7e7cf9c9ee4d1c72e7e8eac4c74b55f",
+    "sha256": "91744433ade24152ba6e3f850332e8468312f7f4e3c935e8891681ba2c744e11"
+  }
+]
