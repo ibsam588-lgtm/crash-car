@@ -11,7 +11,7 @@ namespace CarCrashEditor
     {
         private const string MeshDirectory = "Assets/CarCrash/Generated/RealismGeometry/";
         private static Transform _city;
-        private static Material _asphalt, _concrete, _stone, _metal, _glass, _warmGlass, _trim, _white, _yellow;
+        private static Material _asphalt, _concrete, _stone, _metal, _glass, _shopGlass, _warmGlass, _trim, _white, _yellow;
         private static Material _bark, _palmBark, _leaf, _light;
         private static Material _signMaterial;
         private static Font _signFont;
@@ -107,6 +107,8 @@ namespace CarCrashEditor
             _metal = RealismMaterialLibrary.Standard("M_City_Powdercoat", new Color(0.055f, 0.065f, 0.073f), 0.6f, 0.6f);
             _glass = RealismMaterialLibrary.Window("M_City_Window_Glass",new Color(.10f,.14f,.18f),.12f);
             _warmGlass = RealismMaterialLibrary.Window("M_City_Lit_Window",new Color(.24f,.23f,.19f),.45f);
+            _shopGlass=RealismMaterialLibrary.Window("M_City_Shopfront_Glass",new Color(.12f,.14f,.16f),.65f);
+            _shopGlass.SetFloat("_Shopfront",1);
             _trim = RealismMaterialLibrary.WorldSurface("M_City_Limestone_Trim","plastered_wall_02",new Color(.78f,.76f,.69f),.7f,.3f,.32f,.25f);
             _white = RealismMaterialLibrary.Standard("M_City_Aged_White_Paint", new Color(0.73f, 0.72f, 0.65f), 0f, 0.22f);
             _yellow = RealismMaterialLibrary.Standard("M_City_Road_Yellow", new Color(0.85f, 0.59f, 0.10f), 0f, 0.25f);
@@ -330,8 +332,12 @@ namespace CarCrashEditor
                     var plaster=i%6 is 1 or 4;
                     var tint = i % 3 == 0 ? new Color(.83f,.80f,.75f) : i % 3 == 1 ? new Color(.80f,.82f,.80f) : new Color(.63f,.64f,.62f);
                     var wall = RealismMaterialLibrary.WorldSurface("M_Facade_Surface_" + i % 6,plaster ? "plastered_wall_02" : "brick_wall_003",tint,plaster ? .5f : .45f,.65f,.26f,.65f);
-                    Box("Masonry building", new Vector3(centerX, height * 0.5f, z), new Vector3(width, height, depth), wall, true);
-                    Box("Stone ground floor", new Vector3(facade + side * 0.08f, 1.9f, z), new Vector3(0.30f, 3.7f, depth + 0.1f), _stone);
+                    // Keep the full original collision envelope, but set the
+                    // rendered core back behind real window/shop recesses.
+                    var core=Box("Masonry building",new Vector3(centerX+side*.24f,height*.5f,z),new Vector3(width-.48f,height,depth),wall,true);
+                    core.GetComponent<BoxCollider>().size=new Vector3(width/(width-.48f),1,1);
+                    core.GetComponent<BoxCollider>().center=new Vector3(-side*.24f/(width-.48f),0,0);
+                    RecessedFacade(side,facade,z,depth,height,wall);
                     Box("Roof parapet", new Vector3(centerX, height + 0.28f, z), new Vector3(width + 0.28f, 0.56f, depth + 0.28f), _trim);
                     Box("Upper cornice", new Vector3(facade - side * 0.15f, height - 0.65f, z), new Vector3(0.52f, 0.20f, depth + 0.35f), _trim);
                     for (var y = 4.9f; y < height - 1; y += 2.8f)
@@ -341,16 +347,26 @@ namespace CarCrashEditor
                         {
                             var wz = z + column * 2.7f;
                             var lit = (column + Mathf.RoundToInt(y) + i) % 7 == 0;
-                            Box("Window surround", new Vector3(facade - side * 0.15f, y, wz), new Vector3(0.22f, 1.84f, 1.37f), _trim);
-                            Box("Recessed glazing", new Vector3(facade - side * 0.28f, y, wz), new Vector3(0.08f, 1.53f, 1.10f), lit ? _warmGlass : _glass);
-                            Box("Window mullion", new Vector3(facade - side * 0.34f, y, wz), new Vector3(0.05f, 1.56f, 0.045f), _metal);
+                            foreach(var edge in new[]{-1f,1f})
+                                Box("Deep window jamb",new Vector3(facade+side*.08f,y,wz+edge*.64f),new Vector3(.50f,1.84f,.14f),_trim);
+                            Box("Window lintel",new Vector3(facade+side*.08f,y+.84f,wz),new Vector3(.50f,.16f,1.40f),_trim);
+                            Box("Recessed glazing",new Vector3(facade+side*.29f,y,wz),new Vector3(.035f,1.53f,1.10f),lit ? _warmGlass : _glass);
+                            Box("Window mullion",new Vector3(facade+side*.26f,y,wz),new Vector3(.05f,1.56f,.045f),_metal);
                             Box("Window sill", new Vector3(facade - side * 0.30f, y - 0.90f, wz), new Vector3(0.38f, 0.12f, 1.50f), _trim);
                         }
                     }
                     for (var column = -1; column <= 1; column++)
                     {
-                        Box("Shop glazing", new Vector3(facade - side * 0.22f, 1.55f, z + column * 4.3f), new Vector3(0.08f, 2.45f, 3.6f), _glass);
-                        Box("Shop window frame", new Vector3(facade - side * 0.30f, 1.6f, z + column * 4.3f + 1.72f), new Vector3(0.14f, 2.75f, 0.08f), _metal);
+                        var shopZ=z+column*4.3f;
+                        Box("Shop glazing",new Vector3(facade+side*.28f,1.55f,shopZ),new Vector3(.05f,2.45f,3.6f),_shopGlass);
+                        Box("Shop window frame",new Vector3(facade+side*.20f,1.6f,shopZ+1.72f),new Vector3(.14f,2.75f,.08f),_metal);
+                        Box("Shop window transom",new Vector3(facade+side*.18f,2.44f,shopZ),new Vector3(.14f,.06f,3.55f),_metal);
+                        if(column==0)
+                        {
+                            Box("Entrance door mullion",new Vector3(facade+side*.18f,1.45f,shopZ-.85f),new Vector3(.14f,2.6f,.065f),_metal);
+                            Box("Shop door pull",new Vector3(facade+side*.08f,1.3f,shopZ-.64f),new Vector3(.10f,.46f,.035f),_trim);
+                            Box("Recessed entrance threshold",new Vector3(facade+side*.1f,.18f,shopZ-1.25f),new Vector3(.75f,.055f,1.22f),_stone);
+                        }
                     }
                     var awning = RealismMaterialLibrary.Standard("M_Awning_" + i % 3, i % 3 == 0 ? new Color(0.22f, 0.31f, 0.25f) : i % 3 == 1 ? new Color(0.40f, 0.16f, 0.12f) : new Color(0.20f, 0.23f, 0.29f));
                     Box("Shop canopy", new Vector3(facade - side * 0.62f, 3.38f, z), new Vector3(1.35f, 0.17f, depth * 0.84f), awning, true);
@@ -358,6 +374,7 @@ namespace CarCrashEditor
                     Sign(shopNames[(i + (side > 0 ? 2 : 0)) % shopNames.Length], sign.transform.position - Vector3.right * side * 0.10f,
                         Quaternion.Euler(0, side * 90f, 0), 0.20f, new Color(0.90f, 0.89f, 0.82f),depth*.73f,.42f);
                     FacadeDetails(i,side,centerX,facade,z,width,depth,height);
+                    if(Mathf.Abs(avenue)<=54)UrbanArchitecture(i,side,facade,z,depth,height,awning);
                     Box("Rooftop air conditioning", new Vector3(centerX + side, height + 0.8f, z + 2), new Vector3(2.7f, 1.1f, 2.0f), _metal);
                     for (var n = 0; n < 5; n++) Box("AC grille", new Vector3(centerX + side, height + 1.37f, z + 1.2f + n * 0.3f), new Vector3(2.4f, 0.045f, 0.035f), _trim);
                     if (i % 3 == 0)
@@ -366,6 +383,85 @@ namespace CarCrashEditor
                         Sign("H\nO\nT\nE\nL", new Vector3(facade - side * 0.8f, 7.7f, z - depth * 0.40f - 0.15f), Quaternion.identity, 0.25f, new Color(1f, 0.63f, 0.28f));
                     }
                 }
+            }
+        }
+
+        private static void RecessedFacade(int side,float facade,float z,float depth,float height,Material wall)
+        {
+            var x=facade+side*.16f;
+            Box("Ground floor stone plinth",new Vector3(x,.30f,z),new Vector3(.60f,.35f,depth),_stone);
+            Box("Shopfront stone header",new Vector3(x,3.26f,z),new Vector3(.60f,.82f,depth),_stone);
+            var previous=-depth*.5f;
+            for(var column=-1;column<=1;column++)
+            {
+                var left=column*4.3f-1.8f;
+                Box("Shopfront masonry pier",new Vector3(x,1.65f,z+(previous+left)*.5f),new Vector3(.60f,2.75f,left-previous),_stone);
+                previous=column*4.3f+1.8f;
+            }
+            Box("Shopfront masonry pier",new Vector3(x,1.65f,z+(previous+depth*.5f)*.5f),new Vector3(.60f,2.75f,depth*.5f-previous),_stone);
+            var below=3.67f;
+            for(var y=4.9f;y<height-1;y+=2.8f)
+            {
+                var bottom=y-.92f;var top=y+.92f;
+                Box("Facade masonry floor band",new Vector3(x,(below+bottom)*.5f,z),new Vector3(.60f,bottom-below,depth),wall);
+                previous=-depth*.5f;
+                for(var column=-2;column<=2;column++)
+                {
+                    var left=column*2.7f-.70f;
+                    Box("Facade masonry window pier",new Vector3(x,y,z+(previous+left)*.5f),new Vector3(.60f,1.84f,left-previous),wall);
+                    previous=column*2.7f+.70f;
+                }
+                Box("Facade masonry window pier",new Vector3(x,y,z+(previous+depth*.5f)*.5f),new Vector3(.60f,1.84f,depth*.5f-previous),wall);
+                below=top;
+            }
+            if(height>below)Box("Facade masonry parapet band",new Vector3(x,(height+below)*.5f,z),new Vector3(.60f,height-below,depth),wall);
+        }
+
+        private static void UrbanArchitecture(int index,int side,float facade,float z,float depth,float height,Material awning)
+        {
+            // Service details sit against the existing building envelope and
+            // above the pedestrian clearance, outside all driving lanes.
+            var x=facade-side*.42f;
+            var end=z+depth*.5f-.52f;
+            Tube("Rainwater downpipe",new Vector3(x,.4f,end),new Vector3(x,height-.4f,end),.045f,_metal);
+            foreach(var y in new[]{1.2f,3.5f,6.4f,9.2f})
+                if(y<height)Box("Downpipe wall bracket",new Vector3(x+side*.08f,y,end),new Vector3(.20f,.055f,.15f),_metal);
+            var box=new Vector3(facade-side*.23f,1.17f,z-depth*.5f+.65f);
+            Box("Utility meter enclosure",box,new Vector3(.28f,.68f,.46f),_metal);
+            Box("Meter glass face",box+new Vector3(-side*.15f,.08f,0),new Vector3(.025f,.23f,.30f),_glass);
+            Tube("Meter service conduit",box+Vector3.up*.32f,box+Vector3.up*2.1f,.022f,_metal);
+            if(index%3==1)
+            {
+                var escapeZ=z+3.95f;var escapeX=facade-side*.79f;
+                for(var y=4.1f;y<Mathf.Min(height-1,13);y+=2.8f)
+                {
+                    Box("Fire escape landing",new Vector3(escapeX,y,escapeZ),new Vector3(1.20f,.075f,3.1f),_metal);
+                    Box("Fire escape handrail",new Vector3(escapeX-side*.56f,y+1.05f,escapeZ),new Vector3(.045f,.045f,3.1f),_metal);
+                    for(var n=0;n<8;n++)
+                        Box("Fire escape baluster",new Vector3(escapeX-side*.56f,y+.55f,escapeZ-1.4f+n*.4f),new Vector3(.028f,1.04f,.028f),_metal);
+                    if(y+2.8f<height-1)
+                    {
+                        for(var step=0;step<12;step++)
+                            Box("Fire escape stair tread",new Vector3(escapeX,y+step*.233f,escapeZ-1.3f+step*.22f),new Vector3(.90f,.045f,.24f),_metal);
+                        Tube("Fire escape diagonal rail",new Vector3(escapeX-side*.49f,y+.95f,escapeZ-1.3f),new Vector3(escapeX-side*.49f,y+3.52f,escapeZ+1.12f),.024f,_metal);
+                    }
+                }
+            }
+            if(index%4==0)
+            {
+                var shutterZ=z-4.3f;
+                for(var n=0;n<15;n++)Box("Closed shop shutter slat",new Vector3(facade+side*.10f,.45f+n*.145f,shutterZ),new Vector3(.055f,.10f,3.36f),_metal);
+                Box("Rolled shutter hood",new Vector3(facade-side*.12f,2.78f,shutterZ),new Vector3(.55f,.32f,3.58f),_trim);
+            }
+            if(index%4==2)
+            {
+                var top=new Vector3(facade-side*.84f,3.48f,z);
+                for(var rib=-5;rib<=5;rib++)
+                {
+                    var panel=Box("Fabric awning panel",top+Vector3.forward*rib*1.05f,new Vector3(1.65f,.06f,1.02f),rib%2==0 ? awning : _trim);
+                    panel.transform.rotation=Quaternion.Euler(0,0,side*10);
+                }
+                Box("Awning scallop valance",top+new Vector3(-side*.8f,-.22f,0),new Vector3(.055f,.30f,11.55f),awning);
             }
         }
 
@@ -416,6 +512,36 @@ namespace CarCrashEditor
                 Tube("Hydrant valve", new Vector3(-10f, 0.6f, z), new Vector3(-9.4f, 0.6f, z), 0.085f, hydrant, true);
             }
             StreetSurfaceDetails();
+            UrbanStreetFurniture();
+        }
+
+        private static void UrbanStreetFurniture()
+        {
+            var blue=RealismMaterialLibrary.Standard("M_Urban_Mailbox",new Color(.08f,.15f,.23f),.35f,.32f);
+            for(var i=0;i<18;i++)
+            {
+                var z=-325+i*52f;if(NearCrossStreet(z,13))continue;
+                var side=i%2==0 ? -1f : 1f;var x=side*9.83f;
+                Tube("Parking meter post",new Vector3(x,.16f,z),new Vector3(x,1.1f,z),.035f,_metal,true);
+                Box("Parking meter head",new Vector3(x,1.28f,z),new Vector3(.20f,.36f,.26f),_metal,true);
+                Box("Meter display",new Vector3(x-side*.108f,1.34f,z),new Vector3(.012f,.10f,.17f),_glass);
+                Box("Meter coin slot",new Vector3(x-side*.112f,1.2f,z),new Vector3(.012f,.025f,.08f),_trim);
+                if(i%3==0)
+                {
+                    Box("Street mailbox",new Vector3(side*10.3f,.85f,z+4),new Vector3(.62f,.98f,.60f),blue,true);
+                    Box("Mailbox collection slot",new Vector3(side*10.3f-side*.32f,1.1f,z+4),new Vector3(.012f,.08f,.40f),_metal);
+                    foreach(var dz in new[]{-.22f,.22f})Box("Mailbox leg",new Vector3(side*10.3f,.28f,z+4+dz),new Vector3(.45f,.28f,.045f),_metal);
+                }
+                foreach(var curbSide in new[]{-1f,1f})
+                for(var joint=0;joint<8;joint++)
+                    Box("Curb expansion joint",new Vector3(curbSide*9.22f,.149f,z-9+joint*2.2f),new Vector3(.40f,.004f,.018f),_metal);
+            }
+            var repaired=RealismMaterialLibrary.WorldSurface("M_Asphalt_Repair","asphalt_02",new Color(.49f,.50f,.51f),.31f,.75f,.34f,.75f);
+            for(var i=0;i<12;i++)
+            {
+                var z=-303+i*79f;if(NearCrossStreet(z,12))continue;
+                Decal("Repaired asphalt patch",new Vector3(i%2==0 ? 4.5f : -4.5f,.021f,z),2.15f,3.7f,repaired,i%3*3);
+            }
         }
 
         private static void FacadeDetails(int index,int side,float centerX,float facade,float z,float width,float depth,float height)

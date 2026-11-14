@@ -28,12 +28,12 @@ namespace CarCrashEditor
             road.transform.localScale = originalVisual.transform.localScale;
             foreach (var damage in road.GetComponentsInChildren<CrashDamageVisual>()) Object.DestroyImmediate(damage);
             var roadSpec = Save(road, "roadbreaker", "ROADBREAKER GT", "PERFORMANCE COUPE", 192, 1350, 7.2f);
-            roadSpec.wheelCenters = new[] { new Vector3(-.975f,.39f,1.49f), new Vector3(.975f,.39f,1.49f), new Vector3(-.985f,.39f,-1.31f), new Vector3(.985f,.39f,-1.31f) };
-            roadSpec.wheelRadius = .385f; roadSpec.colliderCenter = new Vector3(0,.5f,0); roadSpec.colliderSize = new Vector3(2.04f,.9f,4.38f);
+            roadSpec.wheelRadius=DetailedRoadCarLibrary.Read("bmw-m3-e30").wheelRadius;
+            roadSpec.colliderCenter=new Vector3(0,.81f,0);roadSpec.colliderSize=new Vector3(1.61f,.90f,4.18f);
             specs.Add(roadSpec);
-            var gt = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Root + "Models/traffic_gt_detailed.fbx"));
-            TrafficMaterialLibrary.Apply(gt, new Color(.18f,.24f,.31f));
-            specs.Add(Save(gt,"apex","APEX GT","MID ENGINE GT",205,1420,7.7f));
+            var gt=DetailedRoadCarLibrary.Instantiate("lotus-elise");
+            var apex=Save(gt,"apex","APEX GT","LIGHTWEIGHT ROADSTER",205,1420,7.7f);
+            apex.wheelRadius=DetailedRoadCarLibrary.Read("lotus-elise").wheelRadius;specs.Add(apex);
             var ids = new[] { "suv", "pickup", "hauler", "monster" };
             var names = new[] { "SUMMIT AWD", "RIDGEBACK 4X4", "ATLAS HAULER", "IRONCLAW MONSTER" };
             var classes = new[] { "SPORT UTILITY", "CREW CAB PICKUP", "CARGO TRUCK", "LIFTED MONSTER TRUCK" };

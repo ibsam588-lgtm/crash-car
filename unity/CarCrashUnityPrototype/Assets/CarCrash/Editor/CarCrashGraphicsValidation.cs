@@ -66,7 +66,16 @@ namespace CarCrashEditor
                     Check(foliage!=null&&foliage.InstanceCount>4000&&foliage.mesh.vertexCount<1000,"Detailed palms share a small mesh instead of duplicating millions of stored vertices");
                     var vertices=0;var city=Object.FindFirstObjectByType<CityRoadNetwork>();
                     foreach(var mesh in city.GetComponentsInChildren<MeshFilter>())if(mesh.sharedMesh!=null)vertices+=mesh.sharedMesh.vertexCount;
-                    Check(vertices<1500000,"City geometry remains within the browser vertex budget ("+vertices+")");
+                    Check(vertices<2400000,"Recessed architecture and city detail remain within the browser vertex budget ("+vertices+")");
+                    var roadCar=AssetDatabase.LoadAssetAtPath<GameObject>(DetailedRoadCarLibrary.ModelRoot+"bmw-m3-e30.fbx");
+                    var roadster=AssetDatabase.LoadAssetAtPath<GameObject>(DetailedRoadCarLibrary.ModelRoot+"lotus-elise.fbx");
+                    Check(roadCar!=null&&roadster!=null,"Both artist-built road-car sources are imported");
+                    Check(_session.Garage.vehicles[0].visualPrefab.GetComponentInChildren<MeshFilter>().sharedMesh!=_session.Garage.vehicles[1].visualPrefab.GetComponentInChildren<MeshFilter>().sharedMesh,"The garage coupe and roadster use distinct authored geometry");
+                    var transparentLenses=false;
+                    foreach(var renderer in _session.Garage.vehicles[0].visualPrefab.GetComponentsInChildren<Renderer>())
+                    foreach(var material in renderer.sharedMaterials)
+                        if(material!=null&&material.name.Contains("_Lens_")&&material.renderQueue==3000&&material.mainTexture!=null&&material.GetTexture("_BumpMap")!=null)transparentLenses=true;
+                    Check(transparentLenses,"Imported headlamp lenses retain transparent glass and the authored lens normal map");
                     var trafficModels=new HashSet<Mesh>();
                     foreach(var car in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
                     {
@@ -90,6 +99,7 @@ namespace CarCrashEditor
                     Audit(frame);
                     if(_index==0)
                     {
+                        Audit(Capture("vehicle-roadbreaker-rear",bounds.center+new Vector3(.63f,.27f,-.85f)*radius,bounds.center));
                         var grade=camera.GetComponent<CinematicCameraGrade>();var strength=grade.contactShadowStrength;
                         grade.contactShadowStrength=0;var unoccluded=Capture("vehicle-roadbreaker-no-ao",point,bounds.center);grade.contactShadowStrength=strength;
                         Check(unoccluded.mean-frame.mean>.00002f&&unoccluded.mean-frame.mean<.18f,"Contact occlusion produces bounded shading in real rendered frames");

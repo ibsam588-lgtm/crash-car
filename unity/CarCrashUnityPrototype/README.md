@@ -4,7 +4,7 @@ This folder contains the Unity 6 production prototype for Car Crash.
 
 ## What Is Included
 
-- `Assets/CarCrash/Models/roadbreaker_realistic.fbx` and the licensed source GLB
+- Artist-built road cars in `Assets/CarCrash/Models/RoadCars`, plus the earlier licensed concept sources
 - Reproducible Blender conversion and environment-download helpers in the repository's `tools` directory
 - Vehicle, traffic, camera, HUD, crash damage, slow-motion, scoring, and run-result scripts
 - Unity editor builders at `Car Crash > Build Production Impact Run Scene` and `Car Crash > Build Production WebGL`
@@ -33,17 +33,23 @@ The scene opens at Home, with Free Drive, the optional 60 second Impact Run, a d
 
 Recovery is manual through `R`, the HUD button, or Recover & Resume in the pause menu. It places the car on a nearby street without clearing score or elapsed time. Crossing the former lane/distance bounds does not teleport the player. Home, Garage, and End Session remain available from the pause/results menus.
 
-The open-world district covers 620 by 1,060 metres: seven avenues, thirteen cross streets and a coastal access drive connect approximately 15.5 km of road centerlines. Old interior barriers have been removed. Explore Old Town, Sunset Marina, Vista Beach, Paloma Park, the freight yard and Apex Motor Park. All avenues have textured roads, sidewalks, palms, traffic signals and detailed moving cars; regional building styles and the waterfront break up the grid. Lane traffic brakes for a stopped player and can be nudged gently rather than acting as an immovable wall. The nearby GT traffic uses a credited subdivision-car conversion with approximately 115,000 triangles and five render meshes.
+The open-world district covers 620 by 1,060 metres: seven avenues, thirteen cross streets and a coastal access drive connect approximately 15.5 km of road centerlines. Old interior barriers have been removed. Explore Old Town, Sunset Marina, Vista Beach, Paloma Park, the freight yard and Apex Motor Park. All avenues have textured roads, sidewalks, palms, traffic signals and detailed moving cars; regional building styles and the waterfront break up the grid. Lane traffic brakes for a stopped player and can be nudged gently rather than acting as an immovable wall. Roadbreaker GT now uses Martin Trafas's full-resolution BMW E30 body (117,253 triangles); Apex GT uses Stéphane Agullo's Lotus Élise (132,218 triangles after wheel and bumper optimization). Both retain authored details and independent wheel pivots and also appear in traffic alongside SUVs and pickups. The Asset credits link in the browser build provides source/license notices.
+
+Building cores are set back behind deep masonry window openings and recessed shopfronts, with collision envelopes preserved. Central streets add fire escapes, stair treads, door pulls, transoms, rainwater pipes, service meters, shutter slats and fabric awnings. Parking meters, mailboxes, curb joints and repaired asphalt add street-level detail. Window-room parallax includes tiled floors and warmer retail shelves. Architecture remains combined into regional material batches; the expanded detail has a 2.4 million static-vertex budget.
 
 Trees, planters, lamps, benches, bins, hydrants, signals, and buildings have solid collision. Pavements use beveled, drivable edges and chassis collision hulls preserve clearance under loaded suspension. The camera retracts before entering static scenery. Skyline towers sit outside the playable avenues. Ninety-six textured, skinned human pedestrians walk bounded sidewalk routes using three licensed figures and original walk clips. They step aside for nearby cars and use dynamic physical bodies; distant models and shadows are culled.
 
 The responsive uGUI HUD uses compact digital instruments, speed-derived automatic gear/rev indicators, a city minimap driven by the street geometry and nearby traffic transforms, body integrity, rechargeable nitro, animated score, hit count, impact-chain feedback, and a run timer. Chase, Low, and Bonnet cameras use speed-sensitive field of view and impact shake. Paint and personal best scores save locally with PlayerPrefs.
 
-The detailed Roadbreaker model preserves the licensed CarConcept body and cockpit. Automotive paint uses neutral specular highlights, fine normal detail and a separate pigment response; glass uses dielectric reflections and transparent tint. Sports cars, SUVs and pickups share the road, with visible dimensions reflected in their collision chassis. The city uses metre-scaled PBR asphalt, pavement, plaster, masonry, grass and timber, window-room parallax, fitted shop signs, side windows, balconies, air conditioners, manholes, drains and surface wear. Feathery palm fronds sway on one shared mesh and render in spatial instance groups, while their original trunk collisions stay active. Static architecture retains regional material batches and distance culling. A 256-pixel byte cubemap is captured and its rougher mip levels filtered in linear light for stable browser reflections. Half-resolution contact occlusion, quarter-resolution bloom and ACES-style colour grading add depth while the UI stays sharp above the camera image.
+The artist-built road cars preserve their source coachwork, glazing, trim, lamps and wheel details. Automotive paint uses neutral specular highlights, fine normal detail and a separate pigment response; glass uses dielectric reflections and transparent tint. Sports cars, SUVs and pickups share the road, with visible dimensions reflected in their collision chassis. The city uses metre-scaled PBR asphalt, pavement, plaster, masonry, grass and timber, window-room parallax, fitted shop signs, side windows, balconies, air conditioners, manholes, drains and surface wear. Feathery palm fronds sway on one shared mesh and render in spatial instance groups, while their original trunk collisions stay active. Static architecture retains regional material batches and distance culling. A 256-pixel byte cubemap is captured and its rougher mip levels filtered in linear light for stable browser reflections. Half-resolution contact occlusion, quarter-resolution bloom and ACES-style colour grading add depth while the UI stays sharp above the camera image.
 
 To reproduce the visual source assets:
 
 ```powershell
+python tools/fetch_real_road_cars.py
+npx --yes @gltf-transform/cli@4.2.1 copy build/real-models/lotus-elise.glb build/real-models/lotus-elise-decoded.glb
+blender --background --disable-autoexec --python tools/blender/prepare_real_road_cars.py
+python tools/prepare_road_car_textures.py
 python tools/fetch_realism_assets.py
 python tools/fetch_city_finish_assets.py
 blender --background --python tools/blender/prepare_realistic_roadbreaker.py

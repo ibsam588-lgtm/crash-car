@@ -1,5 +1,13 @@
 # Third-Party Notices
 
+## Artist-Built Road Cars
+
+The current Roadbreaker GT uses **[FREE] BMW M3 E30** by **Martin Trafas** under Creative Commons Attribution 4.0: https://sketchfab.com/3d-models/free-bmw-m3-e30-ac3c7013434e403e8faff87948caf422. The original artist's Blend and textures are linked from that model's description: https://drive.google.com/file/d/1Q90hgp1deq4El61YaqiDfI7eSyEpCtjE/view. The conversion retains the full body mesh, authored smoothing, rim/tire/brake maps and lamps, normalizes scale, neutralizes front-wheel steering, and groups four independently animated wheels.
+
+The current Apex GT uses **LOTUS ÉLISE** by **Stéphane Agullo** under Creative Commons Attribution 4.0: https://sketchfab.com/3d-models/75e9045ac1af4cdbb69318108c81edfd. The conversion removes the source display ground and mannequin, normalizes scale, preserves separate coachwork/glazing/lamps and wheel roots, reduces repeated wheel tread geometry, and prepares Unity materials.
+
+License for both models: https://creativecommons.org/licenses/by/4.0/. The compressed GLB mirror is https://github.com/pedrosoandre/carros. Source hashes, primary-source license metadata, conversion notes and attribution are recorded in `Assets/CarCrash/Models/RoadCars/sources.json` and `LICENSE.txt`. The former concept/GT assets remain in the project archive; the two artist-built road cars are now used in the playable garage and street traffic.
+
 ## CarConcept 3D Model
 
 The production sports-car mesh is derived from the `CarConcept` sample in the Khronos Group glTF Sample Assets repository:

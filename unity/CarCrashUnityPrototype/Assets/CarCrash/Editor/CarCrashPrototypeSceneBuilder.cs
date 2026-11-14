@@ -13,8 +13,8 @@ namespace CarCrashEditor
 {
     public static class CarCrashPrototypeSceneBuilder
     {
-        private const string ModelPath = "Assets/CarCrash/Models/roadbreaker_realistic.fbx";
-        private const string DetailedTrafficModelPath = "Assets/CarCrash/Models/traffic_gt_detailed.fbx";
+        private const string ModelPath = DetailedRoadCarLibrary.ModelRoot+"bmw-m3-e30.fbx";
+        private const string DetailedTrafficModelPath = DetailedRoadCarLibrary.ModelRoot+"lotus-elise.fbx";
         private const string CityBackdropTexturePath = "Assets/CarCrash/Textures/option_c_city_backdrop.png";
         private const string GeneratedTextureDirectory = "Assets/CarCrash/Generated";
         private const string RoadTexturePath = GeneratedTextureDirectory + "/wet_asphalt_albedo.png";
@@ -96,6 +96,7 @@ namespace CarCrashEditor
             {
                 ConfigureModelImporter(modelPath);
             }
+            DetailedRoadCarLibrary.Prepare();
 
             ConfigureTexture(CityBackdropTexturePath, 4096);
             EnsureGeneratedSurfaceTextures();
@@ -489,7 +490,7 @@ namespace CarCrashEditor
             instance.transform.SetParent(root.transform, false);
             // Preserve FBX's imported root transform, which contains its axis conversion.
             SetRenderersEnabled(instance.transform, true);
-            RealismMaterialLibrary.ApplyVehicle(instance, true);
+            DetailedRoadCarLibrary.Apply(instance,"bmw-m3-e30");
 
             var body = root.AddComponent<Rigidbody>();
             body.mass = 1540f;
@@ -498,8 +499,8 @@ namespace CarCrashEditor
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
             var bodyCollider = root.AddComponent<BoxCollider>();
-            bodyCollider.center = new Vector3(0f, 0.50f, 0f);
-            bodyCollider.size = new Vector3(2.04f, 0.90f, 4.38f);
+            bodyCollider.center = new Vector3(0f, .81f, 0f);
+            bodyCollider.size = new Vector3(1.61f, .90f, 4.18f);
 
             var vehicle = root.AddComponent<ArcadeVehicleController>();
             vehicle.launchDelaySeconds = 1.1f;
@@ -510,10 +511,11 @@ namespace CarCrashEditor
             vehicle.downforce = 118f;
             vehicle.boostMultiplier = 1.55f;
             vehicle.autoAccelerate = false;
-            vehicle.frontLeftCollider = CreateWheelCollider(root.transform, "WC_FL", new Vector3(-0.975f, 0.39f, 1.49f), 0.385f, false);
-            vehicle.frontRightCollider = CreateWheelCollider(root.transform, "WC_FR", new Vector3(0.975f, 0.39f, 1.49f), 0.385f, false);
-            vehicle.rearLeftCollider = CreateWheelCollider(root.transform, "WC_RL", new Vector3(-0.985f, 0.39f, -1.31f), 0.385f, true);
-            vehicle.rearRightCollider = CreateWheelCollider(root.transform, "WC_RR", new Vector3(0.985f, 0.39f, -1.31f), 0.385f, true);
+            var wheelRadius=DetailedRoadCarLibrary.Read("bmw-m3-e30").wheelRadius;
+            vehicle.frontLeftCollider = CreateWheelCollider(root.transform,"WC_FL",root.transform.InverseTransformPoint(FindChild(instance.transform,"Wheel_FL").position),wheelRadius,false);
+            vehicle.frontRightCollider = CreateWheelCollider(root.transform,"WC_FR",root.transform.InverseTransformPoint(FindChild(instance.transform,"Wheel_FR").position),wheelRadius,false);
+            vehicle.rearLeftCollider = CreateWheelCollider(root.transform,"WC_RL",root.transform.InverseTransformPoint(FindChild(instance.transform,"Wheel_RL").position),wheelRadius,true);
+            vehicle.rearRightCollider = CreateWheelCollider(root.transform,"WC_RR",root.transform.InverseTransformPoint(FindChild(instance.transform,"Wheel_RR").position),wheelRadius,true);
             vehicle.frontLeftVisual = FindChild(instance.transform, "Wheel_FL");
             vehicle.frontRightVisual = FindChild(instance.transform, "Wheel_FR");
             vehicle.rearLeftVisual = FindChild(instance.transform, "Wheel_RL");
@@ -618,7 +620,7 @@ namespace CarCrashEditor
 
         private static void CreateDetailedTraffic(string name, Vector3 position, Color paint, float speed, CrashScoring scoring,int variant=0)
         {
-            var source = AssetDatabase.LoadAssetAtPath<GameObject>(variant==0 ? DetailedTrafficModelPath : "Assets/CarCrash/Prefabs/Garage/"+(variant==1 ? "suv" : "pickup")+".prefab");
+            var source = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/CarCrash/Prefabs/Garage/"+(variant==0 ? "apex" : variant==1 ? "suv" : "pickup")+".prefab");
             if (source == null) throw new FileNotFoundException("Missing detailed traffic model: " + DetailedTrafficModelPath);
             var root = new GameObject(name);
             root.transform.SetPositionAndRotation(position, Quaternion.Euler(0, speed < 0 ? 180 : 0, 0));
@@ -627,13 +629,12 @@ namespace CarCrashEditor
             visual.transform.SetParent(root.transform, false);
             // Keep the FBX axis/unit conversion supplied by its imported root.
             SetRenderersEnabled(visual.transform, true);
-            if(variant==0)TrafficMaterialLibrary.Apply(visual, paint);
-            else visual.AddComponent<TrafficLivery>().paint=paint;
+            visual.AddComponent<TrafficLivery>().paint=paint;
             var renderers=visual.GetComponentsInChildren<MeshRenderer>();var bounds=renderers[0].bounds;
             foreach(var renderer in renderers)bounds.Encapsulate(renderer.bounds);
-            var size=variant==0 ? new Vector3(2.25f,1.22f,4.65f) : new Vector3(bounds.size.x*.92f,bounds.size.y*.8f,bounds.size.z*.93f);
+            var size=new Vector3(bounds.size.x*.92f,bounds.size.y*.8f,bounds.size.z*.93f);
             ConfigureTrafficPhysics(root,size,variant==0 ? 1510 : variant==1 ? 1900 : 2350,new Vector3(0,0,speed),0);
-            if(variant!=0)root.GetComponent<BoxCollider>().center=root.transform.InverseTransformPoint(bounds.center);
+            root.GetComponent<BoxCollider>().center=root.transform.InverseTransformPoint(bounds.center);
             AttachTrafficImpactSystem(root, visual.transform, scoring);
             var wheels = root.AddComponent<TrafficWheelAnimator>();
             wheels.wheels = new[] { FindChild(visual.transform, "Wheel_FL"), FindChild(visual.transform, "Wheel_FR"),
@@ -663,21 +664,17 @@ namespace CarCrashEditor
             var baseYaw = velocity.z < 0f ? 180f : 0f;
             visual.transform.localRotation =
                 Quaternion.Euler(0f, baseYaw + yawOffsetDegrees, 0f) * model.transform.localRotation;
-            visual.transform.localScale = Vector3.one * 0.94f;
+            visual.transform.localScale = model.transform.localScale;
 
-            foreach (var renderer in visual.GetComponentsInChildren<Renderer>(true))
-            {
-                if (renderer.sharedMaterial == null || !(renderer.sharedMaterial.name.StartsWith("Paint 1", StringComparison.Ordinal) || renderer.sharedMaterial.name.Contains("Paint_1")))
-                {
-                    continue;
-                }
-                var material = new Material(renderer.sharedMaterial) { color = color };
-                renderer.sharedMaterial = material;
-            }
+            // Authored coachwork shares one renderer with trim/glass slots.
+            // Recolor only the paint slot, including when it is not slot zero.
+            visual.AddComponent<TrafficLivery>().paint=color;
 
             var collider = root.AddComponent<BoxCollider>();
-            collider.center = new Vector3(0f, 0.44f, 0f);
-            collider.size = new Vector3(2.0f, 0.82f, 4.08f);
+            var renderers=visual.GetComponentsInChildren<MeshRenderer>();var bounds=renderers[0].bounds;
+            foreach(var renderer in renderers)bounds.Encapsulate(renderer.bounds);
+            collider.center = root.transform.InverseTransformPoint(bounds.center);
+            collider.size = new Vector3(bounds.size.x*.92f,bounds.size.y*.8f,bounds.size.z*.93f);
             var body = root.AddComponent<Rigidbody>();
             body.mass = 1380f;
             body.centerOfMass = new Vector3(0f, 0.38f, 0f);
@@ -966,6 +963,11 @@ namespace CarCrashEditor
             File.Copy("Assets/CarCrash/Resources/Fonts/Inter-OFL.txt",Path.Combine(WebGlBuildPath,"TemplateData","Inter-OFL.txt"),true);
             html = Regex.Replace(html, @"/WebGL\.(data|framework\.js|wasm|loader\.js)(\?v=[a-z0-9]+)?",
                 match => match.Value.Split('?')[0] + "?v=" + buildVersion);
+            if(!html.Contains("id=\"asset-credits\"",StringComparison.Ordinal))
+                html=html.Replace("</body>","<a id=\"asset-credits\" href=\"AssetCredits.html\" target=\"_blank\" rel=\"noopener\" style=\"position:fixed;right:12px;bottom:7px;z-index:20;color:#b5c7dc;background:#101a2b;padding:4px 9px;border-radius:7px;font:12px Inter,system-ui;text-decoration:none\">Asset credits</a></body>");
+            var notices=File.ReadAllText(Path.Combine("..","..","THIRD_PARTY_NOTICES.md"));
+            File.WriteAllText(Path.Combine(WebGlBuildPath,"AssetCredits.html"),
+                "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Elysian | Asset credits</title><body style=\"margin:40px auto;padding:0 24px;max-width:900px;background:#101621;color:#e3edf7;font:16px/1.65 system-ui\"><a href=\"index.html\" style=\"color:#77ddff\">Back to Elysian</a><pre style=\"white-space:pre-wrap;font:inherit\">"+System.Net.WebUtility.HtmlEncode(notices)+"</pre></body></html>");
             File.WriteAllText(indexPath, html);
         }
     }

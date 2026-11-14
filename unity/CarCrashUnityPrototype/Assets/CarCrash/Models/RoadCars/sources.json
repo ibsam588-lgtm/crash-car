@@ -1,0 +1,27 @@
+[
+  {
+    "id": "bmw-m3-e30",
+    "title": "[FREE] BMW M3 E30",
+    "author": "Martin Trafas",
+    "source": "https://sketchfab.com/3d-models/ac3c7013434e403e8faff87948caf422",
+    "download": "https://raw.githubusercontent.com/pedrosoandre/carros/main/assets/bmw-m3-e30.glb",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "35cad98e89e6f1e54ccd238a3df049d29f20ecec3fc0aa2a85e0ad6c2663d330",
+    "changes": "Converted the original artist Blend at full body resolution, neutralized wheel steering, retained authored smoothing and PBR maps, grouped four animated wheels and prepared FBX/Unity surfaces.",
+    "modelSource": "https://drive.google.com/uc?export=download&id=1Q90hgp1deq4El61YaqiDfI7eSyEpCtjE",
+    "modelSourceSha256": "5d21fb238d02fb6c9a10f53e9b790f6a9924616071c3eab90c3027505d1f0828",
+    "modelSourceFile": "BMW E30_Final01/E30_Final01.blend"
+  },
+  {
+    "id": "lotus-elise",
+    "title": "LOTUS \u00c9LISE",
+    "author": "St\u00e9phane Agullo",
+    "source": "https://sketchfab.com/3d-models/75e9045ac1af4cdbb69318108c81edfd",
+    "download": "https://raw.githubusercontent.com/pedrosoandre/carros/main/assets/lotus-elise.glb",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "sha256": "4cf5f0d9f51a2e3ed864a3a16c93beff53cd70736e6956204e5061a4cd93d9e5",
+    "changes": "Normalized scale and neutral steering, grouped animated wheels, preserved authored texture maps, converted to FBX and Unity materials."
+  }
+]

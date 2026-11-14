@@ -125,7 +125,7 @@ namespace CarCrashEditor
                         var renderers = _session.vehicle.GetComponentsInChildren<MeshRenderer>();
                         var vehicleBounds = renderers[0].bounds;
                         foreach (var renderer in renderers) vehicleBounds.Encapsulate(renderer.bounds);
-                        Check(vehicleBounds.size.x > 1.8f && vehicleBounds.size.x < 2.8f &&
+                        Check(vehicleBounds.size.x > 1.6f && vehicleBounds.size.x < 2.8f &&
                             vehicleBounds.size.y > 0.9f && vehicleBounds.size.y < 1.9f &&
                             vehicleBounds.size.z > 4f && vehicleBounds.size.z < 5.5f,
                             "Imported coupe is life size, upright, and aligned with the driving chassis");
@@ -147,8 +147,8 @@ namespace CarCrashEditor
                             var fleetRenderers = traffic.GetComponentsInChildren<MeshRenderer>();
                             var bounds = fleetRenderers[0].bounds;
                             foreach (var renderer in fleetRenderers) bounds.Encapsulate(renderer.bounds);
-                            Check(fleetVertices > 20000 && bounds.size.x > 1.7f && bounds.size.x < 3f &&
-                                bounds.size.y > 0.9f && bounds.size.y < 2.5f && bounds.size.z > 4f && bounds.size.z < 6.5f,
+                            Check(fleetVertices > 20000 && bounds.size.x > 1.6f && bounds.size.x < 3f &&
+                                bounds.size.y > 0.9f && bounds.size.y < 2.5f && bounds.size.z > 3.6f && bounds.size.z < 6.5f,
                                 "Detailed traffic has complete life-size bodywork, wheels, and upright alignment: " + traffic.name);
                             var centre = traffic.transform.InverseTransformPoint(bounds.center);
                             Check(new Vector2(centre.x, centre.z).magnitude < 0.8f,
