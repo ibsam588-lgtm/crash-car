@@ -106,11 +106,15 @@ namespace CarCrashEditor
                         {
                             var label = button.GetComponentInChildren<UnityEngine.UI.Text>(true);
                             if (label != null && !string.IsNullOrEmpty(label.text))
-                                readableButtons &= label.fontSize * uiCanvas.scaleFactor >= 15.8f;
+                            {
+                                var fits=label.fontSize*uiCanvas.scaleFactor>=15.8f && label.preferredWidth<=label.rectTransform.rect.width+1;
+                                if(!fits)Debug.LogWarning($"[UI text fit] {button.name}: '{label.text}' needs {label.preferredWidth:0.0}, available {label.rectTransform.rect.width:0.0}, font {label.fontSize*uiCanvas.scaleFactor:0.0}px. Screen {Screen.width}x{Screen.height}.");
+                                readableButtons &= fits;
+                            }
                         }
-                        Check(readableButtons, "Every labelled menu button retains at least 16 physical pixels of text");
-                        Check(Resources.Load<Font>("Fonts/AtkinsonHyperlegible-Bold") != null,
-                            "The interface bundles a clear, readable font instead of narrow condensed button text");
+                        Check(readableButtons, "Every labelled menu button retains at least 16 physical pixels of text and fits its available width");
+                        Check(Resources.Load<Font>("Fonts/Inter-Regular") != null && Resources.Load<Font>("Fonts/Inter-Medium") != null,
+                            "The interface bundles Inter regular and medium for readable interface labels");
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && !_session.Hud.HelpVisible,
                             "Home navigation opens the live vehicle garage");
                         var vertices = 0;
@@ -175,8 +179,8 @@ namespace CarCrashEditor
                             }
                         Check(city != null && city.GetComponentsInChildren<BoxCollider>().Length>100&&batches>100&&batches<800&&localBatches>batches*.8f,
                             "The larger city keeps solid buildings and spatial scenery batches for distance culling");
-                        Check(Resources.Load<Font>("Fonts/BarlowCondensed-Bold") != null && Resources.Load<Font>("Fonts/ArchivoBlack-Regular") != null,
-                            "The game UI includes its licensed display fonts");
+                        Check(Resources.Load<Font>("Fonts/Inter-SemiBold") != null,
+                            "The game UI includes its licensed Inter display weight");
                         _session.SelectPaint(1);
                         var paintVerified = false;
                         var block = new MaterialPropertyBlock();

@@ -6,7 +6,12 @@ namespace CarCrash
     // Resolution-independent HUD art; no baked gauge or mock telemetry textures.
     public sealed class RacingHudGraphic : MaskableGraphic
     {
-        public enum Shape { Panel, Gauge, Radar, Atmosphere, CityMap }
+        public enum Shape { Panel, Gauge, Radar, Atmosphere, CityMap, Circle, Icon }
+        public enum Symbol { Play, ArrowLeft, ArrowRight, Map, Camera, Recover, Pause, Garage, Bolt, Plus, Minus, Locate }
+        public Symbol symbol;
+        public float cornerRadius=16,strokeWidth=1;
+        public Color borderColor=new(.74f,.84f,1f,.14f);
+        private readonly Vector2[] _outer=new Vector2[36],_inner=new Vector2[36];
         public Shape shape;
         public float value;
         public bool boosting;
@@ -15,7 +20,7 @@ namespace CarCrash
         public MovingTrafficObstacle[] traffic;
         public BoxCollider[] cityBuildings;
         public CityNavigator navigation;
-        public Color accent = new(0.78f, 1f, 0.22f);
+        public Color accent = new(.36f,.78f,.98f);
 
         protected override void OnPopulateMesh(VertexHelper vh)
         {
@@ -27,20 +32,64 @@ namespace CarCrash
                 case Shape.Radar: Radar(vh, r); break;
                 case Shape.CityMap: Radar(vh,r);break;
                 case Shape.Atmosphere: Atmosphere(vh, r); break;
+                case Shape.Circle:
+                    var radius=Mathf.Min(r.width,r.height)*.5f;
+                    if(borderColor.a>0&&strokeWidth>0){Disc(vh,r.center,radius,borderColor);Disc(vh,r.center,Mathf.Max(0,radius-strokeWidth),color);}
+                    else Disc(vh,r.center,radius,color);
+                    break;
+                case Shape.Icon: Icon(vh,r);break;
                 default: Panel(vh, r); break;
             }
         }
 
         private void Panel(VertexHelper vh, Rect r)
         {
-            var cut = Mathf.Min(12f, r.height * 0.2f);
-            var points = new[] { new Vector2(r.xMin, r.yMin), new Vector2(r.xMax - cut, r.yMin),
-                new Vector2(r.xMax, r.yMin + cut), new Vector2(r.xMax, r.yMax), new Vector2(r.xMin, r.yMax) };
+            var radius=Mathf.Min(cornerRadius,Mathf.Min(r.width,r.height)*.5f);
+            RoundedPoints(r,radius,_outer);
             var start = vh.currentVertCount;
-            foreach (var point in points) vh.AddVert(point, color, Vector2.zero);
-            for (var i = 1; i < points.Length - 1; i++) vh.AddTriangle(start, start + i, start + i + 1);
-            Line(vh, new Vector2(r.xMin, r.yMax), new Vector2(r.xMax, r.yMax), 1f,
-                new Color(0.77f, 0.87f, 0.91f, 0.23f));
+            var top=new Color(color.r*1.14f,color.g*1.14f,color.b*1.14f,color.a);
+            vh.AddVert(r.center,Color.Lerp(color,top,.5f),Vector2.zero);
+            for(var i=0;i<_outer.Length;i++)vh.AddVert(_outer[i],Color.Lerp(color,top,Mathf.InverseLerp(r.yMin,r.yMax,_outer[i].y)),Vector2.zero);
+            for(var i=0;i<_outer.Length;i++)vh.AddTriangle(start,start+1+i,start+1+(i+1)%_outer.Length);
+            if(strokeWidth<=0||borderColor.a<=0)return;
+            var inset=new Rect(r.xMin+strokeWidth,r.yMin+strokeWidth,r.width-strokeWidth*2,r.height-strokeWidth*2);
+            RoundedPoints(inset,Mathf.Max(0,radius-strokeWidth),_inner);
+            var border=borderColor;border.a*=color.a;
+            for(var i=0;i<_outer.Length;i++){var j=(i+1)%_outer.Length;Four(vh,_outer[i],_outer[j],_inner[j],_inner[i],border,border);}
+        }
+
+        private static void RoundedPoints(Rect r,float radius,Vector2[] points)
+        {
+            for(var corner=0;corner<4;corner++)
+            {
+                var center=new Vector2(corner is 0 or 3 ? r.xMax-radius : r.xMin+radius,corner<2 ? r.yMax-radius : r.yMin+radius);
+                for(var step=0;step<=8;step++)
+                {
+                    var angle=(corner*90+step*90f/8)*Mathf.Deg2Rad;
+                    points[corner*9+step]=center+new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*radius;
+                }
+            }
+        }
+
+        private void Icon(VertexHelper vh,Rect r)
+        {
+            Vector2 P(float x,float y)=>new(r.xMin+x*r.width,r.yMin+y*r.height);
+            void L(float x,float y,float a,float b)=>Line(vh,P(x,y),P(a,b),Mathf.Max(1.5f,r.width*.075f),color);
+            switch(symbol)
+            {
+                case Symbol.Play:Triangle(vh,P(.29f,.15f),P(.85f,.5f),P(.29f,.85f),color);break;
+                case Symbol.ArrowLeft:L(.82f,.5f,.18f,.5f);L(.18f,.5f,.48f,.8f);L(.18f,.5f,.48f,.2f);break;
+                case Symbol.ArrowRight:L(.18f,.5f,.82f,.5f);L(.82f,.5f,.52f,.8f);L(.82f,.5f,.52f,.2f);break;
+                case Symbol.Pause:L(.34f,.2f,.34f,.8f);L(.67f,.2f,.67f,.8f);break;
+                case Symbol.Plus:L(.2f,.5f,.8f,.5f);L(.5f,.2f,.5f,.8f);break;
+                case Symbol.Minus:L(.2f,.5f,.8f,.5f);break;
+                case Symbol.Bolt:L(.62f,.92f,.27f,.47f);L(.27f,.47f,.7f,.53f);L(.7f,.53f,.38f,.08f);break;
+                case Symbol.Map:L(.12f,.25f,.12f,.8f);L(.12f,.8f,.37f,.9f);L(.37f,.9f,.65f,.76f);L(.65f,.76f,.88f,.86f);L(.88f,.86f,.88f,.3f);L(.88f,.3f,.65f,.2f);L(.65f,.2f,.37f,.34f);L(.37f,.34f,.12f,.25f);L(.37f,.34f,.37f,.9f);L(.65f,.2f,.65f,.76f);break;
+                case Symbol.Camera:L(.14f,.24f,.86f,.24f);L(.14f,.24f,.14f,.73f);L(.86f,.24f,.86f,.73f);L(.14f,.73f,.34f,.73f);L(.34f,.73f,.4f,.85f);L(.4f,.85f,.66f,.85f);L(.66f,.85f,.72f,.73f);L(.72f,.73f,.86f,.73f);CircleArc(vh,P(.51f,.49f),r.width*.15f,r.width*.06f,0,360,color);break;
+                case Symbol.Garage:L(.12f,.18f,.12f,.65f);L(.12f,.65f,.5f,.88f);L(.5f,.88f,.88f,.65f);L(.88f,.65f,.88f,.18f);L(.27f,.2f,.27f,.52f);L(.27f,.52f,.73f,.52f);L(.73f,.52f,.73f,.2f);L(.27f,.36f,.73f,.36f);break;
+                case Symbol.Recover:CircleArc(vh,P(.5f,.5f),r.width*.32f,r.width*.065f,65,295,color);L(.82f,.5f,.67f,.65f);L(.82f,.5f,.96f,.65f);break;
+                case Symbol.Locate:CircleArc(vh,r.center,r.width*.25f,r.width*.06f,0,360,color);L(.5f,.05f,.5f,.25f);L(.5f,.75f,.5f,.95f);L(.05f,.5f,.25f,.5f);L(.75f,.5f,.95f,.5f);break;
+            }
         }
 
         private void Gauge(VertexHelper vh, Rect r)
@@ -72,7 +121,6 @@ namespace CarCrash
         {
             Panel(vh, r);
             var inner = new Rect(r.xMin + 4, r.yMin + 4, r.width - 8, r.height - 8);
-            Quad(vh, inner.min, inner.max, new Color(0.27f, 0.29f, 0.27f, 0.95f));
             if (player == null) return;
             var overview=shape==Shape.CityMap;
             var spanX=overview ? CityRoadNetwork.MaxX-CityRoadNetwork.MinX : 240f;
@@ -91,7 +139,7 @@ namespace CarCrash
                     var a = Map(bounds.min); var b = Map(bounds.max);
                     var min = new Vector2(Mathf.Max(inner.xMin, a.x), Mathf.Max(inner.yMin, a.y));
                     var max = new Vector2(Mathf.Min(inner.xMax, b.x), Mathf.Min(inner.yMax, b.y));
-                    if (min.x < max.x && min.y < max.y) Quad(vh, min, max, new Color(0.15f, 0.17f, 0.16f));
+                    if (min.x < max.x && min.y < max.y) Quad(vh, min, max, new Color(.09f,.15f,.22f));
                 }
             }
             foreach (var avenue in CityRoadNetwork.AvenueX)
@@ -102,7 +150,7 @@ namespace CarCrash
                 var bottom=Mathf.Max(inner.yMin,Map(new Vector3(avenue,0,CityRoadNetwork.MinZ)).y);
                 var top=Mathf.Min(inner.yMax,Map(new Vector3(avenue,0,CityRoadNetwork.MaxZ)).y);
                 Quad(vh, new Vector2(Mathf.Max(inner.xMin, x - width * .5f), bottom),
-                    new Vector2(Mathf.Min(inner.xMax, x + width * .5f), top),new Color(.69f,.70f,.66f));
+                    new Vector2(Mathf.Min(inner.xMax, x + width * .5f), top),new Color(.25f,.35f,.45f));
             }
             foreach (var crossing in CityRoadNetwork.CrossStreetZ)
             {
@@ -110,11 +158,11 @@ namespace CarCrash
                 if (y < inner.yMin || y > inner.yMax) continue;
                 var width = Mathf.Max(2f,14f*(overview ? scale : inner.height/spanZ));
                 Quad(vh, new Vector2(Mathf.Max(inner.xMin,Map(new Vector3(CityRoadNetwork.MinX,0,crossing)).x), Mathf.Max(inner.yMin, y - width * .5f)),
-                    new Vector2(Mathf.Min(inner.xMax,Map(new Vector3(CityRoadNetwork.MaxX,0,crossing)).x), Mathf.Min(inner.yMax, y + width * .5f)), new Color(.69f,.70f,.66f));
+                    new Vector2(Mathf.Min(inner.xMax,Map(new Vector3(CityRoadNetwork.MaxX,0,crossing)).x), Mathf.Min(inner.yMax, y + width * .5f)), new Color(.25f,.35f,.45f));
             }
             var coastSouth=Map(new Vector3(296,0,-385));var coastNorth=Map(new Vector3(296,0,615));
             if(coastSouth.x>=inner.xMin&&coastSouth.x<=inner.xMax&&coastNorth.y>=inner.yMin&&coastSouth.y<=inner.yMax)
-                Line(vh,new Vector2(coastSouth.x,Mathf.Max(inner.yMin,coastSouth.y)),new Vector2(coastNorth.x,Mathf.Min(inner.yMax,coastNorth.y)),Mathf.Max(2,14*(overview ? scale : inner.width/spanX)),new Color(.69f,.70f,.66f));
+                Line(vh,new Vector2(coastSouth.x,Mathf.Max(inner.yMin,coastSouth.y)),new Vector2(coastNorth.x,Mathf.Min(inner.yMax,coastNorth.y)),Mathf.Max(2,14*(overview ? scale : inner.width/spanX)),new Color(.25f,.35f,.45f));
             if(navigation!=null)
             {
                 var previous=player.position;
@@ -124,13 +172,15 @@ namespace CarCrash
                     if((a.x<inner.xMin&&b.x<inner.xMin)||(a.x>inner.xMax&&b.x>inner.xMax)||(a.y<inner.yMin&&b.y<inner.yMin)||(a.y>inner.yMax&&b.y>inner.yMax))continue;
                     a=new Vector2(Mathf.Clamp(a.x,inner.xMin,inner.xMax),Mathf.Clamp(a.y,inner.yMin,inner.yMax));
                     b=new Vector2(Mathf.Clamp(b.x,inner.xMin,inner.xMax),Mathf.Clamp(b.y,inner.yMin,inner.yMax));
-                    Line(vh,a,b,overview ? 3 : 2,new Color(.96f,.72f,.25f));
+                    Line(vh,a,b,overview ? 3 : 2,accent);
                 }
             }
             for(var i=0;i<CityRoadNetwork.Places.Length;i++)
             {
                 var marker=Map(CityRoadNetwork.Places[i].position);if(!inner.Contains(marker))continue;
-                Disc(vh,marker,overview ? 9f : 3.5f,new Color(.93f,.73f,.33f));
+                var active=navigation!=null&&navigation.Destination==i;
+                Disc(vh,marker,overview ? (active ? 13 : 11) : 5f,new Color(.03f,.07f,.12f));
+                Disc(vh,marker,overview ? 9f : 3.5f,active ? Color.white : accent);
             }
             if (traffic != null)
             {
@@ -143,6 +193,7 @@ namespace CarCrash
                 }
             }
             var p = Map(player.position);
+            Disc(vh,p,10,new Color(.36f,.78f,.98f,.20f));
             var direction = new Vector2(player.forward.x, player.forward.z).normalized;
             var side = new Vector2(-direction.y, direction.x);
             Triangle(vh, p + direction * 7, p - direction * 4 + side * 5, p - direction * 4 - side * 5, Color.white);
@@ -150,7 +201,7 @@ namespace CarCrash
         private void Atmosphere(VertexHelper vh, Rect r)
         {
             var dark = color;
-            var topShade = new Color(dark.r, dark.g, dark.b, showroom ? 0.68f : 0.84f);
+            var topShade = new Color(dark.r, dark.g, dark.b, showroom ? 0.63f : 0.44f);
             GradientQuad(vh, new Vector2(r.xMin, r.yMax - r.height * (showroom ? 0.45f : 0.28f)), new Vector2(r.xMax, r.yMax), Color.clear, topShade);
             GradientQuad(vh, new Vector2(r.xMin, r.yMin), new Vector2(r.xMax, r.yMin + r.height * 0.38f), dark, Color.clear);
             if (showroom && r.width > r.height * 1.4f)
@@ -182,6 +233,17 @@ namespace CarCrash
                 var db = new Vector2(Mathf.Cos(b), Mathf.Sin(b));
                 Four(vh, center + da * radius, center + db * radius,
                     center + db * (radius - thickness), center + da * (radius - thickness), tint, tint);
+            }
+        }
+
+        private static void CircleArc(VertexHelper vh,Vector2 center,float radius,float thickness,float from,float sweep,Color tint)
+        {
+            const int steps=40;
+            for(var i=0;i<steps;i++)
+            {
+                var a=(from+sweep*i/steps)*Mathf.Deg2Rad;var b=(from+sweep*(i+1)/steps)*Mathf.Deg2Rad;
+                var da=new Vector2(Mathf.Cos(a),Mathf.Sin(a));var db=new Vector2(Mathf.Cos(b),Mathf.Sin(b));
+                Four(vh,center+da*radius,center+db*radius,center+db*(radius-thickness),center+da*(radius-thickness),tint,tint);
             }
         }
 

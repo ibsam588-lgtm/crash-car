@@ -927,12 +927,18 @@ namespace CarCrashEditor
             var html = File.ReadAllText(indexPath);
             const string responsiveCss = @"    <meta name=""viewport"" content=""width=device-width, height=device-height, initial-scale=1.0, user-scalable=no"">
     <style>
-      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #050608; }
+      @font-face { font-family: Inter; src: url('TemplateData/Inter-Regular.ttf') format('truetype'); font-display: swap; }
+      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #090f1b; font-family: Inter, system-ui, sans-serif; }
       #unity-container { position: fixed; inset: 0; width: 100vw; height: 100vh; background: #050608; }
       #unity-container.unity-desktop, #unity-container.unity-mobile { width: 100vw; height: 100vh; }
       #unity-canvas { width: 100vw !important; height: 100vh !important; display: block; background: #050608; }
       #unity-footer { display: none !important; }
-      #unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+      #unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 240px; }
+      #unity-logo { width: 240px; height: 102px; background: none; text-align: center; color: #f2f7ff; }
+      #unity-logo::before { content: 'ELYSIAN'; display: block; font: 500 30px Inter, system-ui, sans-serif; letter-spacing: 4px; padding-top: 10px; }
+      #unity-logo::after { content: 'Your city is getting ready'; display: block; margin-top: 16px; color: #a6bad5; font-size: 13px; }
+      #unity-progress-bar-empty { width: 240px; height: 4px; margin-top: 14px; border-radius: 3px; overflow: hidden; background: #203045 !important; }
+      #unity-progress-bar-full { height: 4px; border-radius: 3px; background: #5cc7fa !important; }
     </style>";
 
             if (!html.Contains("#unity-container { position: fixed;", StringComparison.Ordinal))
@@ -946,6 +952,8 @@ namespace CarCrashEditor
             html = html.Replace("createUnityInstance(canvas, config,", "createUnityInstance(canvas, { ...config, autoSyncPersistentDataPath: true },");
             html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas tabindex=\"0\" aria-label=\"Elysian. Enter for Free Drive, G for the six-vehicle garage. W accelerates, A and D steer. Q or REV reverses; S brakes then reverses. Space brakes, B nitro, C camera, M city map and road routes, R recover, P pause.\" id=\"unity-canvas\"");
             var buildVersion = File.GetLastWriteTimeUtc(Path.Combine(WebGlBuildPath, "Build", "WebGL.data")).Ticks.ToString("x");
+            File.Copy("Assets/CarCrash/Resources/Fonts/Inter-Regular.ttf",Path.Combine(WebGlBuildPath,"TemplateData","Inter-Regular.ttf"),true);
+            File.Copy("Assets/CarCrash/Resources/Fonts/Inter-OFL.txt",Path.Combine(WebGlBuildPath,"TemplateData","Inter-OFL.txt"),true);
             html = Regex.Replace(html, @"/WebGL\.(data|framework\.js|wasm|loader\.js)(\?v=[a-z0-9]+)?",
                 match => match.Value.Split('?')[0] + "?v=" + buildVersion);
             File.WriteAllText(indexPath, html);

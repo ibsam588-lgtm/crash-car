@@ -8,7 +8,7 @@ namespace CarCrash
     public sealed class HudHoldButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
     {
         public bool IsHeld => _pointers.Count > 0;
-        public Color activeColor = new(0.32f, 0.46f, 0.08f, 0.95f);
+        public Color activeColor = new(.13f,.42f,.55f,.98f);
         private readonly HashSet<int> _pointers = new();
         private Graphic _graphic;
         private Color _restColor;
@@ -21,19 +21,25 @@ namespace CarCrash
         public void OnPointerDown(PointerEventData data)
         {
             _pointers.Add(data.pointerId);
-            _graphic.color = activeColor;
         }
         public void OnPointerUp(PointerEventData data)
         {
             _pointers.Remove(data.pointerId);
-            if (!IsHeld) _graphic.color = _restColor;
         }
         public void OnPointerExit(PointerEventData data) => OnPointerUp(data);
         public void Release()
         {
             _pointers.Clear();
+            transform.localScale=Vector3.one;
             if (_graphic != null) _graphic.color = _restColor;
         }
         private void OnDisable() => Release();
+        private void Update()
+        {
+            if(_graphic==null)return;
+            var blend=1-Mathf.Exp(-20*Time.unscaledDeltaTime);
+            _graphic.color=Color.Lerp(_graphic.color,IsHeld ? activeColor : _restColor,blend);
+            transform.localScale=Vector3.Lerp(transform.localScale,Vector3.one*(IsHeld ? .96f : 1),blend);
+        }
     }
 }

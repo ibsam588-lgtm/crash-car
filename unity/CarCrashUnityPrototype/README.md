@@ -27,6 +27,8 @@ This folder contains the Unity 6 production prototype for Car Crash.
 
 ## Dynamic Racing UI
 
+The modern Elysian interface uses Inter typography, rounded navy panels, blue accents and subtle unscaled hover, press and menu transitions. Home has a primary driving action; the garage has six selectable vehicle cards and circular paint swatches. Floating driving cards show navigation, speed, gear, integrity and nitro, with a consistent touch control row. The city map uses numbered destination cards and highlights the active route. Layouts adapt to desktop, portrait and compact landscape windows.
+
 The scene opens at Home, with Free Drive, the optional 60 second Impact Run, a driving guide, and garage navigation. Free Drive is untimed and continues through stops and crashes until the player chooses to end the session. The garage has an orbiting camera, drag/arrow camera controls, five paint finishes, vehicle specifications, and a Start Free Drive button. Both modes use a three-second countdown.
 
 Recovery is manual through `R`, the HUD button, or Recover & Resume in the pause menu. It places the car on a nearby street without clearing score or elapsed time. Crossing the former lane/distance bounds does not teleport the player. Home, Garage, and End Session remain available from the pause/results menus.
@@ -71,7 +73,7 @@ Keyboard controls:
 
 On touch screens, hold GAS with a steering control to turn. Hold REV to back up; it brakes first when moving forward. BRAKE stops the car and also reverses when held at rest. Releasing a control, leaving its hit area, opening the pause menu, or losing app focus clears held input. Braking overrides throttle. Pause also suspends impact slow motion and the run timer.
 
-The garage also offers Apex GT, Summit AWD, Ridgeback 4x4, Atlas Hauler, and Ironclaw Monster. Selection changes the actual model, wheel radius and wheelbase, suspension, weight, acceleration, top speed, and camera framing, and saves locally. A dedicated REV pedal and `Q` reverse directly from rest and brake first while moving forward; `S` retains brake-then-reverse behavior. Button labels use Atkinson Hyperlegible, minimum readable pixel sizes, and opaque contrasting panels. Compact landscape layouts use a larger UI scale.
+The garage also offers Apex GT, Summit AWD, Ridgeback 4x4, Atlas Hauler, and Ironclaw Monster. Selection changes the actual model, wheel radius and wheelbase, suspension, weight, acceleration, top speed, and camera framing, and saves locally. A dedicated Rev pedal and `Q` reverse directly from rest and brake first while moving forward; `S` retains brake-then-reverse behavior. Button labels use Inter Medium, minimum readable pixel sizes, and contrasting panels. Compact landscape layouts use a larger UI scale.
 
 Crashes produce speed-scaled sparks, dust clouds, glass spray and an expanding ground splash. These effects also trigger on solid scenery contacts, pause with the simulation, and expire automatically. Run `Car Crash > Validate Garage Fleet and Crash Effects` for real forward/reverse driving in all six vehicles and an actual scenery-impact particle lifecycle test. It writes `Builds/Validation/fleet-qa.json`.
 

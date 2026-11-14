@@ -40,9 +40,11 @@ Asset license: https://polyhaven.com/license. Original download URLs and SHA-256
 
 ## UI Fonts
 
+The modern interface uses Inter 4.1, designed by Rasmus Andersson, under the SIL Open Font License 1.1. Regular, Medium and SemiBold static TrueType files come from the official release: https://github.com/rsms/inter/releases/tag/v4.1. The license and download provenance are included in `Assets/CarCrash/Resources/Fonts/Inter-OFL.txt` and `Inter-source.json` within the Unity project.
+
 Barlow Condensed and Archivo Black are distributed through the Google Fonts repository under the SIL Open Font License 1.1. Their license notices are included with the font files in `Assets/CarCrash/Resources/Fonts` within the Unity project.
 
-The readable interface uses Atkinson Hyperlegible (regular and bold), distributed by Google Fonts under the SIL Open Font License 1.1. Source: https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegible. Its OFL notice is included beside the font files.
+Earlier interface assets include Atkinson Hyperlegible (regular and bold), distributed by Google Fonts under the SIL Open Font License 1.1. Source: https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegible. Its OFL notice is included beside the font files.
 
 ## Expanded Playable Garage
 
