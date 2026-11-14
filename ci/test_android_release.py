@@ -5,9 +5,10 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
-from android_release import PACKAGE, audit_manifest, elf_alignment, prepare, release_version
+from android_release import PACKAGE, audit_manifest, elf_alignment, prepare, release_version, unsigned_copy
 
 
 class ReleaseSafetyTests(unittest.TestCase):
@@ -55,6 +56,31 @@ class ReleaseSafetyTests(unittest.TestCase):
             config = json.loads((private / "android-signing.json").read_text())
             self.assertEqual(config["packageName"], PACKAGE)
             self.assertTrue((project / config["keystore"]).is_file())
+
+    def test_cloud_resigning_preserves_payload_and_removes_old_signers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source, output = Path(directory) / "cloud.aab", Path(directory) / "release.aab"
+            payload = {"BundleConfig.pb": b"bundle config", "base/manifest/AndroidManifest.xml": b"binary manifest",
+                       "base/assets/city.bin": bytes(range(256)) * 100, "META-INF/services/game": b"keep",
+                       "META-INF/NOTICE": b"keep too"}
+            signatures = {name: b"old signing metadata" for name in ("META-INF/MANIFEST.MF", "META-INF/DEBUG.SF", "META-INF/DEBUG.RSA", "META-INF/SIG-OTHER")}
+            with zipfile.ZipFile(source, "w", zipfile.ZIP_DEFLATED) as archive:
+                for name, value in (payload | signatures).items():
+                    archive.writestr(name, value)
+            unsigned_copy(source, output)
+            with zipfile.ZipFile(output) as archive:
+                self.assertEqual({name: archive.read(name) for name in archive.namelist()}, payload)
+            with self.assertRaises(ValueError):
+                unsigned_copy(source, source)
+
+    def test_cloud_resigning_rejects_non_bundle_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source, output = Path(directory) / "other.zip", Path(directory) / "release.aab"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("other-app.txt", "not a bundle")
+            with self.assertRaises(ValueError):
+                unsigned_copy(source, output)
+            self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":
