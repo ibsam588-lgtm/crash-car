@@ -75,7 +75,7 @@ namespace CarCrashEditor
                             traffic.gameObject.SetActive(false); // Isolate steering from traffic contacts.
                         _people = Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None);
                         Result.pedestrians = _people.Length;
-                        Check(_people.Length == 96, "The expanded city has 96 human pedestrians on sidewalk routes");
+                        Check(_people.Length == 120, "The expanded city has 120 human pedestrians on sidewalk routes");
                         _session.Garage.Select(0);
                         foreach (var person in _people)
                         {
@@ -176,7 +176,15 @@ namespace CarCrashEditor
                         break;
                     case 9:
                         var contactTarget = _contactTargets[_contactIndex];
-                        Check(_probe.Contacted && _session.vehicle.transform.position.x < contactTarget.bounds.center.x,
+                        var breakaway=contactTarget.GetComponentInParent<BreakableCityProp>();
+                        if(breakaway!=null)
+                        {
+                            Check(_probe.Contacted&&breakaway.Broken&&!breakaway.GetComponent<Rigidbody>().isKinematic,
+                                "A real 80 km/h car collision releases the breakaway assembly: "+contactTarget.name);
+                            Check(Vector3.Angle(breakaway.transform.up,Vector3.up)>20,
+                                "The struck street object physically topples instead of remaining an immovable wall: "+contactTarget.name);
+                        }
+                        else Check(_probe.Contacted && _session.vehicle.transform.position.x < contactTarget.bounds.center.x,
                             "The real car hits and cannot tunnel through at 80 km/h: " + contactTarget.name);
                         Result.contactChecks++;
                         contactTarget.enabled = false;

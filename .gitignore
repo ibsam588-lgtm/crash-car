@@ -59,6 +59,14 @@ app.*.map.json
 *.blend1
 *.blend1.meta
 
+# Signing material and generated CI credentials (never publish)
+/.private/
+/unity/**/.ci/
+*.jks
+*.keystore
+*.p12
+*-service-account.json
+
 # Local development output
 tmp_http_*.out.log
 tmp_http_*.err.log

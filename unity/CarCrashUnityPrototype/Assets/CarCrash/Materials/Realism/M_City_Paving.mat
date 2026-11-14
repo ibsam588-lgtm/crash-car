@@ -78,6 +78,7 @@ Material:
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _UVSec: 0
+    - _VertexTint: 0
     - _Weathering: 0.4
     - _WorldScale: 0.4
     - _ZWrite: 1

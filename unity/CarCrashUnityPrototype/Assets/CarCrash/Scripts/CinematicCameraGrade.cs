@@ -18,7 +18,7 @@ namespace CarCrash
             if (gradeShader == null || !gradeShader.isSupported) { Graphics.Blit(source, destination); return; }
             if (_material == null) _material = new Material(gradeShader) { hideFlags = HideFlags.HideAndDontSave };
             var ao=RenderTexture.GetTemporary(Mathf.Max(64,source.width/2),Mathf.Max(64,source.height/2),0,
-                SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8) ? RenderTextureFormat.R8 : RenderTextureFormat.ARGB32);
+                SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8) ? RenderTextureFormat.R8 : RenderTextureFormat.ARGB32,RenderTextureReadWrite.Linear);
             var bloom=RenderTexture.GetTemporary(Mathf.Max(32,source.width/4),Mathf.Max(32,source.height/4),0,RenderTextureFormat.ARGB32);
             var blur=RenderTexture.GetTemporary(bloom.width,bloom.height,0,RenderTextureFormat.ARGB32);
             try

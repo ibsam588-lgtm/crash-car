@@ -1,0 +1,143 @@
+name: Unity Android · Play internal
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Upload the verified bundle to Google Play internal testing
+        type: boolean
+        default: false
+      release_status:
+        description: Use draft until the first Play Console release has been completed
+        type: choice
+        options: [draft, completed]
+        default: draft
+  push:
+    branches: [main]
+    paths:
+      - 'unity/CarCrashUnityPrototype/Assets/**'
+      - 'unity/CarCrashUnityPrototype/Packages/**'
+      - 'unity/CarCrashUnityPrototype/ProjectSettings/**'
+      - 'ci/**'
+      - '.github/workflows/unity-play-internal.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crash-car-play-internal
+  cancel-in-progress: false
+
+env:
+  PROJECT_PATH: unity/CarCrashUnityPrototype
+  UNITY_VERSION: 6000.0.60f1
+  BUNDLETOOL_SHA256: a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29
+
+jobs:
+  build:
+    # Enable automatic main builds after Unity activation and signing are configured.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.UNITY_CI_ENABLED == 'true')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 75
+    outputs:
+      version_code: ${{ steps.version.outputs.code }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate release tooling
+        run: python3 -m unittest discover -s ci -v
+      - name: Check Unity activation
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os
+          missing = [n for n in ('UNITY_LICENSE', 'UNITY_EMAIL', 'UNITY_PASSWORD') if not os.environ.get(n)]
+          if missing:
+              raise SystemExit('Configure GitHub secrets before building: ' + ', '.join(missing))
+          PY
+      - name: Set increasing Play version code
+        id: version
+        run: echo "code=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_OUTPUT"
+      - name: Prepare private upload signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ vars.ANDROID_VERSION_NAME || '1.1.0' }}
+        run: python3 ci/android_release.py prepare --project "$PROJECT_PATH" --version-name "$VERSION_NAME" --version-code "$VERSION_CODE"
+      - name: Make space for Unity Android image
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
+          df -h /
+      - name: Build the native Unity game
+        uses: game-ci/unity-builder@4423ee75828dff56037d1d1cfdac6b68e3a6ba00 # v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: Android
+          buildMethod: CarCrashEditor.AndroidReleaseBuilder.Build
+          androidExportType: androidAppBundle
+          androidTargetSdkVersion: 36
+          allowDirtyBuild: true
+      - name: Verify signature, package, SDK and 16 KB native support
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          CERTIFICATE_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          curl --fail --location --retry 3 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output "$RUNNER_TEMP/bundletool.jar"
+          echo "$BUNDLETOOL_SHA256  $RUNNER_TEMP/bundletool.jar" | sha256sum --check
+          python3 ci/android_release.py verify --aab build/Android/CrashCar.aab --bundletool "$RUNNER_TEMP/bundletool.jar" --version-code "$VERSION_CODE" --certificate-sha256 "$CERTIFICATE_SHA256"
+      - name: Save the verified release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crash-car-android-${{ steps.version.outputs.code }}
+          path: |
+            build/Android/CrashCar.aab
+            build/Android/release-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove private signing inputs
+        if: always()
+        run: sudo rm -rf "$PROJECT_PATH/.ci"
+
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && vars.PLAY_PUBLISH_ENABLED == 'true'))
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: crash-car-android-${{ needs.build.outputs.version_code }}
+          path: release
+      - name: Check Play credentials
+        env:
+          PLAY_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          try:
+              account = json.loads(os.environ['PLAY_SERVICE_ACCOUNT'])
+              assert account.get('type') == 'service_account' and account.get('private_key') and account.get('client_email')
+          except (ValueError, AssertionError, KeyError):
+              raise SystemExit('Configure GOOGLE_PLAY_SERVICE_ACCOUNT_JSON for the app-scoped internal-testing publisher')
+          PY
+      - name: Upload to internal testing
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.ibsam.crashcar
+          releaseFiles: release/CrashCar.aab
+          tracks: internal
+          status: ${{ inputs.release_status || vars.PLAY_RELEASE_STATUS || 'draft' }}
+          changesNotSentForReview: true

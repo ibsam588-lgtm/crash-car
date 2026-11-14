@@ -7,7 +7,7 @@ using UnityEngine.Rendering;
 
 namespace CarCrashEditor
 {
-    public static class RealisticCityBuilder
+    public static partial class RealisticCityBuilder
     {
         private const string MeshDirectory = "Assets/CarCrash/Generated/RealismGeometry/";
         private static Transform _city;
@@ -133,6 +133,7 @@ namespace CarCrashEditor
             _city = district;
             ExplorationPlaces();
             Skyline();
+            PrepareBreakableMeshes();
             CombineStaticGeometry();
             BakeStreetReflection();
             CreateFoliageInstances();
@@ -313,7 +314,7 @@ namespace CarCrashEditor
 
         private static void Buildings(float avenue)
         {
-            var shopNames = new[] { "ELYSIAN MOTORS", "SUNDOWN COFFEE", "PACIFIC MARKET", "HOTEL PALOMA", "VINYL & CO.", "WESTSIDE DINER" };
+            var districtIndex=Mathf.RoundToInt(avenue/54);
             for (var side = -1; side <= 1; side += 2)
             {
                 for (var i = 0; i < 48; i++)
@@ -324,41 +325,53 @@ namespace CarCrashEditor
                     if(((avenue==54 && side>0)||(avenue==162 && side<0)) && z>410 && z<510)continue;
                     if(((avenue==-270 && side>0)||(avenue==-162 && side<0)) && ((z>187 && z<266)||(z>510 && z<610)))continue;
                     if (NearCrossStreet(z, 16f)) continue;
-                    var width = 10f + i % 3 * 1.3f;
-                    var depth = 15.5f + i % 2 * 1.5f;
-                    var height = Mathf.Abs(avenue)>100 ? 6.4f+i%3*2.8f : 10.8f+i%5*3.3f;
+                    var family=((i*5+districtIndex*3+(side>0 ? 2 : 0))%8+8)%8;
+                    var width=new[]{11.8f,12.6f,10.5f,11.3f,12f,9.8f,12.4f,12.8f}[family];
+                    var depth=new[]{16.4f,17.2f,16f,16.8f,15.8f,15.4f,17.4f,17.5f}[family];
+                    var height=new[]{18.9f,8.8f,22.2f,10.2f,5.5f,13.3f,19.6f,7.3f}[family];
+                    if(Mathf.Abs(avenue)>100)height=3.7f+(height-3.7f)*.64f;
+                    height+=(i/8%2)*.55f;
+                    var windows=family is 2 or 6 ? 3 : family is 0 or 5 ? 4 : 5;
+                    var spacing=family is 2 or 6 ? 4f : windows==4 ? 3.35f : 2.7f;
+                    var opening=family is 2 or 6 ? 2.65f : 1.10f;
+                    var floorStep=family is 2 or 6 ? 3.55f : family==0 ? 3.1f : 2.8f;
                     var centerX = side * (12.6f + width * 0.5f);
                     var facade = side * 12.6f;
-                    var plaster=i%6 is 1 or 4;
-                    var tint = i % 3 == 0 ? new Color(.83f,.80f,.75f) : i % 3 == 1 ? new Color(.80f,.82f,.80f) : new Color(.63f,.64f,.62f);
-                    var wall = RealismMaterialLibrary.WorldSurface("M_Facade_Surface_" + i % 6,plaster ? "plastered_wall_02" : "brick_wall_003",tint,plaster ? .5f : .45f,.65f,.26f,.65f);
-                    // Keep the full original collision envelope, but set the
-                    // rendered core back behind real window/shop recesses.
-                    var core=Box("Masonry building",new Vector3(centerX+side*.24f,height*.5f,z),new Vector3(width-.48f,height,depth),wall,true);
-                    core.GetComponent<BoxCollider>().size=new Vector3(width/(width-.48f),1,1);
-                    core.GetComponent<BoxCollider>().center=new Vector3(-side*.24f/(width-.48f),0,0);
-                    RecessedFacade(side,facade,z,depth,height,wall);
+                    var buildingParent=_city;
+                    var building=new GameObject(ArchitectureNames[family]+" / "+i).transform;building.SetParent(_city,false);_city=building;
+                    var shopKind=family==0 ? 8 : family==7 ? 5 : ((family+i/8+districtIndex*5+side)%8+8)%8;
+                    var profile=building.gameObject.AddComponent<CityBuildingProfile>();profile.family=family;profile.plot=i;profile.side=side;
+                    profile.architecture=ArchitectureNames[family];profile.shop=ShopNames[shopKind];profile.size=new Vector3(width,height,depth);
+                    profile.hasInterior=Mathf.Abs(avenue)<=54&&z>-120&&z<320;
+                    profile.attendantLocalPosition=new Vector3(facade+side*2.9f,.16f,z+1.15f);
+                    var wall=ArchitectureWall(family,i/8%2);
+                    BuildArchitecturalCore(side,centerX,facade,z,width,depth,height,wall,profile.hasInterior);
+                    RecessedFacade(side,facade,z,depth,height,wall,windows,spacing,opening,floorStep);
                     Box("Roof parapet", new Vector3(centerX, height + 0.28f, z), new Vector3(width + 0.28f, 0.56f, depth + 0.28f), _trim);
                     Box("Upper cornice", new Vector3(facade - side * 0.15f, height - 0.65f, z), new Vector3(0.52f, 0.20f, depth + 0.35f), _trim);
-                    for (var y = 4.9f; y < height - 1; y += 2.8f)
+                    for (var y = 4.9f; y < height - 1; y += floorStep)
                     {
                         Box("Floor stringcourse", new Vector3(facade - side * 0.08f, y - 1.2f, z), new Vector3(0.30f, 0.10f, depth), _trim);
-                        for (var column = -2; column <= 2; column++)
+                        for (var column=0;column<windows;column++)
                         {
-                            var wz = z + column * 2.7f;
+                            var wz=z+(column-(windows-1)*.5f)*spacing;
                             var lit = (column + Mathf.RoundToInt(y) + i) % 7 == 0;
                             foreach(var edge in new[]{-1f,1f})
-                                Box("Deep window jamb",new Vector3(facade+side*.08f,y,wz+edge*.64f),new Vector3(.50f,1.84f,.14f),_trim);
-                            Box("Window lintel",new Vector3(facade+side*.08f,y+.84f,wz),new Vector3(.50f,.16f,1.40f),_trim);
-                            Box("Recessed glazing",new Vector3(facade+side*.29f,y,wz),new Vector3(.035f,1.53f,1.10f),lit ? _warmGlass : _glass);
-                            Box("Window mullion",new Vector3(facade+side*.26f,y,wz),new Vector3(.05f,1.56f,.045f),_metal);
-                            Box("Window sill", new Vector3(facade - side * 0.30f, y - 0.90f, wz), new Vector3(0.38f, 0.12f, 1.50f), _trim);
+                                Box("Deep window jamb",new Vector3(facade,y,wz+edge*(opening*.5f+.09f)),new Vector3(.24f,1.84f,.14f),_trim);
+                            Box("Window lintel",new Vector3(facade,y+.84f,wz),new Vector3(.24f,.16f,opening+.30f),_trim);
+                            Box("Recessed glazing",new Vector3(facade+side*.16f,y,wz),new Vector3(.035f,1.53f,opening),lit ? _warmGlass : _glass);
+                            Box("Window mullion",new Vector3(facade+side*.13f,y,wz),new Vector3(.05f,1.56f,.045f),_metal);
+                            Box("Window sill",new Vector3(facade-side*.30f,y-.90f,wz),new Vector3(.38f,.12f,opening+.40f),_trim);
                         }
                     }
                     for (var column = -1; column <= 1; column++)
                     {
                         var shopZ=z+column*4.3f;
-                        Box("Shop glazing",new Vector3(facade+side*.28f,1.55f,shopZ),new Vector3(.05f,2.45f,3.6f),_shopGlass);
+                        if(!(profile.hasInterior&&shopKind==5&&column==0))
+                        {
+                            var pane=Box("Shop glazing",new Vector3(facade+side*.28f,1.55f,shopZ),new Vector3(.035f,2.45f,3.6f),profile.hasInterior ? RetailGlass() : _shopGlass);
+                            if(profile.hasInterior)pane.GetComponent<MeshRenderer>().shadowCastingMode=ShadowCastingMode.Off;
+                        }
                         Box("Shop window frame",new Vector3(facade+side*.20f,1.6f,shopZ+1.72f),new Vector3(.14f,2.75f,.08f),_metal);
                         Box("Shop window transom",new Vector3(facade+side*.18f,2.44f,shopZ),new Vector3(.14f,.06f,3.55f),_metal);
                         if(column==0)
@@ -368,25 +381,28 @@ namespace CarCrashEditor
                             Box("Recessed entrance threshold",new Vector3(facade+side*.1f,.18f,shopZ-1.25f),new Vector3(.75f,.055f,1.22f),_stone);
                         }
                     }
-                    var awning = RealismMaterialLibrary.Standard("M_Awning_" + i % 3, i % 3 == 0 ? new Color(0.22f, 0.31f, 0.25f) : i % 3 == 1 ? new Color(0.40f, 0.16f, 0.12f) : new Color(0.20f, 0.23f, 0.29f));
+                    var awning=ShopAccent(shopKind);
                     Box("Shop canopy", new Vector3(facade - side * 0.62f, 3.38f, z), new Vector3(1.35f, 0.17f, depth * 0.84f), awning, true);
-                    var sign = Box("Shop fascia", new Vector3(facade - side * 0.38f, 3.92f, z), new Vector3(0.15f, 0.71f, depth * 0.82f), _metal);
-                    Sign(shopNames[(i + (side > 0 ? 2 : 0)) % shopNames.Length], sign.transform.position - Vector3.right * side * 0.10f,
+                    var sign = Box("Shop fascia", new Vector3(facade - side * 0.70f, 3.92f, z), new Vector3(0.15f, 0.71f, depth * 0.82f), _metal);
+                    Sign(profile.shop, sign.transform.position - Vector3.right * side * 0.10f,
                         Quaternion.Euler(0, side * 90f, 0), 0.20f, new Color(0.90f, 0.89f, 0.82f),depth*.73f,.42f);
-                    FacadeDetails(i,side,centerX,facade,z,width,depth,height);
-                    if(Mathf.Abs(avenue)<=54)UrbanArchitecture(i,side,facade,z,depth,height,awning);
+                    if(family!=2&&family!=6)FacadeDetails(i,side,centerX,facade,z,width,depth,height);
+                    if(Mathf.Abs(avenue)<=54&&family is 1 or 5)UrbanArchitecture(i,side,facade,z,depth,height,awning);
+                    DecorateArchitecture(family,side,facade,centerX,z,width,depth,height,wall,awning);
+                    BuildShopDetails(shopKind,side,facade,z,depth,profile.hasInterior,avenue,i);
                     Box("Rooftop air conditioning", new Vector3(centerX + side, height + 0.8f, z + 2), new Vector3(2.7f, 1.1f, 2.0f), _metal);
                     for (var n = 0; n < 5; n++) Box("AC grille", new Vector3(centerX + side, height + 1.37f, z + 1.2f + n * 0.3f), new Vector3(2.4f, 0.045f, 0.035f), _trim);
-                    if (i % 3 == 0)
+                    if (family==0)
                     {
                         Box("Vertical hotel sign", new Vector3(facade - side * 0.8f, 7.7f, z - depth * 0.40f), new Vector3(1.4f, 5.0f, 0.25f), awning);
                         Sign("H\nO\nT\nE\nL", new Vector3(facade - side * 0.8f, 7.7f, z - depth * 0.40f - 0.15f), Quaternion.identity, 0.25f, new Color(1f, 0.63f, 0.28f));
                     }
+                    _city=buildingParent;
                 }
             }
         }
 
-        private static void RecessedFacade(int side,float facade,float z,float depth,float height,Material wall)
+        private static void RecessedFacade(int side,float facade,float z,float depth,float height,Material wall,int windows,float spacing,float opening,float floorStep)
         {
             var x=facade+side*.16f;
             Box("Ground floor stone plinth",new Vector3(x,.30f,z),new Vector3(.60f,.35f,depth),_stone);
@@ -400,21 +416,23 @@ namespace CarCrashEditor
             }
             Box("Shopfront masonry pier",new Vector3(x,1.65f,z+(previous+depth*.5f)*.5f),new Vector3(.60f,2.75f,depth*.5f-previous),_stone);
             var below=3.67f;
-            for(var y=4.9f;y<height-1;y+=2.8f)
+            x=facade+side*.02f;
+            for(var y=4.9f;y<height-1;y+=floorStep)
             {
                 var bottom=y-.92f;var top=y+.92f;
-                Box("Facade masonry floor band",new Vector3(x,(below+bottom)*.5f,z),new Vector3(.60f,bottom-below,depth),wall);
+                Box("Facade masonry floor band",new Vector3(x,(below+bottom)*.5f,z),new Vector3(.28f,bottom-below,depth),wall);
                 previous=-depth*.5f;
-                for(var column=-2;column<=2;column++)
+                for(var column=0;column<windows;column++)
                 {
-                    var left=column*2.7f-.70f;
-                    Box("Facade masonry window pier",new Vector3(x,y,z+(previous+left)*.5f),new Vector3(.60f,1.84f,left-previous),wall);
-                    previous=column*2.7f+.70f;
+                    var center=(column-(windows-1)*.5f)*spacing;
+                    var left=center-opening*.5f-.15f;
+                    Box("Facade masonry window pier",new Vector3(x,y,z+(previous+left)*.5f),new Vector3(.28f,1.84f,left-previous),wall);
+                    previous=center+opening*.5f+.15f;
                 }
-                Box("Facade masonry window pier",new Vector3(x,y,z+(previous+depth*.5f)*.5f),new Vector3(.60f,1.84f,depth*.5f-previous),wall);
+                Box("Facade masonry window pier",new Vector3(x,y,z+(previous+depth*.5f)*.5f),new Vector3(.28f,1.84f,depth*.5f-previous),wall);
                 below=top;
             }
-            if(height>below)Box("Facade masonry parapet band",new Vector3(x,(height+below)*.5f,z),new Vector3(.60f,height-below,depth),wall);
+            if(height>below)Box("Facade masonry parapet band",new Vector3(x,(height+below)*.5f,z),new Vector3(.28f,height-below,depth),wall);
         }
 
         private static void UrbanArchitecture(int index,int side,float facade,float z,float depth,float height,Material awning)
@@ -433,7 +451,7 @@ namespace CarCrashEditor
             if(index%3==1)
             {
                 var escapeZ=z+3.95f;var escapeX=facade-side*.79f;
-                for(var y=4.1f;y<Mathf.Min(height-1,13);y+=2.8f)
+                for(var y=4.65f;y<Mathf.Min(height-1,13);y+=2.8f)
                 {
                     Box("Fire escape landing",new Vector3(escapeX,y,escapeZ),new Vector3(1.20f,.075f,3.1f),_metal);
                     Box("Fire escape handrail",new Vector3(escapeX-side*.56f,y+1.05f,escapeZ),new Vector3(.045f,.045f,3.1f),_metal);
@@ -476,16 +494,20 @@ namespace CarCrashEditor
                     var x = side * 10.7f;
                     Palm(new Vector3(x, 0.15f, z), i % 3);
                     var lampZ = z + 6;
+                    var lampAssembly=BeginBreakable(side<0 ? "Breakaway streetlight west" : "Breakaway streetlight east",new Vector3(side*9.9f,.15f,lampZ),65);
                     Tube("Streetlight column", new Vector3(side * 9.9f, 0.15f, lampZ), new Vector3(side * 9.9f, 6.8f, lampZ), 0.075f, _metal, true);
                     Tube("Streetlight outreach", new Vector3(side * 9.9f, 6.8f, lampZ), new Vector3(side * 7.8f, 6.6f, lampZ), 0.07f, _metal);
                     Box("Streetlight housing", new Vector3(side * 7.75f, 6.55f, lampZ), new Vector3(0.65f, 0.14f, 0.35f), _metal);
                     Box("Streetlight lens", new Vector3(side * 7.75f, 6.45f, lampZ), new Vector3(0.5f, 0.025f, 0.25f), _light);
+                    EndBreakable(lampAssembly);
                     if (i % 3 == 0)
                     {
                         Box("Sidewalk bench seat", new Vector3(x, 0.58f, z + 3), new Vector3(0.58f, 0.12f, 1.75f), _bark, true);
                         Box("Sidewalk bench back", new Vector3(x + side * 0.25f, 0.95f, z + 3), new Vector3(0.10f, 0.60f, 1.75f), _bark, true);
                         foreach (var dz in new[] { -0.65f, 0.65f }) Box("Bench support", new Vector3(x, 0.32f, z + 3 + dz), new Vector3(0.48f, 0.5f, 0.08f), _metal);
+                        var binAssembly=BeginBreakable("Breakaway litter bin",new Vector3(x,.15f,z-3),24);
                         Cylinder("Litter bin", new Vector3(x, 0.65f, z - 3), 0.34f, 1.05f, _metal, true);
+                        EndBreakable(binAssembly);
                     }
                 }
             }
@@ -493,14 +515,18 @@ namespace CarCrashEditor
             {
                 foreach (var side in new[] { -1f, 1f })
                 {
+                    var assembly=BeginBreakable(side<0 ? "Breakaway traffic signal west" : "Breakaway traffic signal east",new Vector3(side*9.6f,.2f,z-side*6.5f),115);
+                    _city.GetComponent<BreakableCityProp>().breakSpeedKmh=25f;
                     Tube("Traffic signal pole", new Vector3(side * 9.6f, 0.2f, z - side * 6.5f), new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), 0.10f, _metal, true);
                     Tube("Traffic signal arm", new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), new Vector3(side * 4.8f, 5.8f, z - side * 6.5f), 0.075f, _metal);
                     var signal = Box("Three lens traffic signal", new Vector3(side * 4.8f, 5.25f, z - side * 6.5f), new Vector3(0.40f, 1.0f, 0.28f), _metal);
                     var green = RealismMaterialLibrary.Standard("M_Signal_Green", new Color(0.12f, 0.63f, 0.29f), 0, 0.6f, 1.4f);
                     Box("Signal green lens", signal.transform.position + new Vector3(0, -0.26f, -0.17f), new Vector3(0.21f, 0.21f, 0.04f), green);
                     var signPosition = new Vector3(side * 9.6f, 4.1f, z - side * 6.5f);
-                    Box("Street name plate", signPosition, new Vector3(2.1f, 0.38f, 0.06f), green);
+                    var streetPlate=RealismMaterialLibrary.Standard("M_Street_Sign_Green",new Color(.035f,.16f,.095f),.15f,.25f);
+                    Box("Street name plate", signPosition, new Vector3(2.1f, 0.38f, 0.06f), streetPlate);
                     Sign(streetName, signPosition + Vector3.back * 0.05f, Quaternion.identity, 0.065f, Color.white,1.85f,.22f);
+                    EndBreakable(assembly);
                 }
             }
             // Small curbside props break up the repeated streetscape at car height.
@@ -522,15 +548,19 @@ namespace CarCrashEditor
             {
                 var z=-325+i*52f;if(NearCrossStreet(z,13))continue;
                 var side=i%2==0 ? -1f : 1f;var x=side*9.83f;
+                var meter=BeginBreakable(side<0 ? "Breakaway parking meter west" : "Breakaway parking meter east",new Vector3(x,.16f,z),18);
                 Tube("Parking meter post",new Vector3(x,.16f,z),new Vector3(x,1.1f,z),.035f,_metal,true);
                 Box("Parking meter head",new Vector3(x,1.28f,z),new Vector3(.20f,.36f,.26f),_metal,true);
                 Box("Meter display",new Vector3(x-side*.108f,1.34f,z),new Vector3(.012f,.10f,.17f),_glass);
                 Box("Meter coin slot",new Vector3(x-side*.112f,1.2f,z),new Vector3(.012f,.025f,.08f),_trim);
+                EndBreakable(meter);
                 if(i%3==0)
                 {
+                    var mailbox=BeginBreakable(side<0 ? "Breakaway mailbox west" : "Breakaway mailbox east",new Vector3(side*10.3f,.15f,z+4),38);
                     Box("Street mailbox",new Vector3(side*10.3f,.85f,z+4),new Vector3(.62f,.98f,.60f),blue,true);
                     Box("Mailbox collection slot",new Vector3(side*10.3f-side*.32f,1.1f,z+4),new Vector3(.012f,.08f,.40f),_metal);
                     foreach(var dz in new[]{-.22f,.22f})Box("Mailbox leg",new Vector3(side*10.3f,.28f,z+4+dz),new Vector3(.45f,.28f,.045f),_metal);
+                    EndBreakable(mailbox);
                 }
                 foreach(var curbSide in new[]{-1f,1f})
                 for(var joint=0;joint<8;joint++)
@@ -965,16 +995,33 @@ namespace CarCrashEditor
         {
             var groups = new Dictionary<(Material material,int x,int z), List<CombineInstance>>();
             var originals = new List<GameObject>();
+            var tintedMeshes=new Dictionary<(Mesh,Color),Mesh>();
             foreach (var filter in _city.GetComponentsInChildren<MeshFilter>())
             {
                 var renderer = filter.GetComponent<MeshRenderer>();
                 if (renderer == null || filter.sharedMesh == null || renderer.sharedMaterials.Length != 1) continue;
                 var material = renderer.sharedMaterial;
                 if(material==_leaf)continue;
+                if(filter.GetComponentInParent<BreakableCityProp>()!=null)continue;
+                var sourceMesh=filter.sharedMesh;
+                if(material.name.StartsWith("M_Architecture_",System.StringComparison.Ordinal)||material.name.StartsWith("M_Shop_Accent_",System.StringComparison.Ordinal))
+                {
+                    var tint=material.color.linear;var paletteKey=(sourceMesh,tint);
+                    if(!tintedMeshes.TryGetValue(paletteKey,out var painted))
+                    {
+                        painted=Object.Instantiate(sourceMesh);var colors=new Color[painted.vertexCount];
+                        for(var i=0;i<colors.Length;i++)colors[i]=tint;painted.colors=colors;tintedMeshes[paletteKey]=painted;
+                    }
+                    sourceMesh=painted;
+                    var accent=material.name.StartsWith("M_Shop_Accent_",System.StringComparison.Ordinal);
+                    var brick=material.mainTexture!=null&&material.mainTexture.name.StartsWith("brick",System.StringComparison.Ordinal);
+                    material=RealismMaterialLibrary.WorldSurface(accent ? "M_Shop_Accent_Shared" : "M_Architecture_Shared_"+(brick ? "Brick" : "Plaster"),brick ? "brick_wall_003" : "plastered_wall_02",Color.white,brick ? .44f : .48f,.6f,.24f,accent ? .45f : .63f);
+                    material.SetFloat("_VertexTint",1);
+                }
                 var center=renderer.bounds.center;
                 var key=(material,Mathf.FloorToInt(center.x/160),Mathf.FloorToInt(center.z/160));
                 if (!groups.TryGetValue(key, out var list)) { list = new List<CombineInstance>(); groups[key] = list; }
-                list.Add(new CombineInstance { mesh = filter.sharedMesh, transform = filter.transform.localToWorldMatrix, subMeshIndex = 0 });
+                list.Add(new CombineInstance { mesh = sourceMesh, transform = filter.transform.localToWorldMatrix, subMeshIndex = 0 });
                 originals.Add(filter.gameObject);
             }
             foreach (var group in groups)
@@ -987,7 +1034,9 @@ namespace CarCrashEditor
                 obj.transform.SetParent(_city, false);
                 obj.GetComponent<MeshFilter>().sharedMesh = mesh;
                 obj.GetComponent<MeshRenderer>().sharedMaterial = group.Key.material;
+                if(group.Key.material.name=="M_Retail_Clear_Glazing")obj.GetComponent<MeshRenderer>().shadowCastingMode=ShadowCastingMode.Off;
             }
+            foreach(var temporary in tintedMeshes.Values)Object.DestroyImmediate(temporary);
             foreach (var obj in originals)
             {
                 if (obj.GetComponent<Collider>() != null)

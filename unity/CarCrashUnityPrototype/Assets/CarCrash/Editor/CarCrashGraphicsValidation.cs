@@ -67,6 +67,14 @@ namespace CarCrashEditor
                     var vertices=0;var city=Object.FindFirstObjectByType<CityRoadNetwork>();
                     foreach(var mesh in city.GetComponentsInChildren<MeshFilter>())if(mesh.sharedMesh!=null)vertices+=mesh.sharedMesh.vertexCount;
                     Check(vertices<2400000,"Recessed architecture and city detail remain within the browser vertex budget ("+vertices+")");
+                    var families=new HashSet<int>();var businesses=new HashSet<string>();var interiors=0;var tallest=0f;var shortest=100f;
+                    foreach(var building in Object.FindObjectsByType<CityBuildingProfile>(FindObjectsSortMode.None))
+                    {families.Add(building.family);businesses.Add(building.shop);if(building.hasInterior)interiors++;tallest=Mathf.Max(tallest,building.size.y);shortest=Mathf.Min(shortest,building.size.y);}
+                    Check(families.Count==8&&tallest-shortest>15,"Eight architectural families produce distinct heights and street silhouettes");
+                    Check(businesses.Count>=8&&interiors>=20,"Distinct businesses have real furnished shop interiors in the central districts");
+                    Check(Object.FindObjectsByType<CityStreetActor>(FindObjectsSortMode.None).Length>=10,"Shops contain textured, posed attendants with local visibility");
+                    var breakableRenderer=Object.FindFirstObjectByType<CityBreakableRenderer>();
+                    Check(breakableRenderer!=null&&breakableRenderer.InstanceCount>200,"Breakaway street fixtures use shared render meshes and spatial instance batches");
                     var roadCar=AssetDatabase.LoadAssetAtPath<GameObject>(DetailedRoadCarLibrary.ModelRoot+"bmw-m3-e30.fbx");
                     var roadster=AssetDatabase.LoadAssetAtPath<GameObject>(DetailedRoadCarLibrary.ModelRoot+"lotus-elise.fbx");
                     Check(roadCar!=null&&roadster!=null,"Both artist-built road-car sources are imported");
@@ -110,23 +118,23 @@ namespace CarCrashEditor
                 }
                 if(_stage==2)
                 {
-                    var positions=new[]{new Vector3(2.3f,.2f,35),CityRoadNetwork.Places[1].position,CityRoadNetwork.Places[3].position};
+                    var positions=new[]{new Vector3(2.3f,.2f,35),CityRoadNetwork.Places[1].position,CityRoadNetwork.Places[3].position,new Vector3(2,.2f,-3),new Vector3(-2,.2f,-3),new Vector3(2,.2f,23)};
                     _session.vehicle.transform.position=positions[_index];_session.vehicle.GetComponent<Rigidbody>().position=positions[_index];
                     Physics.SyncTransforms();Object.FindFirstObjectByType<CityVisibility>().RefreshNow();
                     _next=EditorApplication.timeSinceStartup+.4;_stage=3;return;
                 }
                 if(_stage==3)
                 {
-                    var names=new[]{"downtown","marina","park"};
-                    var cameras=new[]{new Vector3(3.7f,2.1f,-15),new Vector3(270,5,492),new Vector3(90,5,411)};
-                    var targets=new[]{new Vector3(3,2,55),new Vector3(304,2,555),new Vector3(109,2,463)};
+                    var names=new[]{"downtown","marina","park","workshop","coffee-shop","architecture"};
+                    var cameras=new[]{new Vector3(3.7f,2.1f,-15),new Vector3(270,5,492),new Vector3(90,5,411),new Vector3(8,1.85f,-8),new Vector3(-6,1.85f,-8),new Vector3(2,3.3f,15)};
+                    var targets=new[]{new Vector3(3,2,55),new Vector3(304,2,555),new Vector3(109,2,463),new Vector3(16,1.65f,-3),new Vector3(-16,1.65f,-3),new Vector3(21,8,59)};
                     Audit(Capture(names[_index],cameras[_index],targets[_index]));
                     if(_index==2)
                     {
                         var board=GameObject.Find("CityBatch_M_City_Powdercoat_0_2")?.GetComponent<MeshRenderer>();
                         Check(board!=null&&board.enabled,"Nearby landmark architecture remains visible after changing districts");
                     }
-                    _index++;if(_index<3)_stage=2;else Complete();
+                    _index++;if(_index<names.Length)_stage=2;else Complete();
                 }
             }
             catch(Exception e){Failures.Add(e.ToString());Complete();}

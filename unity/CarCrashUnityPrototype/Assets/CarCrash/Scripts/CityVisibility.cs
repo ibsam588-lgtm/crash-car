@@ -25,11 +25,13 @@ namespace CarCrash
             for(var i=0;i<_renderers.Length;i++)
             {
                 var renderer=_renderers[i];if(renderer==null)continue;
+                if(renderer.GetComponentInParent<BreakableCityProp>()!=null)continue;
                 var bounds=_bounds[i];var nearest=bounds.ClosestPoint(point);nearest.y=point.y;
                 var distance=(nearest-point).sqrMagnitude;
                 var broadSurface=bounds.size.x>400||bounds.size.z>400;
                 renderer.enabled=broadSurface||distance<360*360;
-                renderer.shadowCastingMode=distance<100*100&&!broadSurface ? ShadowCastingMode.On : ShadowCastingMode.Off;
+                var clearGlazing=renderer.sharedMaterial!=null&&renderer.sharedMaterial.name=="M_Retail_Clear_Glazing";
+                renderer.shadowCastingMode=distance<100*100&&!broadSurface&&!clearGlazing ? ShadowCastingMode.On : ShadowCastingMode.Off;
             }
         }
         public void RefreshNow(){_ready=false;_next=0;LateUpdate();}

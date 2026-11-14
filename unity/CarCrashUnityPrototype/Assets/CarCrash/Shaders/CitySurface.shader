@@ -12,6 +12,7 @@ Shader "CarCrash/CitySurface"
         _GlossMapScale ("Smoothness", Range(0,1)) = 0.4
         _WorldScale ("Tiles per metre", Float) = 0.5
         _Weathering ("Weathering", Range(0,1)) = 0.3
+        _VertexTint ("Use baked facade colours", Range(0,1)) = 0
     }
     SubShader
     {
@@ -23,8 +24,8 @@ Shader "CarCrash/CitySurface"
         #include "UnityStandardUtils.cginc"
         sampler2D _MainTex, _BumpMap, _MetallicGlossMap, _OcclusionMap;
         fixed4 _Color;
-        half _BumpScale, _GlossMapScale, _WorldScale, _Weathering, _OcclusionStrength;
-        struct Input { float3 worldPos; float3 worldNormal; INTERNAL_DATA };
+        half _BumpScale, _GlossMapScale, _WorldScale, _Weathering, _OcclusionStrength, _VertexTint;
+        struct Input { float3 worldPos; float3 worldNormal; fixed4 color : COLOR; INTERNAL_DATA };
         void surf(Input IN, inout SurfaceOutputStandard o)
         {
             float3 baseNormal=normalize(WorldNormalVector(IN,float3(0,0,1)));
@@ -44,7 +45,7 @@ Shader "CarCrash/CitySurface"
             float variation=sin(IN.worldPos.x*.17+sin(IN.worldPos.z*.093))*sin(IN.worldPos.z*.21+IN.worldPos.y*.13);
             float macro=1+variation*.12*_Weathering;
             float baseDirt=lerp(1,lerp(.69,1,smoothstep(.12,2.6,IN.worldPos.y)),_Weathering*(1-axis.y));
-            o.Albedo=tex2D(_MainTex,uv).rgb*_Color.rgb*macro*baseDirt;
+            o.Albedo=tex2D(_MainTex,uv).rgb*_Color.rgb*lerp(half3(1,1,1),IN.color.rgb,_VertexTint)*macro*baseDirt;
             half4 mask=tex2D(_MetallicGlossMap,uv);
             o.Metallic=mask.r;
             o.Smoothness=saturate(mask.a*_GlossMapScale*(1-variation*.18));

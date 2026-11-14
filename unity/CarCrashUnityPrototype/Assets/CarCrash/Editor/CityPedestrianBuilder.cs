@@ -113,7 +113,7 @@ namespace CarCrashEditor
             foreach (var side in new[] { -1f, 1f })
             for (var lane = 0; lane < 1; lane++)
             {
-                if(avenue!=0 && block%2!=Array.IndexOf(CityRoadNetwork.AvenueX,avenue)%2)continue;
+                if(Mathf.Abs(avenue)>54 && block%2!=Array.IndexOf(CityRoadNetwork.AvenueX,avenue)%2)continue;
                 var type = index % names.Length;
                 var x = avenue + side * 11.8f;
                 var a = new Vector3(x, 0.16f, CityRoadNetwork.CrossStreetZ[block - 1] + 12f);
@@ -133,6 +133,20 @@ namespace CarCrashEditor
                 index++;
             }
             Debug.Log("Created " + index + " animated city pedestrians on bounded sidewalk routes.");
+            var attendants=0;
+            foreach(var shop in Object.FindObjectsByType<CityBuildingProfile>(FindObjectsSortMode.None))
+            {
+                if(!shop.hasInterior||shop.plot%2!=1)continue;
+                var person=(GameObject)PrefabUtility.InstantiatePrefab(templates[attendants%templates.Length],root);
+                person.name="Shop attendant / "+shop.shop;
+                var walker=person.GetComponent<CityPedestrian>();var clip=walker.walkClip;
+                Object.DestroyImmediate(walker);Object.DestroyImmediate(person.GetComponent<Collider>());Object.DestroyImmediate(person.GetComponent<Rigidbody>());
+                person.transform.position=shop.transform.TransformPoint(shop.attendantLocalPosition);
+                person.transform.rotation=Quaternion.LookRotation(Vector3.left*shop.side);
+                var actor=person.AddComponent<CityStreetActor>();actor.poseClip=clip;actor.player=player;
+                attendants++;
+            }
+            Debug.Log("Created "+attendants+" shop attendants with idle poses and local visibility.");
         }
 
         private static GameObject CreateBody(GameObject source, AnimationClip clip, Dictionary<string, Material> materials, PhysicsMaterial contact, int type)
