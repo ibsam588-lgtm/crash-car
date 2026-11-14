@@ -17,6 +17,7 @@ namespace CarCrash
         public bool Showcasing { get; private set; }
         public DrivingView View { get; private set; }
         public bool HomeScreen { get; set; }
+        public int LastOccludedVehicleCount { get; private set; }
 
         private Camera _camera;
         private ArcadeVehicleController _vehicle;
@@ -32,7 +33,37 @@ namespace CarCrash
         private readonly RaycastHit[] _obstructions = new RaycastHit[64];
         private readonly List<Renderer> _showcaseHiddenTraffic = new();
 
-        private void Awake() => _camera = GetComponent<Camera>();
+        private readonly List<(Collider collider,Renderer[] renderers)> _trafficBodies=new();
+        private readonly List<(Renderer renderer,bool forced)> _nearCameraHidden=new();
+        private void Awake()
+        {
+            _camera=GetComponent<Camera>();
+            foreach(var traffic in FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+                _trafficBodies.Add((traffic.GetComponent<Collider>(),traffic.GetComponentsInChildren<Renderer>(true)));
+        }
+
+        private void OnPreCull()
+        {
+            RestoreNearCameraTraffic();
+            LastOccludedVehicleCount=0;
+            foreach(var traffic in _trafficBodies)
+            {
+                if(traffic.collider==null||!traffic.collider.gameObject.activeInHierarchy||traffic.collider.bounds.SqrDistance(transform.position)>1.2f*1.2f)continue;
+                LastOccludedVehicleCount++;
+                foreach(var renderer in traffic.renderers)
+                {
+                    if(renderer==null)continue;
+                    _nearCameraHidden.Add((renderer,renderer.forceRenderingOff));renderer.forceRenderingOff=true;
+                }
+            }
+        }
+        private void OnPostRender()=>RestoreNearCameraTraffic();
+        private void OnDisable()=>RestoreNearCameraTraffic();
+        private void RestoreNearCameraTraffic()
+        {
+            foreach(var hidden in _nearCameraHidden)if(hidden.renderer!=null)hidden.renderer.forceRenderingOff=hidden.forced;
+            _nearCameraHidden.Clear();
+        }
 
         public void SetShowcase(bool enabled)
         {

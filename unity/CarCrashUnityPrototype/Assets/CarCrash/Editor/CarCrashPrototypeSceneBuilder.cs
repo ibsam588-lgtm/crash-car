@@ -113,6 +113,10 @@ namespace CarCrashEditor
             importer.importCameras = false;
             importer.importLights = false;
             importer.importBlendShapes = true;
+            importer.importNormals=ModelImporterNormals.Calculate;
+            importer.normalCalculationMode=ModelImporterNormalCalculationMode.AngleWeighted;
+            importer.normalSmoothingAngle=75f;
+            importer.importTangents=ModelImporterTangents.CalculateMikk;
             importer.isReadable = true;
             importer.SaveAndReimport();
         }
@@ -591,18 +595,19 @@ namespace CarCrashEditor
             CreateDetailedTraffic("Traffic_Ocean_GT", new Vector3(6.3f, 0.05f, -6f), new Color(0.035f, 0.18f, 0.33f), 6.7f, scoring);
             CreateTrafficCar(productionModel, "Traffic_Graphite_Coupe", new Vector3(-2.3f, 0.055f, 18f),
                 new Color(0.10f, 0.12f, 0.14f), new Vector3(0, 0, -7.4f), scoring);
-            CreateDetailedTraffic("Traffic_Pearl_GT", new Vector3(2.3f, 0.05f, 32f), new Color(0.76f, 0.77f, 0.72f), 8f, scoring);
-            CreateDetailedTraffic("Traffic_Carmine_GT", new Vector3(-6.3f, 0.05f, 48f), new Color(0.46f, 0.035f, 0.025f), -7f, scoring);
-            CreateDetailedTraffic("Traffic_Teal_GT", new Vector3(6.3f, 0.05f, 72f), new Color(0.035f, 0.25f, 0.22f), 9f, scoring);
-            CreateDetailedTraffic("Traffic_Silver_GT", new Vector3(-2.3f, 0.05f, 98f), new Color(0.48f, 0.52f, 0.57f), -8.2f, scoring);
+            CreateDetailedTraffic("Traffic_Pearl_GT", new Vector3(2.3f, 0.05f, 32f), new Color(0.76f, 0.77f, 0.72f), 8f, scoring,1);
+            CreateDetailedTraffic("Traffic_Carmine_GT", new Vector3(-6.3f, 0.05f, 48f), new Color(0.46f, 0.035f, 0.025f), -7f, scoring,2);
+            CreateDetailedTraffic("Traffic_Teal_GT", new Vector3(6.3f, 0.05f, 72f), new Color(0.035f, 0.25f, 0.22f), 9f, scoring,1);
+            CreateDetailedTraffic("Traffic_Silver_GT", new Vector3(-2.3f, 0.05f, 98f), new Color(0.48f, 0.52f, 0.57f), -8.2f, scoring,2);
             CreateTrafficCar(productionModel, "Traffic_Silver_Coupe", new Vector3(2.3f, 0.055f, 124f),
                 new Color(0.52f, 0.56f, 0.60f), new Vector3(0, 0, 7.2f), scoring);
             CreateDetailedTraffic("Traffic_Midnight_GT", new Vector3(-6.3f, 0.05f, 158f), new Color(0.12f, 0.11f, 0.15f), -9f, scoring);
             foreach (var avenue in CityRoadNetwork.AvenueX)
             {
                 if(avenue==0)continue;
-                CreateDetailedTraffic("Traffic_Neighborhood_North_"+avenue,new Vector3(avenue+2.3f,.05f,3f),new Color(.27f,.34f,.29f),6.8f,scoring);
-                CreateDetailedTraffic("Traffic_Neighborhood_South_"+avenue,new Vector3(avenue-2.3f,.05f,86f),new Color(.48f,.22f,.15f),-7.3f,scoring);
+                var variant=Mathf.RoundToInt(Mathf.Abs(avenue)/54)%3;
+                CreateDetailedTraffic("Traffic_Neighborhood_North_"+avenue,new Vector3(avenue+2.3f,.05f,3f),new Color(.27f,.34f,.29f),6.8f,scoring,variant);
+                CreateDetailedTraffic("Traffic_Neighborhood_South_"+avenue,new Vector3(avenue-2.3f,.05f,86f),new Color(.48f,.22f,.15f),-7.3f,scoring,(variant+1)%3);
             }
             foreach (var mover in UnityEngine.Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
             {
@@ -611,9 +616,9 @@ namespace CarCrashEditor
             }
         }
 
-        private static void CreateDetailedTraffic(string name, Vector3 position, Color paint, float speed, CrashScoring scoring)
+        private static void CreateDetailedTraffic(string name, Vector3 position, Color paint, float speed, CrashScoring scoring,int variant=0)
         {
-            var source = AssetDatabase.LoadAssetAtPath<GameObject>(DetailedTrafficModelPath);
+            var source = AssetDatabase.LoadAssetAtPath<GameObject>(variant==0 ? DetailedTrafficModelPath : "Assets/CarCrash/Prefabs/Garage/"+(variant==1 ? "suv" : "pickup")+".prefab");
             if (source == null) throw new FileNotFoundException("Missing detailed traffic model: " + DetailedTrafficModelPath);
             var root = new GameObject(name);
             root.transform.SetPositionAndRotation(position, Quaternion.Euler(0, speed < 0 ? 180 : 0, 0));
@@ -622,14 +627,19 @@ namespace CarCrashEditor
             visual.transform.SetParent(root.transform, false);
             // Keep the FBX axis/unit conversion supplied by its imported root.
             SetRenderersEnabled(visual.transform, true);
-            TrafficMaterialLibrary.Apply(visual, paint);
-            ConfigureTrafficPhysics(root, new Vector3(2.25f, 1.22f, 4.65f), 1510, new Vector3(0, 0, speed), 0);
+            if(variant==0)TrafficMaterialLibrary.Apply(visual, paint);
+            else visual.AddComponent<TrafficLivery>().paint=paint;
+            var renderers=visual.GetComponentsInChildren<MeshRenderer>();var bounds=renderers[0].bounds;
+            foreach(var renderer in renderers)bounds.Encapsulate(renderer.bounds);
+            var size=variant==0 ? new Vector3(2.25f,1.22f,4.65f) : new Vector3(bounds.size.x*.92f,bounds.size.y*.8f,bounds.size.z*.93f);
+            ConfigureTrafficPhysics(root,size,variant==0 ? 1510 : variant==1 ? 1900 : 2350,new Vector3(0,0,speed),0);
+            if(variant!=0)root.GetComponent<BoxCollider>().center=root.transform.InverseTransformPoint(bounds.center);
             AttachTrafficImpactSystem(root, visual.transform, scoring);
             var wheels = root.AddComponent<TrafficWheelAnimator>();
             wheels.wheels = new[] { FindChild(visual.transform, "Wheel_FL"), FindChild(visual.transform, "Wheel_FR"),
                 FindChild(visual.transform, "Wheel_RL"), FindChild(visual.transform, "Wheel_RR") };
             wheels.speedMetersPerSecond = Mathf.Abs(speed);
-            wheels.wheelRadius = 0.35f;
+            wheels.wheelRadius = variant==0 ? .35f : variant==1 ? .39f : .42f;
         }
 
         private static void CreateTrafficCar(

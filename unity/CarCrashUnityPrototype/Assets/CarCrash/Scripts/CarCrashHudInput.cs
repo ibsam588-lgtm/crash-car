@@ -292,8 +292,8 @@ namespace CarCrash
                     if (material.name.Contains("Shadow")) color *= 0.7f;
                     color.a = 1f;
                     _paintBlock.SetColor("_Color", color);
-                    _paintBlock.SetFloat("_Metallic", 0.45f);
-                    _paintBlock.SetFloat("_Glossiness", 0.78f);
+                    _paintBlock.SetFloat("_Metallic", 0.38f);
+                    _paintBlock.SetFloat("_Glossiness", 0.76f);
                     renderer.SetPropertyBlock(_paintBlock, slot);
                     _paintBlock.Clear();
                 }

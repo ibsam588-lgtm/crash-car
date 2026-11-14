@@ -117,9 +117,13 @@ namespace CarCrashEditor
                 var path = Root + "Materials/Garage/" + info.name + ".mat";
                 var material = AssetDatabase.LoadAssetAtPath<Material>(path);
                 if (material == null) { material = new Material(Shader.Find("Standard")); AssetDatabase.CreateAsset(material,path); }
-                material.color = new Color(info.color[0],info.color[1],info.color[2],info.role == "Glass" ? .67f : 1f);
+                material.shader=Shader.Find("Standard");
+                material.color = new Color(info.color[0],info.color[1],info.color[2],info.role == "Glass" ? .28f : 1f);
                 material.SetFloat("_Metallic", info.role is "Alloy" or "Steel" ? .8f : info.role == "Paint" ? .45f : 0f);
                 material.SetFloat("_Glossiness", info.role == "Paint" ? .76f : info.role == "Tire" ? .2f : 1f-info.roughness);
+                if(info.role=="Paint")RealismMaterialLibrary.AutomotivePaint(material);
+                if(info.role=="Tire")material.color=new Color(.055f,.06f,.065f);
+                if(info.role=="Glass")material.color=new Color(.1f,.14f,.16f,.28f);
                 if (!string.IsNullOrEmpty(info.baseTexture)) material.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(Root + "Textures/Garage/" + info.baseTexture);
                 if (!string.IsNullOrEmpty(info.normalTexture))
                 {

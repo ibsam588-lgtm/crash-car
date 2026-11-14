@@ -35,8 +35,14 @@ The realistic Unity district uses these assets under CC0:
 - Venice Sunset HDRI, Greg Zaal: https://polyhaven.com/a/venice_sunset
 - Asphalt 02: https://polyhaven.com/a/asphalt_02
 - Brick Wall 003, Dimitrios Savva and Rob Tuytel: https://polyhaven.com/a/brick_wall_003
+- Concrete Pavement: https://polyhaven.com/a/concrete_pavement
+- Plastered Wall 02: https://polyhaven.com/a/plastered_wall_02
+- Leafy Grass, Charlotte Baglioni: https://polyhaven.com/a/leafy_grass
+- Wood Planks, Amal Kumar: https://polyhaven.com/a/wood_planks
 
 Asset license: https://polyhaven.com/license. Original download URLs and SHA-256 hashes are stored in `Assets/CarCrash/Textures/Realism/sources.json` within the Unity project. Normal and roughness channels are converted for Unity's material inputs.
+
+The pavement/plaster maps and additional asphalt/brick ambient-occlusion maps are recorded in `city-finishes-sources.json` in the same folder, including source and converted-file SHA-256 hashes. These supply albedo, normal, roughness and occlusion inputs; surface scale, weathering, road-wear shapes, palm geometry and window-room shading are implemented locally.
 
 ## UI Fonts
 

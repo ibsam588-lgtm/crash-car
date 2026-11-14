@@ -12,7 +12,7 @@ namespace CarCrashEditor
         private const string MeshDirectory = "Assets/CarCrash/Generated/RealismGeometry/";
         private static Transform _city;
         private static Material _asphalt, _concrete, _stone, _metal, _glass, _warmGlass, _trim, _white, _yellow;
-        private static Material _bark, _leaf, _light;
+        private static Material _bark, _palmBark, _leaf, _light;
         private static Material _signMaterial;
         private static Font _signFont;
         private static float[] CrossStreets => CityRoadNetwork.CrossStreetZ;
@@ -23,11 +23,13 @@ namespace CarCrashEditor
             PlayerSettings.colorSpace = ColorSpace.Linear;
             QualitySettings.SetQualityLevel(3, true);
             QualitySettings.antiAliasing = 4;
+            QualitySettings.anisotropicFiltering=AnisotropicFiltering.ForceEnable;
             QualitySettings.pixelLightCount = 3;
             QualitySettings.shadows = ShadowQuality.All;
             QualitySettings.shadowResolution = ShadowResolution.High;
-            QualitySettings.shadowDistance = 85f;
-            QualitySettings.shadowCascades = 2;
+            QualitySettings.shadowDistance = 115f;
+            QualitySettings.shadowCascades = 4;
+            QualitySettings.shadowCascade4Split=new Vector3(.08f,.25f,.55f);
             QualitySettings.realtimeReflectionProbes = true;
             var sky = AssetDatabase.LoadAssetAtPath<Material>("Assets/CarCrash/Materials/Realism/M_Venice_Sunset.mat");
             if (sky == null)
@@ -36,7 +38,7 @@ namespace CarCrashEditor
                 AssetDatabase.CreateAsset(sky, "Assets/CarCrash/Materials/Realism/M_Venice_Sunset.mat");
             }
             sky.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(RealismMaterialLibrary.TextureRoot + "Realism/venice_sunset_hdri.hdr"));
-            sky.SetFloat("_Exposure", 0.85f);
+            sky.SetFloat("_Exposure", 0.72f);
             sky.SetFloat("_Rotation", 115f);
             RenderSettings.skybox = sky;
             RenderSettings.ambientMode = AmbientMode.Trilight;
@@ -50,29 +52,29 @@ namespace CarCrashEditor
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogDensity = 0.0032f;
-            RenderSettings.fogColor = new Color(0.54f, 0.53f, 0.51f);
+            RenderSettings.fogColor = new Color(0.47f, 0.53f, 0.60f);
 
             var sun = new GameObject("Golden hour sun").AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.color = new Color(1f, 0.84f, 0.65f);
-            sun.intensity = 2.1f;
+            sun.color = new Color(1f, 0.91f, 0.79f);
+            sun.intensity = 1.55f;
             sun.shadows = LightShadows.Soft;
             sun.shadowStrength = 0.88f;
-            sun.shadowBias = 0.03f;
-            sun.shadowNormalBias = 0.22f;
+            sun.shadowBias = 0.015f;
+            sun.shadowNormalBias = 0.13f;
             sun.transform.rotation = Quaternion.Euler(24f, -38f, 0f);
             RenderSettings.sun = sun;
             var fill = new GameObject("Cool sky fill").AddComponent<Light>();
             fill.type = LightType.Directional;
             fill.color = new Color(0.60f, 0.72f, 1f);
-            fill.intensity = 0.23f;
+            fill.intensity = 0.12f;
             fill.transform.rotation = Quaternion.Euler(54f, 145f, 0f);
 
             var probe = new GameObject("Street reflection probe").AddComponent<ReflectionProbe>();
             probe.transform.position = new Vector3(0, 3, -8);
             probe.mode = ReflectionProbeMode.Custom;
             probe.hdr = false;
-            probe.resolution = 128;
+            probe.resolution = 256;
             probe.size = new Vector3(38, 20, 70);
             probe.boxProjection = true;
             probe.intensity = 1f;
@@ -87,7 +89,7 @@ namespace CarCrashEditor
             _city.gameObject.AddComponent<CityRoadNetwork>();
             _city.gameObject.AddComponent<CityLightingRig>();
             _city.gameObject.AddComponent<CityVisibility>();
-            _signFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _signFont = Resources.Load<Font>("Fonts/Inter-Medium") ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             const string signPath = "Assets/CarCrash/Materials/Realism/M_World_Sign_Text.mat";
             _signMaterial = AssetDatabase.LoadAssetAtPath<Material>(signPath);
             if (_signMaterial == null)
@@ -99,17 +101,21 @@ namespace CarCrashEditor
             var fontBinding = _city.gameObject.AddComponent<CitySignFont>();
             fontBinding.font = _signFont;
             fontBinding.material = _signMaterial;
-            _asphalt = RealismMaterialLibrary.Surface("M_City_Asphalt", "asphalt_02", new Color(0.60f, 0.62f, 0.65f), Vector2.one, 0.7f, 0.65f);
-            _concrete = RealismMaterialLibrary.Surface("M_City_Paving", "brick_wall_003", new Color(0.63f, 0.65f, 0.65f), new Vector2(2, 2), 0.25f, 0.20f);
-            _stone = RealismMaterialLibrary.Standard("M_City_Concrete", new Color(0.48f, 0.47f, 0.43f), 0f, 0.28f);
+            _asphalt = RealismMaterialLibrary.WorldSurface("M_City_Asphalt", "asphalt_02", new Color(.64f,.65f,.67f),.25f,.8f,.50f,.55f);
+            _concrete = RealismMaterialLibrary.WorldSurface("M_City_Paving", "concrete_pavement", new Color(.80f,.80f,.77f),.4f,.7f,.30f);
+            _stone = RealismMaterialLibrary.WorldSurface("M_City_Concrete","plastered_wall_02",new Color(.62f,.62f,.59f),.55f,.5f,.28f);
             _metal = RealismMaterialLibrary.Standard("M_City_Powdercoat", new Color(0.055f, 0.065f, 0.073f), 0.6f, 0.6f);
-            _glass = RealismMaterialLibrary.Standard("M_City_Window_Glass", new Color(0.12f, 0.17f, 0.20f), 0.68f, 0.92f);
-            _warmGlass = RealismMaterialLibrary.Standard("M_City_Lit_Window", new Color(0.66f, 0.48f, 0.29f), 0.2f, 0.68f, 0.3f);
-            _trim = RealismMaterialLibrary.Standard("M_City_Limestone_Trim", new Color(0.65f, 0.62f, 0.54f), 0.05f, 0.35f);
+            _glass = RealismMaterialLibrary.Window("M_City_Window_Glass",new Color(.10f,.14f,.18f),.12f);
+            _warmGlass = RealismMaterialLibrary.Window("M_City_Lit_Window",new Color(.24f,.23f,.19f),.45f);
+            _trim = RealismMaterialLibrary.WorldSurface("M_City_Limestone_Trim","plastered_wall_02",new Color(.78f,.76f,.69f),.7f,.3f,.32f,.25f);
             _white = RealismMaterialLibrary.Standard("M_City_Aged_White_Paint", new Color(0.73f, 0.72f, 0.65f), 0f, 0.22f);
             _yellow = RealismMaterialLibrary.Standard("M_City_Road_Yellow", new Color(0.85f, 0.59f, 0.10f), 0f, 0.25f);
-            _bark = RealismMaterialLibrary.Standard("M_Palm_Bark", new Color(0.27f, 0.22f, 0.16f), 0f, 0.1f);
+            _bark=RealismMaterialLibrary.WorldSurface("M_City_Weathered_Timber","wood_planks",new Color(.69f,.61f,.50f),.66f,.6f,.32f,.5f);
+            _palmBark = RealismMaterialLibrary.Standard("M_Palm_Bark", new Color(0.19f, 0.14f, 0.09f), 0f, 0.1f);
+            _palmBark.shader=Shader.Find("CarCrash/PalmBark");
             _leaf = RealismMaterialLibrary.Standard("M_Palm_Leaf", new Color(0.17f, 0.25f, 0.10f), 0f, 0.3f);
+            _leaf.shader=Shader.Find("CarCrash/PalmFoliage");_leaf.color=new Color(.13f,.26f,.075f);
+            _leaf.enableInstancing=true;
             _light = RealismMaterialLibrary.Standard("M_City_Lamp_Lens", new Color(1f, 0.83f, 0.56f), 0f, 0.7f, 1.8f);
             Ground();
             var district = _city;
@@ -127,6 +133,7 @@ namespace CarCrashEditor
             Skyline();
             CombineStaticGeometry();
             BakeStreetReflection();
+            CreateFoliageInstances();
         }
 
         private static void BakeStreetReflection()
@@ -142,8 +149,9 @@ namespace CarCrashEditor
             camera.farClipPlane = 650f;
             camera.allowHDR = false;
             camera.allowMSAA = false;
-            var cube = new Cubemap(128, TextureFormat.RGBA32, true) { name = "Elysian street reflection" };
+            var cube = new Cubemap(256, TextureFormat.RGBA32, true) { name = "Elysian street reflection" };
             if (!camera.RenderToCubemap(cube)) throw new System.InvalidOperationException("Street reflection capture failed.");
+            FilterReflectionMipmaps(cube);
             var path = "Assets/CarCrash/Generated/ElysianStreetReflection.cubemap";
             var saved = AssetDatabase.LoadAssetAtPath<Cubemap>(path);
             if (saved == null) { AssetDatabase.CreateAsset(cube, path); saved = cube; }
@@ -156,9 +164,47 @@ namespace CarCrashEditor
             EditorUtility.SetDirty(saved);
         }
 
+        private static void FilterReflectionMipmaps(Cubemap cube)
+        {
+            // A raw camera capture has ordinary image mipmaps, not a roughness
+            // filter. Broaden the lower levels in linear light before saving
+            // byte faces, avoiding both chrome-like paint and HDR WebGL issues.
+            cube.Apply(true,false);cube.filterMode=FilterMode.Trilinear;
+            for(var face=0;face<6;face++)
+            for(var level=1;level<cube.mipmapCount;level++)
+            {
+                var size=Mathf.Max(1,cube.width>>level);var pixels=cube.GetPixels((CubemapFace)face,level);
+                for(var i=0;i<pixels.Length;i++)pixels[i]=pixels[i].linear;
+                var horizontal=new Color[pixels.Length];var filtered=new Color[pixels.Length];
+                var radius=Mathf.Min(Mathf.Clamp(level+1,2,5),Mathf.Max(1,size/2));
+                for(var y=0;y<size;y++)for(var x=0;x<size;x++)
+                {
+                    var sum=Color.clear;var weight=0f;
+                    for(var offset=-radius;offset<=radius;offset++)
+                    {
+                        var w=Mathf.Exp(-offset*offset/(float)(radius*radius));
+                        sum+=pixels[y*size+Mathf.Clamp(x+offset,0,size-1)]*w;weight+=w;
+                    }
+                    horizontal[y*size+x]=sum/weight;
+                }
+                for(var y=0;y<size;y++)for(var x=0;x<size;x++)
+                {
+                    var sum=Color.clear;var weight=0f;
+                    for(var offset=-radius;offset<=radius;offset++)
+                    {
+                        var w=Mathf.Exp(-offset*offset/(float)(radius*radius));
+                        sum+=horizontal[Mathf.Clamp(y+offset,0,size-1)*size+x]*w;weight+=w;
+                    }
+                    filtered[y*size+x]=(sum/weight).gamma;
+                }
+                cube.SetPixels(filtered,(CubemapFace)face,level);
+            }
+            cube.Apply(false,false);
+        }
+
         private static void Ground()
         {
-            var grass=RealismMaterialLibrary.Standard("M_District_Grass",new Color(.23f,.29f,.16f),0,.15f);
+            var grass=RealismMaterialLibrary.WorldSurface("M_District_Grass","leafy_grass",new Color(.65f,.68f,.58f),.45f,.75f,.2f,.7f);
             var centerZ=(CityRoadNetwork.MinZ+CityRoadNetwork.MaxZ)*.5f;
             var length=CityRoadNetwork.MaxZ-CityRoadNetwork.MinZ;
             var width=CityRoadNetwork.MaxX-CityRoadNetwork.MinX;
@@ -281,8 +327,9 @@ namespace CarCrashEditor
                     var height = Mathf.Abs(avenue)>100 ? 6.4f+i%3*2.8f : 10.8f+i%5*3.3f;
                     var centerX = side * (12.6f + width * 0.5f);
                     var facade = side * 12.6f;
-                    var tint = i % 3 == 0 ? new Color(0.80f, 0.62f, 0.47f) : i % 3 == 1 ? new Color(0.70f, 0.70f, 0.65f) : new Color(0.51f, 0.44f, 0.37f);
-                    var wall = RealismMaterialLibrary.Surface("M_Facade_Brick_" + i % 3, "brick_wall_003", tint, new Vector2(2.5f, 4.0f), 0.65f, 0.22f);
+                    var plaster=i%6 is 1 or 4;
+                    var tint = i % 3 == 0 ? new Color(.83f,.80f,.75f) : i % 3 == 1 ? new Color(.80f,.82f,.80f) : new Color(.63f,.64f,.62f);
+                    var wall = RealismMaterialLibrary.WorldSurface("M_Facade_Surface_" + i % 6,plaster ? "plastered_wall_02" : "brick_wall_003",tint,plaster ? .5f : .45f,.65f,.26f,.65f);
                     Box("Masonry building", new Vector3(centerX, height * 0.5f, z), new Vector3(width, height, depth), wall, true);
                     Box("Stone ground floor", new Vector3(facade + side * 0.08f, 1.9f, z), new Vector3(0.30f, 3.7f, depth + 0.1f), _stone);
                     Box("Roof parapet", new Vector3(centerX, height + 0.28f, z), new Vector3(width + 0.28f, 0.56f, depth + 0.28f), _trim);
@@ -309,7 +356,8 @@ namespace CarCrashEditor
                     Box("Shop canopy", new Vector3(facade - side * 0.62f, 3.38f, z), new Vector3(1.35f, 0.17f, depth * 0.84f), awning, true);
                     var sign = Box("Shop fascia", new Vector3(facade - side * 0.38f, 3.92f, z), new Vector3(0.15f, 0.71f, depth * 0.82f), _metal);
                     Sign(shopNames[(i + (side > 0 ? 2 : 0)) % shopNames.Length], sign.transform.position - Vector3.right * side * 0.10f,
-                        Quaternion.Euler(0, side * 90f, 0), 0.20f, new Color(0.90f, 0.85f, 0.67f));
+                        Quaternion.Euler(0, side * 90f, 0), 0.20f, new Color(0.90f, 0.89f, 0.82f),depth*.73f,.42f);
+                    FacadeDetails(i,side,centerX,facade,z,width,depth,height);
                     Box("Rooftop air conditioning", new Vector3(centerX + side, height + 0.8f, z + 2), new Vector3(2.7f, 1.1f, 2.0f), _metal);
                     for (var n = 0; n < 5; n++) Box("AC grille", new Vector3(centerX + side, height + 1.37f, z + 1.2f + n * 0.3f), new Vector3(2.4f, 0.045f, 0.035f), _trim);
                     if (i % 3 == 0)
@@ -356,7 +404,7 @@ namespace CarCrashEditor
                     Box("Signal green lens", signal.transform.position + new Vector3(0, -0.26f, -0.17f), new Vector3(0.21f, 0.21f, 0.04f), green);
                     var signPosition = new Vector3(side * 9.6f, 4.1f, z - side * 6.5f);
                     Box("Street name plate", signPosition, new Vector3(2.1f, 0.38f, 0.06f), green);
-                    Sign(streetName, signPosition + Vector3.back * 0.05f, Quaternion.identity, 0.065f, Color.white);
+                    Sign(streetName, signPosition + Vector3.back * 0.05f, Quaternion.identity, 0.065f, Color.white,1.85f,.22f);
                 }
             }
             // Small curbside props break up the repeated streetscape at car height.
@@ -367,11 +415,83 @@ namespace CarCrashEditor
                 Cylinder("Fire hydrant", new Vector3(-9.7f, 0.5f, z), 0.14f, 0.68f, hydrant, true);
                 Tube("Hydrant valve", new Vector3(-10f, 0.6f, z), new Vector3(-9.4f, 0.6f, z), 0.085f, hydrant, true);
             }
+            StreetSurfaceDetails();
+        }
+
+        private static void FacadeDetails(int index,int side,float centerX,float facade,float z,float width,float depth,float height)
+        {
+            // Details stay on the building envelope; driving and pedestrian
+            // clearances continue to use the existing collision geometry.
+            foreach(var end in new[]{-1f,1f})
+            {
+                Box("Masonry corner pier",new Vector3(facade-side*.07f,height*.5f,z+end*(depth*.5f-.3f)),new Vector3(.36f,height,.34f),_trim);
+                for(var y=4.9f;y<height-1;y+=2.8f)
+                for(var column=-1;column<=1;column++)
+                {
+                    if(column==0&&height<14)continue;
+                    var point=new Vector3(centerX+column*2.7f,y,z+end*(depth*.5f+.04f));
+                    Box("Side street window surround",point,new Vector3(1.4f,1.82f,.18f),_trim);
+                    Box("Side street glazing",point+Vector3.forward*end*.075f,new Vector3(1.12f,1.52f,.08f),(column+index)%4==0 ? _warmGlass : _glass);
+                    Box("Side street window sill",point+new Vector3(0,-.88f,end*.13f),new Vector3(1.52f,.10f,.32f),_trim);
+                }
+            }
+            if(index%3==0)
+            {
+                var unit=new Vector3(facade-side*.42f,5.65f,z-3.8f);
+                Box("Facade air conditioner",unit,new Vector3(.65f,.5f,1.1f),_stone);
+                for(var slat=0;slat<7;slat++)Box("Condenser vent",unit+new Vector3(-side*.34f,-.18f+slat*.055f,0),new Vector3(.025f,.018f,.85f),_metal);
+            }
+            if(index%5==0&&height>9)
+            {
+                var y=7.15f;var x=facade-side*.51f;
+                Box("Apartment balcony slab",new Vector3(x,y,z+2.6f),new Vector3(1.0f,.13f,2.5f),_trim);
+                Box("Balcony top rail",new Vector3(x-side*.45f,y+.95f,z+2.6f),new Vector3(.055f,.06f,2.5f),_metal);
+                for(var rail=0;rail<9;rail++)Box("Balcony baluster",new Vector3(x-side*.45f,y+.49f,z+1.45f+rail*.29f),new Vector3(.035f,.91f,.035f),_metal);
+            }
+        }
+
+        private static void StreetSurfaceDetails()
+        {
+            var oil=RealismMaterialLibrary.Standard("M_Street_Wear",new Color(.50f,.49f,.46f));oil.shader=Shader.Find("CarCrash/StreetWear");oil.SetFloat("_Pattern",0);
+            var skid=RealismMaterialLibrary.Standard("M_Street_Tyre_Marks",new Color(.59f,.58f,.56f));skid.shader=Shader.Find("CarCrash/StreetWear");skid.SetFloat("_Pattern",1);
+            var iron=RealismMaterialLibrary.Standard("M_Street_Cast_Iron",new Color(.12f,.13f,.135f),.7f,.35f);
+            var grooves=RealismMaterialLibrary.Standard("M_Drain_Recess",new Color(.035f,.04f,.045f),.1f,.25f);
+            for(var i=0;i<24;i++)
+            {
+                var z=-350+i*40f;if(NearCrossStreet(z,15))continue;
+                Decal("Asphalt oil and wear",new Vector3((i%2==0 ? 2.2f : -5.8f),.027f,z),1.6f,3.1f,oil,i*37);
+                if(i%3==0)Decal("Faded braking marks",new Vector3(-2.3f,.028f,z+7),1.8f,5.2f,skid,i%2*180);
+                if(i%2==0)
+                {
+                    var point=new Vector3(1.1f,.018f,z+11);
+                    Cylinder("Cast iron manhole",point,.39f,.018f,iron);
+                    for(var slot=0;slot<7;slot++)Box("Manhole grip",point+new Vector3(-.25f+slot*.083f,.013f,0),new Vector3(.018f,.006f,.43f),grooves);
+                }
+                foreach(var side in new[]{-1f,1f})
+                {
+                    var point=new Vector3(side*8.72f,.026f,z-5);
+                    Box("Storm drain surround",point,new Vector3(.48f,.012f,.82f),iron);
+                    for(var slot=0;slot<7;slot++)Box("Drain opening",point+new Vector3(0,.008f,-.31f+slot*.103f),new Vector3(.35f,.005f,.04f),grooves);
+                }
+            }
+        }
+
+        private static void Decal(string name,Vector3 point,float width,float length,Material material,float angle)
+        {
+            if(!Meshes.TryGetValue("StreetDetailQuad",out var mesh))
+            {
+                mesh=new Mesh{name="StreetDetailQuad",vertices=new[]{new Vector3(-.5f,0,-.5f),new Vector3(.5f,0,-.5f),new Vector3(.5f,0,.5f),new Vector3(-.5f,0,.5f)},
+                    uv=new[]{Vector2.zero,Vector2.right,Vector2.one,Vector2.up},triangles=new[]{0,2,1,0,3,2}};
+                mesh.RecalculateNormals();mesh.RecalculateTangents();mesh=SaveMesh("StreetDetailQuad",mesh);Meshes["StreetDetailQuad"]=mesh;
+            }
+            var obj=new GameObject(name,typeof(MeshFilter),typeof(MeshRenderer));obj.transform.SetParent(_city,false);
+            obj.transform.SetPositionAndRotation(point,Quaternion.Euler(0,angle,0));obj.transform.localScale=new Vector3(width,1,length);
+            obj.GetComponent<MeshFilter>().sharedMesh=mesh;obj.GetComponent<MeshRenderer>().sharedMaterial=material;
         }
 
         private static void ExplorationPlaces()
         {
-            var grass=RealismMaterialLibrary.Standard("M_Park_Grass",new Color(.21f,.34f,.13f),0,.14f);
+            var grass=RealismMaterialLibrary.WorldSurface("M_Park_Grass","leafy_grass",new Color(.76f,.82f,.67f),.5f,.8f,.18f,.5f);
             var water=RealismMaterialLibrary.Standard("M_Coastal_Water",new Color(.07f,.29f,.34f),.35f,.88f);
             water.shader=Shader.Find("CarCrash/CoastalWater");water.color=new Color(.045f,.24f,.30f);EditorUtility.SetDirty(water);
             var sand=RealismMaterialLibrary.Standard("M_Beach_Sand",new Color(.73f,.63f,.43f),0,.13f);
@@ -465,10 +585,12 @@ namespace CarCrashEditor
 
         private static void LandmarkSign(string text,Vector3 center,float width)
         {
-            Box("Landmark sign board",center,new Vector3(width,1.25f,.18f),_metal);
+            width=Mathf.Min(width,6.8f);center.y=1.2f;
+            Box("Landmark stone plinth",new Vector3(center.x,.16f,center.z),new Vector3(width+.3f,.32f,.55f),_trim,true);
+            Box("Landmark sign board",center,new Vector3(width,.92f,.18f),_metal);
             foreach(var side in new[]{-1f,1f})Tube("Landmark sign post",new Vector3(center.x+side*(width*.5f-.4f),0,center.z),
                 new Vector3(center.x+side*(width*.5f-.4f),center.y,center.z),.065f,_metal,true);
-            Sign(text,center+Vector3.back*.11f,Quaternion.identity,.13f,new Color(1,.88f,.57f));
+            Sign(text,center+Vector3.back*.11f,Quaternion.identity,.13f,new Color(.94f,.93f,.86f),width-.6f,.45f);
         }
 
         private static void BoatHull(Vector3 position)
@@ -521,24 +643,39 @@ namespace CarCrashEditor
         {
             var height = 7.7f + variant * 0.9f;
             Box("Palm planter", position + Vector3.up * 0.10f, new Vector3(1.45f, 0.2f, 1.45f), _trim, true);
-            var last = position;
-            for (var i = 1; i <= 8; i++)
+            var key="CurvedPalmTrunk_"+variant;
+            Vector3 Center(float t)=>new(Mathf.Sin(t*1.4f+variant)*t*.45f,t*height,.08f*t);
+            if(!Meshes.TryGetValue(key,out var trunkMesh))
             {
-                var t = i / 8f;
-                var next = position + new Vector3(Mathf.Sin(t * 1.4f + variant) * t * 0.45f, t * height, 0.08f * t);
-                Tube("Palm trunk", last, next, Mathf.Lerp(0.17f, 0.105f, t), _bark);
-                last = next;
+                var vertices=new List<Vector3>();var normals=new List<Vector3>();var uv=new List<Vector2>();var triangles=new List<int>();
+                const int rings=10,sides=8;
+                for(var ring=0;ring<=rings;ring++)
+                {
+                    var t=ring/(float)rings;var center=Center(t);var radius=Mathf.Lerp(.17f,.105f,t);
+                    for(var side=0;side<=sides;side++)
+                    {
+                        var angle=side*Mathf.PI*2/sides;var radial=new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle));
+                        vertices.Add(center+radial*radius);normals.Add(radial);uv.Add(new Vector2(side/(float)sides,t*height));
+                        if(ring==0||side==0)continue;var a=(ring-1)*(sides+1)+side-1;
+                        triangles.AddRange(new[]{a,a+sides+2,a+1,a,a+sides+1,a+sides+2});
+                    }
+                }
+                trunkMesh=new Mesh{name=key};trunkMesh.SetVertices(vertices);trunkMesh.SetNormals(normals);trunkMesh.SetUVs(0,uv);trunkMesh.SetTriangles(triangles,0);trunkMesh.RecalculateTangents();
+                trunkMesh=SaveMesh(key,trunkMesh);Meshes[key]=trunkMesh;
             }
+            var trunk=new GameObject("Curved palm trunk",typeof(MeshFilter),typeof(MeshRenderer));trunk.transform.SetParent(_city,false);trunk.transform.position=position;
+            trunk.GetComponent<MeshFilter>().sharedMesh=trunkMesh;trunk.GetComponent<MeshRenderer>().sharedMaterial=_palmBark;
+            var last=position+Center(1);
             // One tapered-trunk approximation avoids seams between eight capsules.
             SolidCapsule("Palm trunk collision", position, last, 0.19f);
             var leafMesh = PalmLeaf();
-            for (var i = 0; i < 15; i++)
+            for (var i = 0; i < 21; i++)
             {
                 var obj = new GameObject("Palm frond", typeof(MeshFilter), typeof(MeshRenderer));
                 obj.transform.SetParent(_city, false);
                 obj.transform.position = last;
-                obj.transform.rotation = Quaternion.Euler(i % 3 * 12 - 8, i * 137.5f + variant * 20, 0);
-                obj.transform.localScale = Vector3.one * (0.82f + i % 3 * 0.14f);
+                obj.transform.rotation = Quaternion.Euler(i % 4 * 11 - 14, i * 137.5f + variant * 20, 0);
+                obj.transform.localScale = Vector3.one * (0.78f + i % 4 * 0.09f);
                 obj.GetComponent<MeshFilter>().sharedMesh = leafMesh;
                 obj.GetComponent<MeshRenderer>().sharedMaterial = _leaf;
             }
@@ -547,27 +684,36 @@ namespace CarCrashEditor
         private static Mesh PalmLeaf()
         {
             if (Meshes.TryGetValue("PalmFrond", out var mesh)) return mesh;
-            var vertices = new List<Vector3>(); var triangles = new List<int>(); var uv = new List<Vector2>();
-            for (var i = 0; i <= 14; i++)
+            var vertices = new List<Vector3>(); var triangles = new List<int>(); var uv = new List<Vector2>();var colors=new List<Color>();
+            Vector3 Spine(float t)=>new(0,Mathf.Sin(t*Mathf.PI)*.82f-t*t*1.38f,t*3.55f);
+            void LeafVertex(Vector3 p,Vector2 tex,Color c){vertices.Add(p);uv.Add(tex);colors.Add(c);}
+            for (var i = 0; i <= 25; i++)
             {
-                var t = i / 14f;
-                var center = new Vector3(0, Mathf.Sin(t * Mathf.PI) * 0.9f - t * t * 1.25f, t * 3.15f);
-                var width = Mathf.Sin(Mathf.PI * t) * 0.46f * (i % 2 == 0 ? 1 : 0.68f);
-                vertices.Add(center + new Vector3(-width, -width * 0.22f, 0));
-                vertices.Add(center + Vector3.up * 0.03f);
-                vertices.Add(center + new Vector3(width, -width * 0.22f, 0));
-                uv.Add(new Vector2(0, t)); uv.Add(new Vector2(0.5f, t)); uv.Add(new Vector2(1, t));
+                var t=i/25f;var center=Spine(t);var width=Mathf.Lerp(.025f,.004f,t);
+                LeafVertex(center+Vector3.left*width,new Vector2(0,t),new Color(.9f,1,.65f));
+                LeafVertex(center+Vector3.right*width,new Vector2(1,t),new Color(.9f,1,.65f));
                 if (i == 0) continue;
-                var start = (i - 1) * 3;
-                for (var strip = 0; strip < 2; strip++)
+                var a=(i-1)*2;triangles.AddRange(new[]{a,a+2,a+1,a+1,a+2,a+3});
+            }
+            for(var i=2;i<25;i++)
+            {
+                var t=i/25f;var center=Spine(t);
+                foreach(var side in new[]{-1f,1f})
                 {
-                    var a = start + strip;
-                    triangles.AddRange(new[] { a, a + 3, a + 1, a + 1, a + 3, a + 4,
-                        a + 1, a + 3, a, a + 4, a + 3, a + 1 });
+                    var length=Mathf.Pow(Mathf.Sin(t*Mathf.PI),.62f)*.8f;
+                    var tip=center+new Vector3(side*length,-length*.28f,.28f+length*.17f);
+                    var middle=Vector3.Lerp(center,tip,.43f)+Vector3.up*.035f;
+                    var a=vertices.Count;var tint=Color.Lerp(new Color(.58f,.80f,.48f),new Color(1.02f,1.05f,.76f),(i%5)/4f);
+                    LeafVertex(center,new Vector2(.5f,t),tint);
+                    LeafVertex(middle+Vector3.back*.045f,new Vector2(0,t),tint);
+                    LeafVertex(tip,new Vector2(.5f,t+.04f),tint);
+                    LeafVertex(middle+Vector3.forward*.045f,new Vector2(1,t),tint);
+                    triangles.AddRange(new[]{a,a+1,a+2,a,a+2,a+3});
                 }
             }
             mesh = new Mesh { name = "PalmFrond" };
-            mesh.SetVertices(vertices); mesh.SetUVs(0, uv); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals();
+            mesh.SetVertices(vertices); mesh.SetUVs(0, uv);mesh.SetColors(colors); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals();mesh.RecalculateTangents();
+            mesh=SaveMesh("PalmFrondRealistic",mesh);
             Meshes["PalmFrond"] = mesh;
             return mesh;
         }
@@ -594,13 +740,34 @@ namespace CarCrashEditor
 
         private static void Tube(string name, Vector3 from, Vector3 to, float radius, Material material, bool collision = false)
         {
-            var obj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            const string key="StreetCylinder8";
+            if(!Meshes.TryGetValue(key,out var mesh))
+            {
+                var vertices=new List<Vector3>();var normals=new List<Vector3>();var uv=new List<Vector2>();var triangles=new List<int>();const int sides=8;
+                for(var ring=0;ring<2;ring++)for(var side=0;side<=sides;side++)
+                {
+                    var angle=side*Mathf.PI*2/sides;var radial=new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle));
+                    vertices.Add(radial*.5f+Vector3.up*(ring*2-1));normals.Add(radial);uv.Add(new Vector2(side/(float)sides,ring));
+                    if(ring==0||side==0)continue;var a=side-1;triangles.AddRange(new[]{a,a+sides+2,a+1,a,a+sides+1,a+sides+2});
+                }
+                foreach(var end in new[]{-1f,1f})
+                {
+                    var center=vertices.Count;vertices.Add(Vector3.up*end);normals.Add(Vector3.up*end);uv.Add(new Vector2(.5f,.5f));
+                    for(var side=0;side<=sides;side++)
+                    {
+                        var angle=side*Mathf.PI*2/sides;var radial=new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle));
+                        vertices.Add(radial*.5f+Vector3.up*end);normals.Add(Vector3.up*end);uv.Add(new Vector2(radial.x,radial.z)+Vector2.one*.5f);
+                        if(side>0){if(end>0)triangles.AddRange(new[]{center,center+side+1,center+side});else triangles.AddRange(new[]{center,center+side,center+side+1});}
+                    }
+                }
+                mesh=new Mesh{name=key};mesh.SetVertices(vertices);mesh.SetNormals(normals);mesh.SetUVs(0,uv);mesh.SetTriangles(triangles,0);mesh.RecalculateTangents();mesh=SaveMesh(key,mesh);Meshes[key]=mesh;
+            }
+            var obj = new GameObject(name,typeof(MeshFilter),typeof(MeshRenderer));obj.GetComponent<MeshFilter>().sharedMesh=mesh;
             obj.name = name; obj.transform.SetParent(_city, false);
             obj.transform.position = (from + to) * 0.5f;
             obj.transform.rotation = Quaternion.FromToRotation(Vector3.up, to - from);
             obj.transform.localScale = new Vector3(radius * 2, Vector3.Distance(from, to) * 0.5f, radius * 2);
             obj.GetComponent<MeshRenderer>().sharedMaterial = material;
-            Object.DestroyImmediate(obj.GetComponent<Collider>());
             if (collision) SolidCapsule(name + " collision", from, to, radius);
         }
 
@@ -642,16 +809,22 @@ namespace CarCrashEditor
             if (collision) obj.AddComponent<MeshCollider>().sharedMesh = mesh;
         }
 
-        private static void Sign(string text, Vector3 position, Quaternion rotation, float size, Color color)
+        private static void Sign(string text, Vector3 position, Quaternion rotation, float size, Color color,float maxWidth=0,float maxHeight=0)
         {
             var obj = new GameObject(text, typeof(TextMesh));
             obj.transform.SetParent(_city, false); obj.transform.SetPositionAndRotation(position, rotation);
             var sign = obj.GetComponent<TextMesh>();
             sign.font = _signFont;
-            sign.text = text; sign.fontSize = 64; sign.fontStyle = FontStyle.Bold;
-            sign.characterSize = size; sign.color = color; sign.anchor = TextAnchor.MiddleCenter;
+            sign.text = text; sign.fontSize = 64; sign.fontStyle = FontStyle.Normal;
+            sign.characterSize = size*.5f; sign.color = color; sign.anchor = TextAnchor.MiddleCenter;
             sign.alignment = TextAlignment.Center;
             obj.GetComponent<MeshRenderer>().sharedMaterial = _signMaterial;
+            var bounds=obj.GetComponent<MeshRenderer>().bounds;
+            var width=Mathf.Max(bounds.size.x,bounds.size.z);
+            var fit=1f;
+            if(maxWidth>0&&width>.001f)fit=Mathf.Min(fit,maxWidth/width);
+            if(maxHeight>0&&bounds.size.y>.001f)fit=Mathf.Min(fit,maxHeight/bounds.size.y);
+            obj.transform.localScale=Vector3.one*fit;
         }
 
         private static Mesh SaveMesh(string name, Mesh mesh)
@@ -671,6 +844,7 @@ namespace CarCrashEditor
                 var renderer = filter.GetComponent<MeshRenderer>();
                 if (renderer == null || filter.sharedMesh == null || renderer.sharedMaterials.Length != 1) continue;
                 var material = renderer.sharedMaterial;
+                if(material==_leaf)continue;
                 var center=renderer.bounds.center;
                 var key=(material,Mathf.FloorToInt(center.x/160),Mathf.FloorToInt(center.z/160));
                 if (!groups.TryGetValue(key, out var list)) { list = new List<CombineInstance>(); groups[key] = list; }
@@ -698,6 +872,40 @@ namespace CarCrashEditor
                 else Object.DestroyImmediate(obj);
             }
             Debug.Log($"Built textured city with {groups.Count} static material batches.");
+        }
+
+        private static void CreateFoliageInstances()
+        {
+            var groups=new Dictionary<(int,int),List<CityFoliageRenderer.Frond>>();var originals=new List<GameObject>();
+            foreach(var filter in _city.GetComponentsInChildren<MeshFilter>())
+            {
+                var renderer=filter.GetComponent<MeshRenderer>();if(renderer==null||renderer.sharedMaterial!=_leaf)continue;
+                var t=filter.transform;var key=(Mathf.FloorToInt(t.position.x/80),Mathf.FloorToInt(t.position.z/80));
+                if(!groups.TryGetValue(key,out var list)){list=new List<CityFoliageRenderer.Frond>();groups[key]=list;}
+                list.Add(new CityFoliageRenderer.Frond{position=t.position,rotation=t.rotation,scale=t.lossyScale.x});originals.Add(filter.gameObject);
+            }
+            var batches=new List<CityFoliageRenderer.Batch>();
+            foreach(var group in groups)
+            for(var first=0;first<group.Value.Count;first+=500)
+            {
+                var count=Mathf.Min(500,group.Value.Count-first);var fronds=group.Value.GetRange(first,count).ToArray();
+                var bounds=new Bounds(fronds[0].position,Vector3.one*9);
+                foreach(var frond in fronds)bounds.Encapsulate(new Bounds(frond.position,Vector3.one*9));
+                batches.Add(new CityFoliageRenderer.Batch{bounds=bounds,fronds=fronds});
+            }
+            var foliage=_city.gameObject.AddComponent<CityFoliageRenderer>();foliage.mesh=Meshes["PalmFrond"];
+            foliage.material=_leaf;foliage.batches=batches.ToArray();
+            foreach(var obj in originals)Object.DestroyImmediate(obj);
+            // Explicitly drawn foliage needs instancing variants. Keep that
+            // variant family while allowing unused lighting/fog variants to be
+            // stripped normally; Always Included would retain tens of thousands.
+            var settings=new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset")[0]);
+            var shaders=settings.FindProperty("m_AlwaysIncludedShaders");
+            for(var i=shaders.arraySize-1;i>=0;i--)
+                if(shaders.GetArrayElementAtIndex(i).objectReferenceValue==_leaf.shader)
+                {shaders.GetArrayElementAtIndex(i).objectReferenceValue=null;shaders.DeleteArrayElementAtIndex(i);}
+            settings.FindProperty("m_InstancingStripping").intValue=2;settings.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log($"Instanced {foliage.InstanceCount} palm fronds in {batches.Count} spatial groups.");
         }
     }
 }

@@ -39,12 +39,13 @@ Trees, planters, lamps, benches, bins, hydrants, signals, and buildings have sol
 
 The responsive uGUI HUD uses compact digital instruments, speed-derived automatic gear/rev indicators, a city minimap driven by the street geometry and nearby traffic transforms, body integrity, rechargeable nitro, animated score, hit count, impact-chain feedback, and a run timer. Chase, Low, and Bonnet cameras use speed-sensitive field of view and impact shake. Paint and personal best scores save locally with PlayerPrefs.
 
-The detailed Roadbreaker model preserves the licensed CarConcept body and cockpit. It uses imported tire/normal maps, reflective metallic paint, transparent glass, separate wheels, and emissive lamps. The Elysian district includes textured asphalt and brick, a sunset HDR sky, road intersections, shop signs, palms, sidewalks, street furniture, and skyline towers. Static scenery uses spatial material batches and distance culling to limit draw calls; world collisions stay active. A street cubemap is captured in the Editor and saved with the scene for browser-compatible reflections. Camera output uses a small ACES-style tone-mapping shader; the UI stays sharp above the camera image.
+The detailed Roadbreaker model preserves the licensed CarConcept body and cockpit. Automotive paint uses neutral specular highlights, fine normal detail and a separate pigment response; glass uses dielectric reflections and transparent tint. Sports cars, SUVs and pickups share the road, with visible dimensions reflected in their collision chassis. The city uses metre-scaled PBR asphalt, pavement, plaster, masonry, grass and timber, window-room parallax, fitted shop signs, side windows, balconies, air conditioners, manholes, drains and surface wear. Feathery palm fronds sway on one shared mesh and render in spatial instance groups, while their original trunk collisions stay active. Static architecture retains regional material batches and distance culling. A 256-pixel byte cubemap is captured and its rougher mip levels filtered in linear light for stable browser reflections. Half-resolution contact occlusion, quarter-resolution bloom and ACES-style colour grading add depth while the UI stays sharp above the camera image.
 
 To reproduce the visual source assets:
 
 ```powershell
 python tools/fetch_realism_assets.py
+python tools/fetch_city_finish_assets.py
 blender --background --python tools/blender/prepare_realistic_roadbreaker.py
 python tools/prepare_realism_textures.py
 python tools/fetch_traffic_asset.py
@@ -78,6 +79,10 @@ The garage also offers Apex GT, Summit AWD, Ridgeback 4x4, Atlas Hauler, and Iro
 Crashes produce speed-scaled sparks, dust clouds, glass spray and an expanding ground splash. These effects also trigger on solid scenery contacts, pause with the simulation, and expire automatically. Run `Car Crash > Validate Garage Fleet and Crash Effects` for real forward/reverse driving in all six vehicles and an actual scenery-impact particle lifecycle test. It writes `Builds/Validation/fleet-qa.json`.
 
 ## UI Verification
+
+Run `Car Crash > Validate Realistic Graphics` to render all six vehicles and downtown, marina and park views. It checks shader support, missing-shader pixels, contrast, actual occlusion response, safe reflection formats, shared foliage geometry, traffic variety and collision dimensions. Frames go to `build/cinematic-city` in the repository root and results to `Builds/Validation/graphics-qa.json`.
+
+Taller traffic vehicles are temporarily hidden only while they intersect the camera's immediate clearance zone, so a following SUV cannot fill the foreground. Their original renderer flags restore after each camera render. Graphics QA exercises this with real camera renders.
 
 Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. This checks Home navigation, the driving guide, traffic dimensions and alignment, car paint/wheels, baked reflections, independent touch input, brake priority, nitro, camera switching, scoring, pause during slow motion, results, retry, and garage/Home return. It runs Free Drive for a real 65 seconds, waits after a crash, crosses the former reset bounds, and checks manual recovery preserves the session. The optional challenge is checked separately. It restores the pre-test paint and personal-best preferences and writes `Builds/Validation/ui-smoke.json`.
 

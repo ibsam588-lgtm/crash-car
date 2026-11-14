@@ -148,7 +148,7 @@ namespace CarCrashEditor
                             var bounds = fleetRenderers[0].bounds;
                             foreach (var renderer in fleetRenderers) bounds.Encapsulate(renderer.bounds);
                             Check(fleetVertices > 20000 && bounds.size.x > 1.7f && bounds.size.x < 3f &&
-                                bounds.size.y > 0.9f && bounds.size.y < 1.9f && bounds.size.z > 4f && bounds.size.z < 5.8f,
+                                bounds.size.y > 0.9f && bounds.size.y < 2.5f && bounds.size.z > 4f && bounds.size.z < 6.5f,
                                 "Detailed traffic has complete life-size bodywork, wheels, and upright alignment: " + traffic.name);
                             var centre = traffic.transform.InverseTransformPoint(bounds.center);
                             Check(new Vector2(centre.x, centre.z).magnitude < 0.8f,

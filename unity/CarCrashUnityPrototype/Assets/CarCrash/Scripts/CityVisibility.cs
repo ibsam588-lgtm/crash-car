@@ -32,5 +32,6 @@ namespace CarCrash
                 renderer.shadowCastingMode=distance<100*100&&!broadSurface ? ShadowCastingMode.On : ShadowCastingMode.Off;
             }
         }
+        public void RefreshNow(){_ready=false;_next=0;LateUpdate();}
     }
 }

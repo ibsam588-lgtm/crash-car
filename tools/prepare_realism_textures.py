@@ -19,7 +19,7 @@ def main():
         metal = packed.getchannel("B")
         zero = Image.new("L", packed.size, 0)
         Image.merge("RGBA", (metal, zero, zero, ImageOps.invert(roughness))).save(car / f"metal_smooth_{source:02}.png")
-    for name in ("asphalt_02", "brick_wall_003"):
+    for name in ("asphalt_02", "brick_wall_003", "concrete_pavement", "plastered_wall_02", "leafy_grass", "wood_planks"):
         rough = Image.open(TEXTURES / "Realism" / f"{name}_rough.png").convert("L")
         zero = Image.new("L", rough.size, 0)
         smooth = ImageOps.invert(rough)
