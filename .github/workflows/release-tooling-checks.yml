@@ -1,9 +1,11 @@
 name: Release tooling checks (no app builds)
 on:
-  pull_request:
-    paths: ['ci/**', '.github/workflows/**']
   push:
-    paths: ['ci/**', '.github/workflows/**']
+    paths:
+      - ci/**
+      - .github/workflows/**
+    branches:
+      - main
 permissions:
   contents: read
 jobs:
@@ -13,4 +15,6 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
       - run: python3 -m unittest discover -s ci -v
+    if: github.ref == 'refs/heads/main'
