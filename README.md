@@ -65,6 +65,12 @@ API level and native libraries. See [release setup](android/playstore/README.md)
 for signing and the remaining activation steps. The Flutter/Fastlane files are
 legacy prototypes and do not produce this game release.
 
+The manual **Android native candidate · Guardian internal** workflow also accepts
+an exact-source local Unity 6000.3.29f1 build while the cloud repository connection
+is being resolved. It verifies the source and bundle digest, signs inside GitHub
+and can upload only to internal testing. See the release guide for the isolated
+local export command. Automatic cloud builds remain disabled until verified.
+
 The current local bundle path after a release build is:
 
 ```text

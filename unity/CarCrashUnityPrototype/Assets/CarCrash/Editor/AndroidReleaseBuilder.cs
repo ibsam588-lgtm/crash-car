@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -17,6 +19,68 @@ namespace CarCrashEditor
         {
             public string keystore,storePassword,keyAlias,keyPassword,versionName,packageName;
             public int versionCode;
+        }
+
+        [Serializable] private sealed class NativeReceipt
+        {
+            public int formatVersion=1,versionCode;
+            public long aabBytes;
+            public string repository="ibsam588-lgtm/crash-car",packageName=PackageName;
+            public string versionName,unityVersion,sourceCommit,unityTreeSha,sha256;
+        }
+
+        // Export with temporary signing only. The registered Guardian private key
+        // remains in GitHub; its workflow replaces and verifies this signature.
+        public static void BuildForGitHubSigning()
+        {
+#if UNITY_ANDROID
+            if(EditorUserBuildSettings.activeBuildTarget!=BuildTarget.Android)
+                throw new InvalidOperationException("Start Unity with -buildTarget Android.");
+            if(!int.TryParse(Environment.GetEnvironmentVariable("CRASH_VERSION_CODE"),out var code))
+                throw new InvalidOperationException("An explicit Android version code is required.");
+            var commit=Environment.GetEnvironmentVariable("CRASH_SOURCE_COMMIT")??"";
+            var tree=Environment.GetEnvironmentVariable("CRASH_SOURCE_TREE")??"";
+            if(!Regex.IsMatch(commit,"^[a-f0-9]{40}$")||!Regex.IsMatch(tree,"^[a-f0-9]{40}$"))
+                throw new InvalidOperationException("The archived Git source identity is required.");
+            var output=Environment.GetEnvironmentVariable("CRASH_NATIVE_AAB");
+            if(string.IsNullOrEmpty(output)||!Path.IsPathRooted(output)||Path.GetExtension(output)!=".aab")
+                throw new InvalidOperationException("An absolute Android App Bundle output path is required.");
+            var sdk=Environment.GetEnvironmentVariable("CRASH_ANDROID_SDK");
+            var ndk=Environment.GetEnvironmentVariable("CRASH_ANDROID_NDK");
+            var jdk=Environment.GetEnvironmentVariable("CRASH_ANDROID_JDK");
+            if(!Directory.Exists(sdk)||!Directory.Exists(ndk)||!Directory.Exists(jdk))
+                throw new InvalidOperationException("Matching Android SDK, NDK and JDK directories are required.");
+            UnityEditor.Android.AndroidExternalToolsSettings.sdkRootPath=sdk;
+            UnityEditor.Android.AndroidExternalToolsSettings.ndkRootPath=ndk;
+            UnityEditor.Android.AndroidExternalToolsSettings.jdkRootPath=jdk;
+            var version=Environment.GetEnvironmentVariable("CRASH_VERSION_NAME")??"1.1.0";
+            ConfigurePlayer(version,code);
+            ClearSigning();
+            Directory.CreateDirectory(Path.GetDirectoryName(output));
+            var receiptPath=Path.Combine(Path.GetDirectoryName(output),"native-source.json");
+            if(File.Exists(receiptPath))File.Delete(receiptPath);
+            try
+            {
+                var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{"Assets/CarCrash/Scenes/ImpactRunPrototype.unity"},locationPathName=output,target=BuildTarget.Android,options=BuildOptions.CompressWithLz4HC});
+                if(report.summary.result!=BuildResult.Succeeded)throw new InvalidOperationException("Native Android bundle build failed: "+report.summary.result);
+                string digest;
+                using(var file=File.OpenRead(output))
+                using(var hash=SHA256.Create())digest=BitConverter.ToString(hash.ComputeHash(file)).Replace("-","").ToLowerInvariant();
+                var receipt=new NativeReceipt{versionName=version,versionCode=code,unityVersion=Application.unityVersion,sourceCommit=commit,unityTreeSha=tree,sha256=digest,aabBytes=new FileInfo(output).Length};
+                File.WriteAllText(receiptPath,JsonUtility.ToJson(receipt,true)+"\n");
+                Debug.Log("ANDROID_NATIVE_CANDIDATE_PASS package="+PackageName+" versionCode="+code+" sha256="+digest);
+            }
+            finally{ClearSigning();}
+#else
+            throw new InvalidOperationException("Install Android Build Support and start Unity with -buildTarget Android.");
+#endif
+        }
+
+        private static void ClearSigning()
+        {
+            PlayerSettings.Android.useCustomKeystore=false;
+            PlayerSettings.Android.keystoreName="";PlayerSettings.Android.keystorePass="";
+            PlayerSettings.Android.keyaliasName="";PlayerSettings.Android.keyaliasPass="";
         }
 
         // Unity Build Automation supplies its own Editor activation. No human account
