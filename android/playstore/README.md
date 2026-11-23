@@ -64,7 +64,8 @@ two files to an **unpublished draft GitHub release**, tagged
 Do not publish that draft. Run the native-candidate workflow on **main** with its
 tag and the receipt's SHA-256. Leave **publish** off for a signing/verification-only
 run; select **completed** with publish enabled to update the existing internal
-release after validation.
+release after validation. Play applies its normal automatic review behavior
+when the internal release is committed.
 
 The workflow rejects another app or repository, changed bytes, an unmerged source
 commit, a different Unity source tree, a stale Editor, or a non-draft release.

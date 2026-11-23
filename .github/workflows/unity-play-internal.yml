@@ -155,4 +155,3 @@ jobs:
           releaseFiles: release/CrashCar.aab
           tracks: internal
           status: ${{ inputs.release_status || vars.PLAY_RELEASE_STATUS || 'draft' }}
-          changesNotSentForReview: true
