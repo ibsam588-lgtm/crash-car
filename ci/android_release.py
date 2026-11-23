@@ -154,7 +154,10 @@ def unsigned_copy(source: Path, destination: Path) -> None:
 
 def sign_cloud_bundle(project: Path, source: Path, destination: Path, jarsigner: str) -> None:
     config = json.loads((project / ".ci/android-signing.json").read_text(encoding="utf-8"))
-    if config.get("packageName") != PACKAGE or not all(os.environ.get(key) for key in SIGNING_NAMES[1:]):
+    alias = config.get("keyAlias")
+    store_password_env, key_password_env = SIGNING_NAMES[1], SIGNING_NAMES[3]
+    if (config.get("packageName") != PACKAGE or not isinstance(alias, str) or not alias
+            or not os.environ.get(store_password_env) or not os.environ.get(key_password_env)):
         raise ValueError("Private upload signing inputs are incomplete")
     keystore = (project / config["keystore"]).resolve()
     if not keystore.is_relative_to((project / ".ci").resolve()) or not keystore.is_file():
@@ -162,12 +165,12 @@ def sign_cloud_bundle(project: Path, source: Path, destination: Path, jarsigner:
     unsigned_copy(source, destination)
     try:
         run([jarsigner, "-J-Duser.language=en", "-keystore", str(keystore),
-             "-storepass:env", SIGNING_NAMES[1], "-keypass:env", SIGNING_NAMES[3],
-             "-digestalg", "SHA-256", "-sigalg", "SHA256withRSA", str(destination), config["keyAlias"]])
+             "-storepass:env", store_password_env, "-keypass:env", key_password_env,
+             "-digestalg", "SHA-256", "-sigalg", "SHA256withRSA", str(destination), alias])
     except Exception:
         destination.unlink(missing_ok=True)
         raise
-    print("Signed the cloud Android bundle with the GitHub upload key")
+    print("Signed the Android bundle with the configured upload key")
 
 
 def verify(aab: Path, bundletool: Path, java: str, jarsigner: str, keytool: str, code: int, fingerprint: str) -> None:
