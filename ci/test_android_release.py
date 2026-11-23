@@ -8,7 +8,7 @@ import unittest
 import zipfile
 from unittest.mock import patch
 
-from android_release import PACKAGE, MIN_VERSION_CODE, audit_manifest, check_key, elf_alignment, prepare, release_version, unsigned_copy
+from android_release import PACKAGE, MIN_VERSION_CODE, audit_manifest, check_key, elf_alignment, prepare, release_version, sign_cloud_bundle, unsigned_copy
 
 
 class ReleaseSafetyTests(unittest.TestCase):
@@ -110,6 +110,25 @@ class ReleaseSafetyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 unsigned_copy(source, output)
             self.assertFalse(output.exists())
+
+    def test_resigning_uses_prepared_alias_with_only_passwords_in_signing_step(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            source, output = project / "candidate.aab", project / "release.aab"
+            passwords = {"ANDROID_KEYSTORE_PASSWORD": "fixture-store-password", "ANDROID_KEY_PASSWORD": "fixture-key-password"}
+            prepare_inputs = passwords | {
+                "ANDROID_KEYSTORE_BASE64": base64.b64encode(b"fixture-keystore" * 20).decode(),
+                "ANDROID_KEY_ALIAS": "prepared-alias",
+            }
+            with patch.dict(os.environ, prepare_inputs, clear=True):
+                prepare(project, "1.1.0", "292")
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("BundleConfig.pb", b"config")
+                archive.writestr("base/manifest/AndroidManifest.xml", b"manifest")
+            with patch.dict(os.environ, passwords, clear=True), patch("android_release.run") as run:
+                sign_cloud_bundle(project, source, output, "jarsigner")
+                self.assertEqual(run.call_args.args[0][-1], "prepared-alias")
+            self.assertTrue(output.is_file())
 
 
 if __name__ == "__main__":
