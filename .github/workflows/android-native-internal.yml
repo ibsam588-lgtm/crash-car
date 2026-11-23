@@ -104,4 +104,3 @@ jobs:
           releaseFiles: build/Android/CrashCar.aab
           tracks: internal
           status: ${{ inputs.release_status }}
-          changesNotSentForReview: true
