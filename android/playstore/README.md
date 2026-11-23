@@ -11,8 +11,9 @@ prototypes and are not used by the Unity workflow.
 - Play developer ID: `6403845194305642986`.
 - Play app ID: `4974135516168218399`.
 - Existing internal track ID: `4701222303150185899`.
-- Highest observed bundle version code: **291** (checked November 22, 2026).
-  Local releases reject codes below **292**; the cloud sequence starts at **100001**.
+- Guardian's last build was **291**. Crash Car **1.1.0 (292)** is live on the
+  internal track. The next local upload needs **293** or higher. The cloud
+  sequence starts at **100001**.
 - Registered upload certificate SHA-256:
   `5415E182EC66E1E235D55CBE65E3A1370924812E8389FDDDD209A61D338E326F`.
 - Play app-signing certificate SHA-256:
@@ -29,6 +30,9 @@ Guardian's original upload signing secrets have been transferred into crash-car
 and verified in GitHub. The app-scoped publisher has been verified against
 Guardian's internal track, and the old guardian-app uploader has been retired.
 The selected internal tester list is **Crash Car Internal Testers**.
+Eligible testers can [join the internal test](https://play.google.com/apps/internaltest/4701222303150185899).
+[GitHub Actions run 45108192480](https://github.com/ibsam588-lgtm/crash-car/actions/runs/45108192480)
+signed and uploaded build 292, and the live Play bundle matched its SHA-256.
 
 Mapping the package does not finish an upload. Automatic cloud builds and publishing
 must stay disabled until the Unity repository connection, Android target and a
@@ -48,15 +52,15 @@ entitlement and cannot run with this computer's current license. Export from a
 clean committed branch that will be merged into main using a merge commit:
 
 ```powershell
-./ci/build_android_candidate.ps1 -UnityEditor /path/to/Unity.exe -AndroidSdk /path/to/Android/Sdk -AndroidNdk /path/to/ndk/27.2.12479018 -Jdk /path/to/jdk17 -VersionCode 292
+./ci/build_android_candidate.ps1 -UnityEditor /path/to/Unity.exe -AndroidSdk /path/to/Android/Sdk -AndroidNdk /path/to/ndk/27.2.12479018 -Jdk /path/to/jdk17 -VersionCode 293
 ```
 
 The script archives the exact Git source into an ignored build directory, leaving
 the original WebGL project's Editor state untouched. It exports
 `CrashCar-cloud.aab` and `native-source.json` with the source commit, Unity tree,
-Editor version, version code and AAB SHA-256. Local codes start at 292 and remain
-below 100000, reserved for cloud builds. Always choose a code above every previous
-Play upload; failed published-version retries require a new code too.
+Editor version, version code and AAB SHA-256. Local codes remain below 100000,
+which is reserved for cloud builds. Choose a code above every version already
+committed in Play when preparing a new release.
 
 After local native validation and merging the source into main, attach only these
 two files to an **unpublished draft GitHub release**, tagged
