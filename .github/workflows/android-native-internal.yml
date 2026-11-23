@@ -1,0 +1,108 @@
+name: Android native candidate · Guardian internal
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Unpublished draft release containing CrashCar-cloud.aab and native-source.json
+        required: true
+        type: string
+      candidate_sha256:
+        description: SHA-256 of the locally compiled CrashCar-cloud.aab
+        required: true
+        type: string
+      publish:
+        description: Upload the verified signed game to Play internal testing
+        type: boolean
+        default: false
+      release_status:
+        description: Internal release status
+        type: choice
+        options: [draft, completed]
+        default: draft
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crash-car-play-internal
+  cancel-in-progress: false
+
+env:
+  PROJECT_PATH: unity/CarCrashUnityPrototype
+  BUNDLETOOL_SHA256: a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29
+
+jobs:
+  release:
+    name: Sign and verify prepared Android game
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Validate release tooling
+        run: python3 -m unittest discover -s ci -v
+      - name: Check registered Guardian upload key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          CERTIFICATE_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: python3 ci/android_release.py check-key --certificate-sha256 "$CERTIFICATE_SHA256"
+      - name: Download candidate and verify committed source and digest
+        id: native
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
+        run: python3 ci/native_android.py --tag "$CANDIDATE_TAG" --sha256 "$CANDIDATE_SHA256"
+      - name: Prepare private upload signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ steps.native.outputs.version_code }}
+          VERSION_NAME: ${{ steps.native.outputs.version_name }}
+        run: python3 ci/android_release.py prepare --project "$PROJECT_PATH" --version-name "$VERSION_NAME" --version-code "$VERSION_CODE"
+      - name: Replace temporary signature with registered upload key
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: python3 ci/android_release.py sign-cloud --project "$PROJECT_PATH" --source build/Android/CrashCar-cloud.aab --aab build/Android/CrashCar.aab
+      - name: Verify signed AAB, package, SDK and native 16 KB pages
+        env:
+          VERSION_CODE: ${{ steps.native.outputs.version_code }}
+          CERTIFICATE_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: |
+          curl --fail --location --retry 3 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output "$RUNNER_TEMP/bundletool.jar"
+          echo "$BUNDLETOOL_SHA256  $RUNNER_TEMP/bundletool.jar" | sha256sum --check
+          python3 ci/android_release.py verify --aab build/Android/CrashCar.aab --bundletool "$RUNNER_TEMP/bundletool.jar" --version-code "$VERSION_CODE" --certificate-sha256 "$CERTIFICATE_SHA256"
+      - name: Save verified Android release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crash-car-android-${{ steps.native.outputs.version_code }}
+          path: |
+            build/Android/CrashCar.aab
+            build/Android/release-manifest.json
+            build/Android/native-source.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove private signing inputs
+        if: always()
+        run: rm -rf -- "$PROJECT_PATH/.ci"
+      - name: Upload verified Android game to internal testing
+        if: inputs.publish
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.corsairlabs.guardian
+          releaseFiles: build/Android/CrashCar.aab
+          tracks: internal
+          status: ${{ inputs.release_status }}
+          changesNotSentForReview: true

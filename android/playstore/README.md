@@ -25,10 +25,53 @@ The workflow checks the configured keystore against `ANDROID_UPLOAD_CERT_SHA256`
 **before** requesting a cloud build, and checks the signed AAB again afterwards.
 Do not change that variable merely to bypass a mismatch.
 
-Mapping the package does not finish an upload. Automatic builds and publishing
-must stay disabled until Guardian-compatible upload signing, app-scoped publisher
-access, the Unity target and the first verified internal release are ready. Never
+Guardian's original upload signing secrets have been transferred into crash-car
+and verified in GitHub. The app-scoped publisher has been verified against
+Guardian's internal track, and the old guardian-app uploader has been retired.
+The selected internal tester list is **Crash Car Internal Testers**.
+
+Mapping the package does not finish an upload. Automatic cloud builds and publishing
+must stay disabled until the Unity repository connection, Android target and a
+verified hosted release are ready. Never
 publish to the separate unused `com.ibsam.crashcar` Play record from this workflow.
+
+## Locally compiled Android candidates
+
+While the Unity cloud source connection is unavailable, the separate manual-only
+**Android native candidate · Guardian internal** workflow can sign and upload a
+locally compiled game. It does not run on pushes or start any iOS build. The
+Guardian private key remains in GitHub; the local export uses temporary signing.
+
+Use Unity **6000.3.29f1** with Android Build Support, JDK 17, NDK r27c
+(`27.2.12479018`) and Android SDK 36. Unity 6000.0.86f1 requires Extended LTS
+entitlement and cannot run with this computer's current license. Export from a
+clean committed branch that will be merged into main using a merge commit:
+
+```powershell
+./ci/build_android_candidate.ps1 -UnityEditor /path/to/Unity.exe -AndroidSdk /path/to/Android/Sdk -AndroidNdk /path/to/ndk/27.2.12479018 -Jdk /path/to/jdk17 -VersionCode 292
+```
+
+The script archives the exact Git source into an ignored build directory, leaving
+the original WebGL project's Editor state untouched. It exports
+`CrashCar-cloud.aab` and `native-source.json` with the source commit, Unity tree,
+Editor version, version code and AAB SHA-256. Local codes start at 292 and remain
+below 100000, reserved for cloud builds. Always choose a code above every previous
+Play upload; failed published-version retries require a new code too.
+
+After local native validation and merging the source into main, attach only these
+two files to an **unpublished draft GitHub release**, tagged
+`android-native-VERSIONCODE` and targeted at the exact source commit in the receipt.
+Do not publish that draft. Run the native-candidate workflow on **main** with its
+tag and the receipt's SHA-256. Leave **publish** off for a signing/verification-only
+run; select **completed** with publish enabled to update the existing internal
+release after validation.
+
+The workflow rejects another app or repository, changed bytes, an unmerged source
+commit, a different Unity source tree, a stale Editor, or a non-draft release.
+It replaces temporary signing with Guardian's registered key and applies the same
+actual-AAB signature, manifest, ARM64 IL2CPP and 16 KB page checks as the cloud
+workflow. Only the verified signed game and public receipts become Actions
+artifacts. This manual path does not enable automatic cloud builds.
 
 ## Workflow
 
@@ -109,8 +152,9 @@ The workflow does not use the older `UNITY_LICENSE`, `UNITY_EMAIL` or
 2. Connect the public repository using manual Git setup and its HTTPS URL.
    Public cloning needs no GitHub token or account-wide repository permission.
 3. Create one Android target for branch `main`, subfolder
-   `unity/CarCrashUnityPrototype`, Unity **6000.0.60f1** (or a later supported
-   6000.0 LTS patch), Android SDK **36**, and an available free-tier machine.
+   `unity/CarCrashUnityPrototype`, Unity **6000.3.29f1** with Android SDK **36**,
+   and an available free-tier machine. Check the project's Editor upgrade in an
+   isolated checkout before changing the hosted target.
    Choose AAB output, release build, and the committed game scene.
 4. Set the pre-export method to
    `CarCrashEditor.AndroidReleaseBuilder.PrepareCloudBuild`. It selects ARM64,
@@ -121,7 +165,10 @@ The workflow does not use the older `UNITY_LICENSE`, `UNITY_EMAIL` or
 5. **Disable Unity Auto-build, schedules and automatic Editor upgrades.** GitHub
    alone starts the selected Android target, after its platform path filters
    match. This prevents an iOS-only commit from causing an unfiltered cloud build.
-6. Create a service account with access only to this project and the minimum
+6. Use **Crash Car GitHub Builds**, with permanent **Automation User** and
+   **Automation Developer** roles only on Crash Car Elysian, as approved by the
+   owner. Do not remove Developer as temporary setup cleanup. It has no
+   organization-wide roles. Use the minimum
    Build Automation permissions needed to read, start and cancel its builds and
    download their artifacts. Save its Authorization header in `UNITY_BUILD_AUTH`.
    Do not grant organization administration or access to other projects.
@@ -138,13 +185,15 @@ Unity dashboard. Never publish a different commit's cached artifact.
 
 1. Use the existing Guardian Play record above. Do not create another app or
    change the Play app-signing key. Keep the closed and production tracks untouched.
-2. Restore Guardian's existing upload keystore and its passwords to the four
-   Android secrets in `ibsam588-lgtm/crash-car`, or complete an owner-approved
-   upload-key reset using the existing Crash Car upload certificate. A public
+2. Guardian's original upload keystore and its passwords are now in the four
+   Android secrets in `ibsam588-lgtm/crash-car`. They were transferred using
+   GitHub's destination public key, with a matching-certificate/password preflight
+   and a successful destination check. A public
    certificate alone cannot sign a bundle. GitHub cannot reveal secret values
    stored in the old `guardian-app` repository through its secrets API.
-3. Disable the old Guardian repository's automatic Play uploader before enabling
-   the new one, so it cannot publish the retired parental-control app over the game.
+3. The old Guardian repository's CI is disabled and its Android build/sign/upload
+   job has been removed. The one-time encrypted transfer helper and its artifact
+   have also been removed. Keep the retired uploader disabled.
 4. Use the dedicated Play publisher with permissions only for Guardian: read app
    information and release to testing tracks, plus the dependent read-only app
    quality permission. Remove its previous Crash Car app scope when switching.
