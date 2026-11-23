@@ -115,6 +115,11 @@ namespace CarCrash
             var angle = Vector3.SignedAngle(player.forward, delta, Vector3.up);
             var direction = Mathf.Abs(angle) > 135f ? "Turn around" : angle > 28f ? "Right" : angle < -28f ? "Left" : "Ahead";
             var gate = PassedCheckpoints == CheckpointCount ? "Finish" : $"Checkpoint {PassedCheckpoints + 1}/{CheckpointCount}";
+            if (_guidance.Count > 1 && direction == "Ahead" && delta.sqrMagnitude <= 100f * 100f)
+            {
+                var turn = Vector3.SignedAngle(delta, _guidance[1] - _guidance[0], Vector3.up);
+                if (Mathf.Abs(turn) > 37f) return $"{gate}  /  {(turn > 0f ? "Right" : "Left")} in {delta.magnitude:0} m";
+            }
             return $"{gate}  /  {direction}  /  {delta.magnitude:0} m";
         }
 

@@ -113,7 +113,9 @@ namespace CarCrash
             var size = VehicleSize;
             if (size.y > 1.6f || size.z > 5f)
             {
-                localOffset.y += Mathf.Max(0,size.y-1.3f)*.65f;
+                var extraHeight = Mathf.Max(0, size.y - 1.3f);
+                localOffset.y += extraHeight * (View == DrivingView.Chase ? 1.09f : .65f);
+                if (View == DrivingView.Chase) localOffset.z -= extraHeight * .32f;
                 if (View != DrivingView.Bonnet) localOffset.z -= Mathf.Max(0,size.z-4.65f)*1.2f;
                 else localOffset.z = size.z*.32f;
             }

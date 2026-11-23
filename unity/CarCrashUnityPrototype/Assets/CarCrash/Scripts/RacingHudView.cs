@@ -37,6 +37,7 @@ namespace CarCrash
         private Text _missionTitle, _missionScore, _missionStatus, _missionBest, _missionSummary, _garageBack, _garageDrive;
         private string _missionResultStatus;
         private Button _startMission, _nextCourse;
+        private GameObject _goldLock, _goldHint;
         private readonly Text[] _targetAmounts = new Text[ImpactTargetSpec.Points.Length];
         private RacingHudGraphic _coursePreview, _missionRoute;
         private readonly Graphic[] _vehicleCards = new Graphic[6];
@@ -280,8 +281,14 @@ namespace CarCrash
                 var graphic=(RacingHudGraphic)button.targetGraphic;graphic.shape=RacingHudGraphic.Shape.Circle;
                 graphic.cornerRadius=30;_swatches[i]=graphic;
                 if (i == _swatches.Length - 1)
-                    Label(button.transform,"Gold",0,0,Units(40),Units(40),12,White,TextAnchor.MiddleCenter);
+                {
+                    var lockPicture = Shape(button.transform, "Track Gold locked", Units(9), Units(9), Units(22), Units(22), RacingHudGraphic.Shape.Icon, White);
+                    lockPicture.symbol = RacingHudGraphic.Symbol.Lock;
+                    _goldLock = lockPicture.gameObject;
+                }
             }
+            _goldHint = Label(root,"Earn a Gold medal to unlock Track Gold",paintX,paintY+35+Units(40),
+                _portrait ? _width-pad*2 : 265,20,12,Muted).gameObject;
             var orbitY=footerY-64;
             IconAction(root,"Orbit left","",RacingHudGraphic.Symbol.ArrowLeft,_width-pad-Units(96),orbitY,Units(44),Units(44),()=>_session.CameraRig.RotateShowcase(-32));
             IconAction(root,"Orbit right","",RacingHudGraphic.Symbol.ArrowRight,_width-pad-Units(44),orbitY,Units(44),Units(44),()=>_session.CameraRig.RotateShowcase(32));
@@ -504,8 +511,7 @@ namespace CarCrash
                 var hits = mission.HitsOf((ImpactTargetKind)i);
                 SetText(_targetAmounts[i], $"{hits}  ×  {ImpactTargetSpec.Points[i]}  =  {hits * ImpactTargetSpec.Points[i]:N0} pts");
             }
-            _nextCourse.interactable = mission.Completed && _session.NextCourseUnlocked;
-            _nextCourse.gameObject.SetActive(_nextCourse.interactable);
+            SetText(_nextCourse.GetComponentInChildren<Text>(), mission.Completed && _session.NextCourseUnlocked ? "Next course" : "Courses");
         }
 
         private void BuildMissionMap(Transform root)
@@ -622,6 +628,9 @@ namespace CarCrash
                 graphic.GetComponent<Button>().interactable = CarCrashHudInput.PaintUnlocked(i);
                 graphic.SetVerticesDirty();
             }
+            var goldLocked = !CarCrashHudInput.PaintUnlocked(_swatches.Length - 1);
+            _goldLock.SetActive(goldLocked);
+            _goldHint.SetActive(goldLocked);
         }
 
         public void RefreshVehicle()

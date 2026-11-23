@@ -7,7 +7,7 @@ namespace CarCrash
     public sealed class RacingHudGraphic : MaskableGraphic
     {
         public enum Shape { Panel, Gauge, Radar, Atmosphere, CityMap, Circle, Icon, CoursePreview }
-        public enum Symbol { Play, ArrowLeft, ArrowRight, Map, Camera, Recover, Pause, Garage, Bolt, Plus, Minus, Locate }
+        public enum Symbol { Play, ArrowLeft, ArrowRight, Map, Camera, Recover, Pause, Garage, Bolt, Plus, Minus, Locate, Lock }
         public Symbol symbol;
         public float cornerRadius=16,strokeWidth=1;
         public Color borderColor=new(.74f,.84f,1f,.14f);
@@ -92,6 +92,10 @@ namespace CarCrash
                 case Symbol.Garage:L(.12f,.18f,.12f,.65f);L(.12f,.65f,.5f,.88f);L(.5f,.88f,.88f,.65f);L(.88f,.65f,.88f,.18f);L(.27f,.2f,.27f,.52f);L(.27f,.52f,.73f,.52f);L(.73f,.52f,.73f,.2f);L(.27f,.36f,.73f,.36f);break;
                 case Symbol.Recover:CircleArc(vh,P(.5f,.5f),r.width*.32f,r.width*.065f,65,295,color);L(.82f,.5f,.67f,.65f);L(.82f,.5f,.96f,.65f);break;
                 case Symbol.Locate:CircleArc(vh,r.center,r.width*.25f,r.width*.06f,0,360,color);L(.5f,.05f,.5f,.25f);L(.5f,.75f,.5f,.95f);L(.05f,.5f,.25f,.5f);L(.75f,.5f,.95f,.5f);break;
+                case Symbol.Lock:
+                    L(.27f,.17f,.73f,.17f); L(.73f,.17f,.73f,.55f); L(.73f,.55f,.27f,.55f); L(.27f,.55f,.27f,.17f);
+                    L(.35f,.55f,.35f,.77f); L(.35f,.77f,.43f,.87f); L(.43f,.87f,.57f,.87f); L(.57f,.87f,.65f,.77f); L(.65f,.77f,.65f,.55f);
+                    break;
             }
         }
 

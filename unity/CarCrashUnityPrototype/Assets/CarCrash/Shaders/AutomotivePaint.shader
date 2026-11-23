@@ -12,6 +12,8 @@ Shader "CarCrash/AutomotivePaint"
         _OcclusionStrength ("Occlusion strength", Range(0,1)) = .6
         [HideInInspector] _ImpactMark ("Scuff position and strength", Vector) = (0,0,0,0)
         [HideInInspector] _BodyWear ("Body wear", Range(0,1)) = 0
+        [HideInInspector] _LiveryOrigin ("Livery origin and enable", Vector) = (0,0,0,0)
+        [HideInInspector] _LiverySide ("Livery side axis", Vector) = (1,0,0,0)
     }
     SubShader
     {
@@ -23,13 +25,21 @@ Shader "CarCrash/AutomotivePaint"
         #include "UnityStandardUtils.cginc"
         sampler2D _MainTex,_BumpMap,_OcclusionMap;
         fixed4 _Color;
-        float4 _ImpactMark;
+        float4 _ImpactMark,_LiveryOrigin,_LiverySide;
         half _Glossiness,_Metallic,_BumpScale,_OcclusionStrength,_BodyWear;
         struct Input { float2 uv_MainTex; float2 uv_BumpMap; float3 worldPos; };
         void surf(Input IN,inout SurfaceOutputStandardSpecular o)
         {
             half3 normal=UnpackScaleNormal(tex2D(_BumpMap,IN.uv_BumpMap),_BumpScale);
             half3 pigment=tex2D(_MainTex,IN.uv_MainTex).rgb*_Color.rgb;
+            if (_LiveryOrigin.w > .5)
+            {
+                float3 origin = mul(unity_ObjectToWorld, float4(_LiveryOrigin.xyz, 1)).xyz;
+                float3 side = normalize(mul((float3x3)unity_ObjectToWorld, _LiverySide.xyz));
+                half lane = abs(dot(IN.worldPos - origin, side));
+                half stripe = smoothstep(.061, .066, lane) * (1 - smoothstep(.129, .134, lane));
+                pigment = lerp(pigment, half3(.024,.035,.043), stripe);
+            }
             half abrasion = 0;
             if (_ImpactMark.w > .01)
             {

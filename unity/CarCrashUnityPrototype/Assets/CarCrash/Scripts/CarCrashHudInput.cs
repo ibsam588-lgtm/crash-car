@@ -205,8 +205,8 @@ namespace CarCrash
 
         public void NextCourse()
         {
-            if (Phase != RunPhase.Results || !NextCourseUnlocked || !Mission.Completed) return;
-            _selectedCourse++;
+            if (Phase != RunPhase.Results || !IsMission) return;
+            if (Mission.Completed && NextCourseUnlocked) _selectedCourse++;
             _selectedMode = DriveMode.ImpactRun;
             _nextMenu = RunPhase.Briefing;
             ReloadScene();
@@ -387,6 +387,13 @@ namespace CarCrash
                     _paintBlock.SetColor("_Color", color);
                     _paintBlock.SetFloat("_Metallic", 0.38f);
                     _paintBlock.SetFloat("_Glossiness", 0.76f);
+                    if (material.HasProperty("_LiveryOrigin"))
+                    {
+                        var origin = renderer.transform.InverseTransformPoint(vehicle.transform.position);
+                        var side = renderer.transform.InverseTransformDirection(vehicle.transform.right);
+                        _paintBlock.SetVector("_LiveryOrigin", new Vector4(origin.x, origin.y, origin.z, index == PaintColors.Length - 1 ? 1f : 0f));
+                        _paintBlock.SetVector("_LiverySide", side);
+                    }
                     renderer.SetPropertyBlock(_paintBlock, slot);
                     _paintBlock.Clear();
                 }
