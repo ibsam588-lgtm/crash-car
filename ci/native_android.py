@@ -49,8 +49,11 @@ def validate_candidate(aab: Path, receipt: dict, expected_sha: str, main_tree: s
         raise ValueError("Candidate source must be committed in main and match the draft release target")
     if receipt["unityTreeSha"] != main_tree or source_tree != main_tree:
         raise ValueError("Candidate Unity source differs from the checked-out main source; rebuild it")
+    checksum = hashlib.sha256()
     with aab.open("rb") as handle:
-        digest = hashlib.file_digest(handle, "sha256").hexdigest()
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            checksum.update(chunk)
+    digest = checksum.hexdigest()
     if receipt.get("sha256") != expected_sha or digest != expected_sha or receipt.get("aabBytes") != aab.stat().st_size:
         raise ValueError("Candidate bytes do not match the approved local build receipt and SHA-256")
     return version
