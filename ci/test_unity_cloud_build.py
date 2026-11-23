@@ -5,10 +5,17 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
-from unity_cloud_build import Client, artifact_link, download_bundle, validate_build
+from unity_cloud_build import Client, artifact_link, download_bundle, main, validate_build
 
 
 class CloudBuildBoundaryTests(unittest.TestCase):
+    def test_cleanup_needs_no_credentials_when_no_cloud_build_was_started(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "cloud-build.json"
+            with patch.dict("os.environ", {}, clear=True), patch("sys.argv", ["unity_cloud_build.py", "--cancel-receipt", str(missing)]), patch("unity_cloud_build.Client") as client:
+                main()
+                client.assert_not_called()
+
     def test_only_successful_android_build_of_exact_commit_is_accepted(self):
         commit = "a" * 40
         result = dict(build=7, buildStatus="success", platform="android", buildtargetid="android-internal", lastBuiltRevision=commit)

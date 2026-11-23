@@ -115,7 +115,7 @@ jobs:
         if: always()
         run: sudo rm -rf "$PROJECT_PATH/.ci"
       - name: Stop an unfinished cloud build after cancellation or failure
-        if: failure() || cancelled()
+        if: (failure() || cancelled()) && hashFiles('build/Android/cloud-build.json') != ''
         env:
           UNITY_BUILD_AUTH: ${{ secrets.UNITY_BUILD_AUTH }}
           UNITY_BUILD_ORG: ${{ vars.UNITY_BUILD_ORG }}
