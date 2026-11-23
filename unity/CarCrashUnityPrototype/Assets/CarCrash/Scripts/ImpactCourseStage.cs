@@ -14,6 +14,7 @@ namespace CarCrash
         private readonly Mesh _cone, _stripe, _ring, _arrow;
         private readonly Material _orange, _white, _rubber, _asphaltPaint, _blue, _gold, _wood, _woodTrim, _steel, _lens;
         private readonly Font _font;
+        private readonly Material _signMaterial;
         private readonly GameObject _wreckModel;
 
         public ImpactCourseStage(ImpactMission mission, GameObject wreckModel)
@@ -23,6 +24,8 @@ namespace CarCrash
             _gates = new GameObject[course.Gates.Length];
             _wreckModel = wreckModel;
             _font = Resources.Load<Font>("Fonts/Inter-SemiBold");
+            _signMaterial = CitySignFont.CreateWorldMaterial(_font, _root);
+            if (_signMaterial != null) _materials.Add(_signMaterial);
             _orange = Material("Traffic orange", new Color(.91f, .19f, .035f), 0, .52f);
             _white = Material("Reflective tape", new Color(.89f, .92f, .91f), .05f, .55f, .17f);
             _rubber = Material("Dark rubber and steel", new Color(.045f, .055f, .062f), .3f, .34f);
@@ -239,7 +242,7 @@ namespace CarCrash
             if (_font != null)
             {
                 mesh.font = _font;
-                lettering.GetComponent<MeshRenderer>().sharedMaterial = _font.material;
+                lettering.GetComponent<MeshRenderer>().sharedMaterial = _signMaterial != null ? _signMaterial : _font.material;
             }
             mesh.anchor = TextAnchor.MiddleCenter;
             mesh.alignment = TextAlignment.Center;

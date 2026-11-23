@@ -197,7 +197,12 @@ namespace CarCrash
             text.color = tint;
             text.characterSize = .05f;
             var mesh = label.GetComponent<MeshRenderer>();
-            if (font != null) mesh.sharedMaterial = font.material;
+            var face = CitySignFont.CreateWorldMaterial(font, label);
+            if (face != null)
+            {
+                _materials.Add(face);
+                mesh.sharedMaterial = face;
+            }
             label.transform.localScale *= Mathf.Min(.39f / Mathf.Max(.001f, mesh.bounds.size.x), height / Mathf.Max(.001f, mesh.bounds.size.y));
             label.transform.SetParent(transform, true);
         }
