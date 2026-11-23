@@ -29,7 +29,22 @@ This folder contains the Unity 6 production prototype for Car Crash.
 
 The modern Elysian interface uses Inter typography, rounded navy panels, blue accents and subtle unscaled hover, press and menu transitions. Home has a primary driving action; the garage has six selectable vehicle cards and circular paint swatches. Floating driving cards show navigation, speed, gear, integrity and nitro, with a consistent touch control row. The city map uses numbered destination cards and highlights the active route. Layouts adapt to desktop, portrait and compact landscape windows.
 
-The scene opens at Home, with Free Drive, the optional 60 second Impact Run, a driving guide, and garage navigation. Free Drive is untimed and continues through stops and crashes until the player chooses to end the session. The garage has an orbiting camera, drag/arrow camera controls, five paint finishes, vehicle specifications, and a Start Free Drive button. Both modes use a three-second countdown.
+Home offers Impact Run, Free Drive, the garage, and a driving guide. In Impact Run, the course card shows the route, medal targets, and selected car. Change the car in the live garage and return to the same briefing. A three-second countdown leads into the course, where cyan road arrows and the minimap guide the next turn. Free Drive is untimed and continues through stops and crashes until the player ends the session.
+
+### Impact Run courses
+
+| Course | Objective | Bronze / Silver / Gold |
+|---|---|---|
+| Freight Yard | Follow Harbor West to the depot. Try the wide lane or the loading-bay targets, then hit the staged wreck before the finish. | 180 / 380 / 620 |
+| Old Town | Line up small targets and steer through the downtown turns. | 160 / 340 / 520 |
+| Sunset Marina | Carry speed along the coast and turn into the waterfront finish. | 170 / 370 / 570 |
+| Apex Motor Park | Reach the finish through the outer lanes within 75 seconds. | 160 / 340 / 540 |
+
+Marked cones earn 10 points, crates 25, barriers 50, streetlights 100, and staged wrecks 200. Each prop can score once per run through direct contact or a chain collision with an already-scored prop. The three directional checkpoints must be crossed in order before the finish. Recovery returns the player to the last checkpoint or the start. Breakage and points persist through recovery.
+
+The results screen shows the exact sum, counts by prop, medal, personal best, and retry. A finished course banks the score and unlocks the next course. Earning Gold unlocks the Track Gold paint finish. Completed runs and course bests save locally. A timed-out or ended run shows its current breakdown.
+
+Android supports optional Play Games leaderboards and awards when the linked Play Games project has its credentials and resource IDs configured. The rest of the game is available offline. See the [Play release guide](../../android/playstore/README.md) for test registration.
 
 Recovery is manual through `R`, the HUD button, or Recover & Resume in the pause menu. It places the car on a nearby street without clearing score or elapsed time. Crossing the former lane/distance bounds does not teleport the player. Home, Garage, and End Session remain available from the pause/results menus.
 
@@ -66,7 +81,7 @@ Run these commands from the repository root; the Blender helper uses the existin
 
 Keyboard controls:
 
-- `Enter`: Free Drive from Home or the garage
+- `Enter`: open Impact Run from Home, start the selected course, or confirm the car in the garage
 - `G`: garage from Home
 - `W` / up arrow: accelerator
 - `S` / down arrow: brake, then reverse when held at rest
@@ -84,7 +99,9 @@ On touch screens, hold GAS with a steering control to turn. Hold REV to back up;
 
 The garage also offers Apex GT, Summit AWD, Ridgeback 4x4, Atlas Hauler, and Ironclaw Monster. Selection changes the actual model, wheel radius and wheelbase, suspension, weight, acceleration, top speed, and camera framing, and saves locally. A dedicated Rev pedal and `Q` reverse directly from rest and brake first while moving forward; `S` retains brake-then-reverse behavior. Button labels use Inter Medium, minimum readable pixel sizes, and contrasting panels. Compact landscape layouts use a larger UI scale.
 
-Crashes produce speed-scaled sparks, dust clouds, glass spray and an expanding ground splash. These effects also trigger on solid scenery contacts, pause with the simulation, and expire automatically. Run `Car Crash > Validate Garage Fleet and Crash Effects` for real forward/reverse driving in all six vehicles and an actual scenery-impact particle lifecycle test. It writes `Builds/Validation/fleet-qa.json`.
+Crashes produce speed-scaled sparks, dust, glass spray, an expanding ground splash, impact audio, and brief Android feedback on strong hits. Hard scenery hits mark paint and can crack the windscreen. Rear lamps respond to braking and reverse. Heavy vehicles have fitted cargo hardware, underbody protection, and suspension details. Pedestrians stumble and slow after glancing contact, and hard collisions leave them down with a jointed ragdoll. Course points come from marked props.
+
+Run `Car Crash > Validate Garage Fleet and Crash Effects` for real forward/reverse driving in all six vehicles and a scenery-impact particle lifecycle test. It writes `Builds/Validation/fleet-qa.json`.
 
 ## UI Verification
 
@@ -92,7 +109,7 @@ Run `Car Crash > Validate Realistic Graphics` to render all six vehicles and dow
 
 Taller traffic vehicles are temporarily hidden only while they intersect the camera's immediate clearance zone, so a following SUV cannot fill the foreground. Their original renderer flags restore after each camera render. Graphics QA exercises this with real camera renders.
 
-Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. This checks Home navigation, the driving guide, traffic dimensions and alignment, car paint/wheels, baked reflections, independent touch input, brake priority, nitro, camera switching, scoring, pause during slow motion, results, retry, and garage/Home return. It runs Free Drive for a real 65 seconds, waits after a crash, crosses the former reset bounds, and checks manual recovery preserves the session. The optional challenge is checked separately. It restores the pre-test paint and personal-best preferences and writes `Builds/Validation/ui-smoke.json`.
+Run `Car Crash > Validate Dynamic UI` with Play Mode stopped. The suite checks the normal menu and driving controls, a real 65-second Free Drive, and recovery after a crash. It also checks course clearance, real scoring contact, the pedestrian knockdown, ordered checkpoints, the score breakdown, the next-course unlock, and the timed course. It restores the pre-test preferences and writes `Builds/Validation/ui-smoke.json`. Set `CRASH_QA_CAPTURE_DIR` to an absolute local directory to capture the briefing, start, first score, and results with a graphics device.
 
 Run `Car Crash > Validate Driving and World Physics` for measured left/right heading and travel, reverse steering, human skinning/animation and sidewalk movement, camera wall clearance, and actual 80 km/h car impacts against six kinds of street objects. It also checks shopfront coverage on all three avenues, unobstructed cross streets, and actual driving along both side neighborhoods and their connecting streets. It writes `Builds/Validation/driving-qa.json`. Browser QA should also cover desktop, phone portrait, phone landscape, simultaneous pedal/steering input, and all three cameras.
 

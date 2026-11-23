@@ -124,8 +124,9 @@ namespace CarCrash
                 localOffset.y *= 1.25f;
             }
             var desired = ClearCameraPosition(target.TransformPoint(localOffset));
-            transform.position = ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend));
-            LookAt(target.position + target.forward * lookAhead + Vector3.up * 1.1f, blend);
+            var relocated = (transform.position - desired).sqrMagnitude > 55f * 55f;
+            transform.position = relocated ? desired : ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend));
+            LookAt(target.position + target.forward * lookAhead + Vector3.up * 1.1f, relocated ? 1f : blend);
             var speed = _vehicle != null ? Mathf.Clamp01(_vehicle.SpeedKmh / 200f) : 0f;
             var boost = _vehicle != null && _vehicle.BoostActive ? 6f : 0f;
             _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView, 54f + speed * 12f + boost, blend * 0.6f);

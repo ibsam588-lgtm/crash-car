@@ -16,6 +16,9 @@ namespace CarCrash
         public int Score { get; private set; }
         public int Hits { get; private set; }
         public float Damage { get; private set; }
+        public int DamageRevision { get; private set; }
+        public float LastDamageKmh { get; private set; }
+        public Vector3 LastDamagePoint { get; private set; }
         public int LastImpactScore { get; private set; }
         public float LastImpactKmh { get; private set; }
         public int LastChainDepth { get; private set; }
@@ -64,7 +67,7 @@ namespace CarCrash
             LastChainDepth = Mathf.Clamp(chainDepth, 0, 8);
             PeakChainDepth = Mathf.Max(PeakChainDepth, LastChainDepth);
             LastMultiplier = 1f + Mathf.Min(LastChainDepth, 6) * 0.48f + Mathf.Min(Hits - 1, 8) * 0.10f;
-            Damage = Mathf.Clamp(Damage + impactKmh * 0.08f * (1f + LastChainDepth * 0.10f), 0f, 100f);
+            RegisterDamage(point, impactKmh, impactKmh * 0.08f * (1f + LastChainDepth * 0.10f));
             LastImpactKmh = impactKmh;
             LastImpactScore = Mathf.RoundToInt(impactKmh * scorePerKmh * LastMultiplier + LastChainDepth * 520f);
             Score += LastImpactScore;
@@ -84,6 +87,20 @@ namespace CarCrash
             _slowMotionRoutine = StartCoroutine(SlowMotionBurst(LastChainDepth));
 
             Debug.Log($"[CrashChain] vehicle={target.name} depth={LastChainDepth} impact={impactKmh:F1} score={LastImpactScore} total={Score}");
+        }
+
+        public void RegisterSceneryDamage(Vector3 point, float closingSpeedKmh)
+        {
+            if (SimulationPaused || closingSpeedKmh < 22f) return;
+            RegisterDamage(point, closingSpeedKmh, (closingSpeedKmh - 15f) * .095f);
+        }
+
+        private void RegisterDamage(Vector3 point, float speedKmh, float amount)
+        {
+            Damage = Mathf.Min(100f, Damage + amount);
+            LastDamageKmh = speedKmh;
+            LastDamagePoint = point;
+            DamageRevision++;
         }
 
         private void KickLooseParts(Vector3 point, Vector3 direction, float impactKmh)

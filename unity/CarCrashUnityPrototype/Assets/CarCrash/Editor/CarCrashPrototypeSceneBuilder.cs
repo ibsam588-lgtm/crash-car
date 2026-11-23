@@ -47,7 +47,12 @@ namespace CarCrashEditor
         public static void BuildWebGl()
         {
             BuildScene();
+            BuildWebGlFromScene();
+        }
 
+        [MenuItem("Car Crash/Build WebGL From Existing Scene")]
+        public static void BuildWebGlFromScene()
+        {
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(ScenePath, true)

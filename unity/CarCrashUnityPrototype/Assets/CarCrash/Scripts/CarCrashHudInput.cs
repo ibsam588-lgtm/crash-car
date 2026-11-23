@@ -5,24 +5,30 @@ namespace CarCrash
 {
     public sealed class CarCrashHudInput : MonoBehaviour
     {
-        public enum RunPhase { Home, Showroom, Countdown, Driving, Paused, Results }
+        public enum RunPhase { Home, Briefing, Showroom, Countdown, Driving, Paused, Results }
         public enum DriveMode { FreeDrive, ImpactRun }
         public ArcadeVehicleController vehicle;
         public CrashScoring scoring;
-        public const float RunDuration = 60f;
         public static readonly Color[] PaintColors =
         {
             new(0.22f, 0.26f, 0.30f), new(0.70f, 0.75f, 0.80f),
-            new(0.06f, 0.24f, 0.42f), new(0.60f, 0.035f, 0.025f), new(0.86f, 0.87f, 0.84f)
+            new(0.06f, 0.24f, 0.42f), new(0.60f, 0.035f, 0.025f), new(0.86f, 0.87f, 0.84f), new(0.64f, 0.37f, 0.09f)
         };
-        public static readonly string[] PaintNames = { "MIDNIGHT GRAPHITE", "ARCTIC SILVER", "OCEAN BLUE", "CARMINE RED", "PEARL WHITE" };
+        public static readonly string[] PaintNames = { "MIDNIGHT GRAPHITE", "ARCTIC SILVER", "OCEAN BLUE", "CARMINE RED", "PEARL WHITE", "TRACK GOLD" };
         public RunPhase Phase { get; private set; } = RunPhase.Home;
         public DriveMode Mode { get; private set; } = DriveMode.FreeDrive;
-        public bool IsTimed => Mode == DriveMode.ImpactRun;
+        public bool IsMission => Mode == DriveMode.ImpactRun;
+        public bool IsTimed => IsMission && SelectedCourse.TimeLimit > 0;
+        public bool GarageForMission => _garageForMission;
+        public ImpactMission Mission { get; private set; }
+        public ElysianPlayGames PlayGames { get; private set; }
+        public ImpactCourse SelectedCourse => ImpactCourse.Catalog[_selectedCourse];
+        public bool CourseUnlocked => ImpactCareer.Unlocked(_selectedCourse);
+        public bool NextCourseUnlocked => ImpactCareer.Unlocked(_selectedCourse + 1);
         public float ElapsedSeconds { get; private set; }
         public float PeakSpeed { get; private set; }
         public float CountdownRemaining { get; private set; }
-        public int BestScore { get; private set; }
+        public int BestScore => IsMission ? ImpactCareer.Best(SelectedCourse) : _freeDriveBest;
         public int PaintIndex { get; private set; }
         public bool NewBest { get; private set; }
         public CarCrashCameraFollow CameraRig { get; private set; }
@@ -34,6 +40,9 @@ namespace CarCrash
         private static bool _retryImmediately;
         private static RunPhase _nextMenu = RunPhase.Home;
         private static DriveMode _selectedMode = DriveMode.FreeDrive;
+        private static int _selectedCourse;
+        private int _freeDriveBest;
+        private bool _garageForMission;
         private MaterialPropertyBlock _paintBlock;
         private bool _focused = true;
         private ImpactRunLoopDirector _recovery;
@@ -59,11 +68,15 @@ namespace CarCrash
             Mode = _selectedMode;
             Phase = _nextMenu;
             _nextMenu = RunPhase.Home;
-            BestScore = PlayerPrefs.GetInt("CarCrash.BestImpactScore", 0);
+            _garageForMission = Phase == RunPhase.Showroom && IsMission;
+            _freeDriveBest = PlayerPrefs.GetInt("CarCrash.BestImpactScore", 0);
             PaintIndex = Mathf.Clamp(PlayerPrefs.GetInt("CarCrash.Paint", 0), 0, PaintColors.Length - 1);
+            if (!PaintUnlocked(PaintIndex)) PaintIndex = 0;
             Garage = vehicle.GetComponent<VehicleGarage>();
             if (Garage != null) Garage.Select(PlayerPrefs.GetInt("CarCrash.Vehicle", 0));
             Navigation=gameObject.AddComponent<CityNavigator>();Navigation.player=vehicle.transform;
+            Mission = gameObject.AddComponent<ImpactMission>();
+            PlayGames = gameObject.AddComponent<ElysianPlayGames>();
             ApplyPaint(PaintIndex);
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
@@ -73,7 +86,7 @@ namespace CarCrash
             if (_retryImmediately)
             {
                 _retryImmediately = false;
-                Phase = RunPhase.Showroom;
+                Phase = IsMission ? RunPhase.Briefing : RunPhase.Showroom;
                 BeginRun();
             }
         }
@@ -85,17 +98,23 @@ namespace CarCrash
             {
                 if(MapVisible)CloseMap();
                 else if (Hud.HelpVisible) Hud.ShowHelp(false);
-                else if (Phase == RunPhase.Showroom) ReturnHome();
+                else if (Phase == RunPhase.Showroom) ReturnFromGarage();
+                else if (Phase == RunPhase.Briefing) ReturnHome();
                 else if (Phase == RunPhase.Driving) PauseRun();
                 else if (Phase == RunPhase.Paused) ResumeRun();
             }
             if(Input.GetKeyDown(KeyCode.M))ToggleMap();
             if (Phase == RunPhase.Home && !Hud.HelpVisible)
             {
-                if (Input.GetKeyDown(KeyCode.Return)) StartFreeDrive();
+                if (Input.GetKeyDown(KeyCode.Return)) StartImpactRun();
                 if (Input.GetKeyDown(KeyCode.G)) OpenGarage();
             }
-            if (Phase == RunPhase.Showroom && Input.GetKeyDown(KeyCode.Return)) BeginRun();
+            if (Input.GetKeyDown(KeyCode.Return))
+            {
+                if (Phase == RunPhase.Showroom) ConfirmGarage();
+                else if (Phase == RunPhase.Briefing && !Hud.HelpVisible && !_openedBriefingThisFrame) BeginRun();
+            }
+            _openedBriefingThisFrame = false;
             if (Phase == RunPhase.Results && Input.GetKeyDown(KeyCode.R)) RestartRun();
             if (Phase == RunPhase.Countdown)
             {
@@ -106,6 +125,7 @@ namespace CarCrash
                     vehicle.ResetForRelaunch(0f);
                     Phase = RunPhase.Driving;
                     scoring.SetSimulationPaused(false);
+                    if (IsMission) Mission.StartDriving();
                     Hud.RefreshPhase();
                 }
             }
@@ -128,20 +148,23 @@ namespace CarCrash
                 var brake = hardBrake || ((brakeReverse || explicitReverse) && !reverse) || (gas && vehicle.ForwardSpeedKmh < -2f);
                 var throttle = brake ? 0f : reverse ? -1f : gas ? 1f : 0f;
                 vehicle.SetMobileInput((right ? 1f : 0f) - (left ? 1f : 0f), throttle, brake ? 1f : 0f);
-                // Only the challenge owns a time limit. Stopping after a collision
-                // never ends a drive, and Free Drive stays open until the player exits.
-                if (IsTimed && (ElapsedSeconds >= RunDuration || scoring.Damage >= 100f)) FinishRun();
+                if (IsMission)
+                {
+                    Mission.Step(ElapsedSeconds);
+                    if (Mission.Completed || Mission.TimedOut) FinishRun();
+                }
             }
             Hud.RefreshTelemetry();
         }
 
         public void BeginRun()
         {
-            if (Phase != RunPhase.Showroom && Phase != RunPhase.Home) return;
+            if (IsMission ? Phase != RunPhase.Briefing || !CourseUnlocked : Phase is not (RunPhase.Showroom or RunPhase.Home)) return;
             _selectedMode = Mode;
             Phase = RunPhase.Countdown;
             CountdownRemaining = 3f;
             vehicle.SetMobileInput(0f, 0f, 0f);
+            if (IsMission) Mission.Prepare(SelectedCourse, vehicle, Garage);
             CameraRig.SetShowcase(false);
             Hud.RefreshPhase();
         }
@@ -157,25 +180,78 @@ namespace CarCrash
         {
             if (Phase != RunPhase.Home) return;
             Mode = DriveMode.ImpactRun;
-            BeginRun();
+            ShowBriefing();
+        }
+
+        private bool _openedBriefingThisFrame;
+
+        private void ShowBriefing()
+        {
+            Phase = RunPhase.Briefing;
+            _openedBriefingThisFrame = true;
+            _garageForMission = false;
+            Hud.ShowHelp(false);
+            CameraRig.HomeScreen = false;
+            Hud.RefreshPhase();
+        }
+
+        public void ChangeCourse(int offset)
+        {
+            if (Phase != RunPhase.Briefing) return;
+            var count = ImpactCourse.Catalog.Length;
+            _selectedCourse = (_selectedCourse + offset + count) % count;
+            Hud.RefreshBriefing();
+        }
+
+        public void NextCourse()
+        {
+            if (Phase != RunPhase.Results || !NextCourseUnlocked || !Mission.Completed) return;
+            _selectedCourse++;
+            _selectedMode = DriveMode.ImpactRun;
+            _nextMenu = RunPhase.Briefing;
+            ReloadScene();
         }
 
         public void OpenGarage()
         {
-            if (Phase != RunPhase.Home) return;
-            Mode = DriveMode.FreeDrive;
+            if (Phase is not (RunPhase.Home or RunPhase.Briefing)) return;
+            _garageForMission = Phase == RunPhase.Briefing;
+            if (!_garageForMission) Mode = DriveMode.FreeDrive;
             Phase = RunPhase.Showroom;
             CameraRig.HomeScreen = false;
             Hud.ShowHelp(false);
             Hud.RefreshPhase();
         }
 
+        public void ConfirmGarage()
+        {
+            if (Phase != RunPhase.Showroom) return;
+            if (_garageForMission) ShowBriefing();
+            else StartFreeDrive();
+        }
+
+        public void ReturnFromGarage()
+        {
+            if (Phase != RunPhase.Showroom) return;
+            if (_garageForMission) ShowBriefing();
+            else ReturnHome();
+        }
+
         public void RecoverVehicle()
         {
             if (Phase != RunPhase.Driving && Phase != RunPhase.Paused) return;
             ReleaseInput();
-            _recovery?.RecoverVehicle();
-            if(_recovery!=null&&!_recovery.RecoverySuggested&&Navigation.Destination>=0)Navigation.NavigateTo(Navigation.Destination);
+            if (IsMission)
+            {
+                if (_recovery != null && _recovery.RecoverFromCheckpoint(Mission.RecoveryPosition, Mission.RecoveryRotation))
+                    Mission.SyncPosition();
+            }
+            else
+            {
+                _recovery?.RecoverVehicle();
+                if (_recovery != null && !_recovery.RecoverySuggested && Navigation.Destination >= 0)
+                    Navigation.NavigateTo(Navigation.Destination);
+            }
             if (Phase == RunPhase.Paused) ResumeRun();
         }
 
@@ -196,7 +272,9 @@ namespace CarCrash
         }
         public void ExploreDestination(int index)
         {
-            if(!MapVisible)return;Navigation.NavigateTo(index);CloseMap();
+            if (!MapVisible || IsMission) return;
+            Navigation.NavigateTo(index);
+            CloseMap();
         }
 
         public void PauseRun()
@@ -223,7 +301,16 @@ namespace CarCrash
             Phase = RunPhase.Results;
             ReleaseInput();
             scoring.SetSimulationPaused(true);
-            SaveBestScore();
+            if (IsMission)
+            {
+                Mission.Stop();
+                if (Mission.Completed)
+                {
+                    NewBest = ImpactCareer.Record(SelectedCourse, Mission.Score, Mission.Hits);
+                    PlayGames.RecordCompletion();
+                }
+            }
+            else SaveBestScore();
             Hud.RefreshPhase();
         }
 
@@ -232,8 +319,8 @@ namespace CarCrash
             NewBest = scoring.Score > BestScore;
             if (NewBest)
             {
-                BestScore = scoring.Score;
-                PlayerPrefs.SetInt("CarCrash.BestImpactScore", BestScore);
+                _freeDriveBest = scoring.Score;
+                PlayerPrefs.SetInt("CarCrash.BestImpactScore", _freeDriveBest);
                 PlayerPrefs.Save();
             }
         }
@@ -243,6 +330,9 @@ namespace CarCrash
             if (Phase == RunPhase.Paused) Phase = RunPhase.Driving;
             FinishRun();
         }
+
+        public void ShowLeaderboard() => PlayGames.Show(SelectedCourse, false);
+        public void ShowAchievements() => PlayGames.Show(SelectedCourse, true);
 
         public void ActivateBoost()
         {
@@ -254,12 +344,15 @@ namespace CarCrash
         }
         public void SelectPaint(int index)
         {
-            if (Phase != RunPhase.Showroom || index < 0 || index >= PaintColors.Length) return;
+            if (Phase != RunPhase.Showroom || !PaintUnlocked(index)) return;
             ApplyPaint(index);
             PlayerPrefs.SetInt("CarCrash.Paint", index);
             PlayerPrefs.Save();
             Hud.RefreshPaint();
         }
+
+        public static bool PaintUnlocked(int index) => index >= 0 && index < PaintColors.Length &&
+            (index < PaintColors.Length - 1 || ImpactCareer.GoldPaintUnlocked);
 
         public void SelectVehicle(int index)
         {
@@ -301,6 +394,7 @@ namespace CarCrash
         }
         public void RestartRun()
         {
+            if (Phase != RunPhase.Results) return;
             _retryImmediately = true;
             _selectedMode = Mode;
             ReloadScene();
@@ -315,12 +409,21 @@ namespace CarCrash
         public void ReturnHome()
         {
             _retryImmediately = false;
+            _selectedMode = DriveMode.FreeDrive;
+            if (Phase is RunPhase.Briefing or RunPhase.Showroom)
+            {
+                Mode = DriveMode.FreeDrive;
+                Phase = RunPhase.Home;
+                CameraRig.HomeScreen = true;
+                Hud.RefreshPhase();
+                return;
+            }
             _nextMenu = RunPhase.Home;
             ReloadScene();
         }
         private void ReloadScene()
         {
-            SaveBestScore();
+            if (!IsMission) SaveBestScore();
             ReleaseInput();
             scoring.SetSimulationPaused(false);
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);

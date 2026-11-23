@@ -1,0 +1,1 @@
+-keep class com.corsairlabs.elysian.games.PlayGamesBridge { public static *; }

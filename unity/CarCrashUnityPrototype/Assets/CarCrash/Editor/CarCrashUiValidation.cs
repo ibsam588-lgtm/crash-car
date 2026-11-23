@@ -28,6 +28,10 @@ namespace CarCrashEditor
         private static int _oldPaint, _oldBest, _oldVehicle, _oldExplored;
         private static bool _hadPaint, _hadBest, _hadVehicle, _hadExplored;
         private static bool _capturedPrefs;
+        private static readonly Dictionary<string, int?> CareerPrefs = new();
+        private static int _gateToTest;
+        private static CityPedestrian _impactPedestrian;
+        private static int _scoreBeforePedestrian;
 
         static CarCrashUiValidation()
         {
@@ -50,7 +54,7 @@ namespace CarCrashEditor
             Checks.Clear();
             _runtimeError = null;
             _capturedPrefs = false;
-            _deadline = EditorApplication.timeSinceStartup + 180;
+            _deadline = EditorApplication.timeSinceStartup + 240;
             EditorApplication.update -= Tick;
             EditorApplication.update += Tick;
             Application.logMessageReceived -= OnLog;
@@ -87,7 +91,7 @@ namespace CarCrashEditor
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Home && Time.timeScale == 0f && _session.CameraRig.Showcasing,
                             "The game opens at a real home screen with the city safely paused");
                         Check(GameObject.Find("Free Drive") != null && GameObject.Find("Impact Run") != null && GameObject.Find("Open garage") != null,
-                            "Home offers untimed driving, an explicit timed challenge, and the garage");
+                            "Home offers Free Drive, Impact Run, and the garage");
                         var clearShowcase = true;
                         foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
                             if (Vector3.Distance(traffic.transform.position, _session.vehicle.transform.position) < 12f)
@@ -384,23 +388,249 @@ namespace CarCrashEditor
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Home,
                             "The player can return to the Home screen from the garage");
                         _session.SendMessage("OnApplicationFocus", true);
+                        CaptureCareerPrefs();
                         _session.StartImpactRun();
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Briefing && GameObject.Find("Course card") != null,
+                            "Impact Run opens a course briefing with a route preview");
+                        _session.ChangeCourse(1);
+                        Check(!_session.CourseUnlocked && !GameObject.Find("Start mission").GetComponent<UnityEngine.UI.Button>().interactable,
+                            "Old Town is locked before the first finish");
+                        _session.ChangeCourse(-1);
+                        _session.OpenGarage();
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Showroom && _session.GarageForMission,
+                            "The mission can change car in the live garage");
+                        _session.SelectVehicle(0);
+                        _session.ConfirmGarage();
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Briefing && _session.CourseUnlocked,
+                            "Selecting a car returns to the same mission");
+                        CheckCourseClearance();
+                        CaptureFrame("freight-yard-briefing");
+                        _session.BeginRun();
                         _stage = 10;
                         break;
                     case 10:
                         if (_session.Phase != CarCrashHudInput.RunPhase.Driving) return;
-                        Check(_session.IsTimed, "The time limit only applies when the challenge is explicitly selected");
-                        typeof(CarCrashHudInput).GetProperty("ElapsedSeconds").SetValue(_session, CarCrashHudInput.RunDuration + 0.1f);
+                        Check(_session.IsMission && !_session.IsTimed, "Freight Yard ends at the finish line");
+                        Check(Object.FindObjectsByType<ImpactCourseTarget>(FindObjectsSortMode.None).Length == _session.SelectedCourse.Targets.Length,
+                            "All marked props spawn for the selected course");
+                        CaptureFrame("freight-yard-start");
+                        _nextAt = EditorApplication.timeSinceStartup + .35;
+                        _stage = 19;
+                        break;
+                    case 19:
+                        PositionPedestrianImpact();
+                        _stage = 18;
+                        break;
+                    case 18:
+                        Check(_impactPedestrian.IsDown && _impactPedestrian.GetComponentsInChildren<CharacterJoint>().Length >= 6,
+                            "A hard hit puts a pedestrian into a physical ragdoll pose");
+                        Check(_session.Mission.Score == _scoreBeforePedestrian, "Pedestrian reactions do not affect course scoring");
+                        _session.vehicle.RecoverAt(_session.Mission.Course.Start, _session.Mission.Course.Heading);
+                        _session.Mission.SyncPosition();
+                        Pointer("Accelerator pedal", true, 58);
+                        _nextAt = EditorApplication.timeSinceStartup + 4.7;
                         _stage = 11;
                         break;
                     case 11:
-                        Check(_session.Phase == CarCrashHudInput.RunPhase.Results,
-                            "The optional challenge ends at its advertised time limit");
+                        Pointer("Accelerator pedal", false, 58);
+                        Check(_session.Mission.HitsOf(ImpactTargetKind.Cone) > 0 && _session.Mission.Score >= 10,
+                            "A real collision with the opening cones awards mission points");
+                        CaptureFrame("freight-yard-scored-hit");
+                        DriveAcross(_session.Mission.Course.Gates[^1]);
+                        _stage = 12;
+                        break;
+                    case 12:
+                        Check(!_session.Mission.Completed && _session.Mission.PassedCheckpoints == 0,
+                            "The finish line cannot skip checkpoints");
+                        _gateToTest = 0;
+                        DriveAcross(_session.Mission.NextGate);
+                        _stage = 13;
+                        break;
+                    case 13:
+                        _gateToTest++;
+                        if (_gateToTest < _session.Mission.Course.Gates.Length)
+                        {
+                            Check(_session.Mission.PassedCheckpoints == _gateToTest,
+                                $"Checkpoint {_gateToTest} registers in order (body {_session.Mission.VehicleBody.position})");
+                            if (_gateToTest == 1)
+                            {
+                                var score = _session.Mission.Score;
+                                _session.RecoverVehicle();
+                                Check(_session.Mission.PassedCheckpoints == 1 && _session.Mission.Score == score &&
+                                    Vector3.Distance(_session.vehicle.transform.position, _session.Mission.RecoveryPosition) < 5f,
+                                    "Recovery returns to the last checkpoint and preserves points");
+                                _nextAt = EditorApplication.timeSinceStartup + .35;
+                                _stage = 17;
+                                break;
+                            }
+                            DriveAcross(_session.Mission.NextGate);
+                            break;
+                        }
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Results && _session.Mission.Completed && Time.timeScale == 0f,
+                            "Crossing the finish after every checkpoint opens scored results and freezes physics");
+                        var expected = 0;
+                        for (var i = 0; i < ImpactTargetSpec.Points.Length; i++) expected += _session.Mission.HitsOf((ImpactTargetKind)i) * ImpactTargetSpec.Points[i];
+                        Check(_session.Mission.Score == expected && _session.BestScore == expected && ImpactCareer.Finished(_session.SelectedCourse),
+                            "The best score and result equal the sum of the individual obstacle values");
+                        Check(GameObject.Find("Mission results card") != null && _session.NextCourseUnlocked,
+                            "Finishing unlocks the next course and shows the score breakdown");
+                        CaptureFrame("freight-yard-results");
+                        _session.NextCourse();
+                        _nextAt = EditorApplication.timeSinceStartup + .5;
+                        _stage = 14;
+                        break;
+                    case 17:
+                        DriveAcross(_session.Mission.NextGate);
+                        _stage = 13;
+                        break;
+                    case 14:
+                        _session = Object.FindFirstObjectByType<CarCrashHudInput>();
+                        if (_session == null || _session.Hud == null) return;
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Briefing && _session.SelectedCourse.Id == "old-town",
+                            "Next Course opens Old Town's briefing");
+                        PlayerPrefs.SetInt(ImpactCareer.FinishKey(ImpactCourse.Catalog[2]), 1);
+                        _session.ChangeCourse(2);
+                        _session.SendMessage("OnApplicationFocus", true);
+                        _session.BeginRun();
+                        _stage = 15;
+                        break;
+                    case 15:
+                        if (_session.Phase != CarCrashHudInput.RunPhase.Driving) return;
+                        Check(_session.IsTimed && _session.SelectedCourse.Id == "apex-motor-park", "Apex Motor Park has a 75-second time limit");
+                        typeof(CarCrashHudInput).GetProperty("ElapsedSeconds").SetValue(_session, _session.SelectedCourse.TimeLimit + .1f);
+                        _stage = 16;
+                        break;
+                    case 16:
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Results && _session.Mission.TimedOut && !ImpactCareer.Finished(_session.SelectedCourse),
+                            "A timed-out course cannot bank an unfinished result");
                         Complete(null);
                         break;
                 }
             }
             catch (Exception error) { Complete(error.ToString()); }
+        }
+
+        private static void CheckCourseClearance()
+        {
+            foreach (var course in ImpactCourse.Catalog)
+            {
+                var from = course.Start;
+                foreach (var gate in course.Gates)
+                {
+                    foreach (var turn in gate.Turns)
+                    {
+                        CheckLane(from, turn, course.Name);
+                        from = turn;
+                    }
+                    CheckLane(from, gate.Position, course.Name);
+                    from = gate.Position;
+                }
+                Check(true, course.Name + " route and checkpoints have clearance for the fleet");
+            }
+        }
+
+        private static void CheckLane(Vector3 from, Vector3 to, string course)
+        {
+            var distance = Vector3.Distance(from, to);
+            if (distance < .05f) return;
+            var samples = Mathf.CeilToInt(distance / 2.5f);
+            var heading = Quaternion.LookRotation(to - from);
+            for (var i = 0; i <= samples; i++)
+            {
+                var point = Vector3.Lerp(from, to, i / (float)samples);
+                foreach (var obstacle in Physics.OverlapBox(point + Vector3.up * .92f, new Vector3(1.43f, .78f, .28f), heading, ~0,
+                    QueryTriggerInteraction.Ignore))
+                {
+                    if (obstacle.attachedRigidbody != null || obstacle.bounds.max.y <= .32f) continue;
+                    throw new Exception($"{course} route meets {obstacle.name} at {point}");
+                }
+            }
+        }
+
+        private static void PositionPedestrianImpact()
+        {
+            _scoreBeforePedestrian = _session.Mission.Score;
+            _impactPedestrian = Object.FindFirstObjectByType<CityPedestrian>();
+            var target = new Vector3(2.3f, .21f, 134f);
+            var walkerBody = _impactPedestrian.GetComponent<Rigidbody>();
+            walkerBody.position = target;
+            walkerBody.linearVelocity = Vector3.zero;
+            var body = _session.Mission.VehicleBody;
+            body.position = target - Vector3.forward * 8f;
+            body.rotation = Quaternion.identity;
+            body.angularVelocity = Vector3.zero;
+            body.linearVelocity = Vector3.forward * 19f;
+            Physics.SyncTransforms();
+            _session.Mission.SyncPosition();
+            _nextAt = EditorApplication.timeSinceStartup + .7;
+        }
+
+        private static void CaptureFrame(string name)
+        {
+            var output = Environment.GetEnvironmentVariable("CRASH_QA_CAPTURE_DIR");
+            if (string.IsNullOrWhiteSpace(output) || SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return;
+            Directory.CreateDirectory(output);
+            var camera = _session.GetComponent<Camera>();
+            var canvas = Object.FindFirstObjectByType<Canvas>();
+            var width = Screen.width;
+            var height = Screen.height;
+            var previous = RenderTexture.active;
+            var previousTarget = camera.targetTexture;
+            var cameraCanvas = canvas.worldCamera;
+            var mode = canvas.renderMode;
+            var surface = RenderTexture.GetTemporary(width, height, 24);
+            var pixels = new Texture2D(width, height, TextureFormat.RGB24, false);
+            try
+            {
+                camera.targetTexture = surface;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 1.2f;
+                Canvas.ForceUpdateCanvases();
+                camera.Render();
+                RenderTexture.active = surface;
+                pixels.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                File.WriteAllBytes(Path.Combine(output, name + ".png"), pixels.EncodeToPNG());
+            }
+            finally
+            {
+                canvas.renderMode = mode;
+                canvas.worldCamera = cameraCanvas;
+                camera.targetTexture = previousTarget;
+                RenderTexture.active = previous;
+                RenderTexture.ReleaseTemporary(surface);
+                Object.Destroy(pixels);
+            }
+        }
+
+        private static void DriveAcross(ImpactGate gate)
+        {
+            var body = _session.Mission.VehicleBody;
+            var forward = gate.Rotation * Vector3.forward;
+            body.position = gate.Position - forward * 4f;
+            body.rotation = gate.Rotation;
+            body.angularVelocity = Vector3.zero;
+            body.linearVelocity = forward * 15f;
+            Physics.SyncTransforms();
+            _session.Mission.SyncPosition();
+            _nextAt = EditorApplication.timeSinceStartup + .62;
+        }
+
+        private static void CaptureCareerPrefs()
+        {
+            CareerPrefs.Clear();
+            foreach (var course in ImpactCourse.Catalog)
+            {
+                Capture(ImpactCareer.ScoreKey(course));
+                Capture(ImpactCareer.FinishKey(course));
+            }
+            Capture(ImpactCareer.TargetsKey);
+
+            void Capture(string key)
+            {
+                CareerPrefs[key] = PlayerPrefs.HasKey(key) ? PlayerPrefs.GetInt(key) : null;
+                PlayerPrefs.DeleteKey(key);
+            }
         }
 
         private static void Pointer(string name, bool down, int id)
@@ -435,6 +665,12 @@ namespace CarCrashEditor
             EditorApplication.update -= Tick;
             Application.logMessageReceived -= OnLog;
             SessionState.SetBool(ActiveKey, false);
+            foreach (var (key, value) in CareerPrefs)
+            {
+                if (value.HasValue) PlayerPrefs.SetInt(key, value.Value);
+                else PlayerPrefs.DeleteKey(key);
+            }
+            CareerPrefs.Clear();
             if (_capturedPrefs)
             {
                 if (_hadPaint) PlayerPrefs.SetInt("CarCrash.Paint", _oldPaint); else PlayerPrefs.DeleteKey("CarCrash.Paint");

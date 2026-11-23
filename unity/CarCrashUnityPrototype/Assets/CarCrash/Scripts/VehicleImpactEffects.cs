@@ -10,7 +10,15 @@ namespace CarCrash
         public float LastImpactRealtime { get; private set; } = -10f;
         public float LastImpactKmh { get; private set; }
         public int LiveParticles => (_sparks != null ? _sparks.particleCount : 0) + (_dust != null ? _dust.particleCount : 0) + (_glass != null ? _glass.particleCount : 0);
-        private ParticleSystem _sparks, _dust, _glass;
+        private ParticleSystem _sparks, _dust, _glass, _smoke;
+        private ArcadeVehicleController _vehicle;
+        private CrashScoring _scoring;
+        private AudioSource _impactAudio;
+        private AudioClip _clang;
+        private float _nextSmoke;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private float _nextHaptic;
+#endif
         private readonly Transform[] _rings = new Transform[3];
         private readonly float[] _ringBorn = { -10f, -10f, -10f };
         private readonly float[] _ringSize = new float[3];
@@ -21,9 +29,17 @@ namespace CarCrash
         private void Awake()
         {
             _block = new MaterialPropertyBlock();
+            _vehicle = GetComponent<ArcadeVehicleController>();
+            _scoring = GetComponent<CrashScoring>();
             _sparks = CreateEmitter("Impact sparks", 480, 0.58f, false);
             _dust = CreateEmitter("Impact dust splash", 240, 1.45f, true);
             _glass = CreateEmitter("Impact glass spray", 180, 0.95f, false);
+            _smoke = CreateEmitter("Tyre and engine smoke", 110, 1.15f, true);
+            _impactAudio = gameObject.AddComponent<AudioSource>();
+            _impactAudio.playOnAwake = false;
+            _impactAudio.spatialBlend = .24f;
+            _impactAudio.maxDistance = 33f;
+            _clang = BakeImpactAudio();
             var sparksRenderer = _sparks.GetComponent<ParticleSystemRenderer>();
             sparksRenderer.renderMode = ParticleSystemRenderMode.Stretch;
             sparksRenderer.lengthScale = 2.2f;
@@ -75,6 +91,9 @@ namespace CarCrash
             var speed = collision.relativeVelocity.magnitude * 3.6f;
             if (speed < 12f) return;
             var contact = collision.GetContact(0);
+            var other = collision.rigidbody;
+            if (other == null || (other.mass >= 36f && other.GetComponent<TrafficImpactTarget>() == null))
+                _scoring?.RegisterSceneryDamage(contact.point, Mathf.Abs(Vector3.Dot(contact.normal, collision.relativeVelocity)) * 3.6f);
             EmitImpact(contact.point, contact.normal, collision.relativeVelocity, speed);
         }
 
@@ -86,6 +105,9 @@ namespace CarCrash
             LastImpactKmh = speedKmh;
             _lastPoint = point;
             var strength = Mathf.InverseLerp(12f, 135f, speedKmh);
+            _impactAudio.pitch = Mathf.Lerp(1.31f, .81f, strength);
+            _impactAudio.PlayOneShot(_clang, Mathf.Lerp(.16f, .74f, strength));
+            if (speedKmh >= 52f) ImpactHaptic(strength);
             var origin = point + normal * 0.12f + Vector3.up * 0.12f;
             var direction = normal.normalized + Vector3.up * 0.6f;
             Emit(_sparks, origin, direction, Mathf.RoundToInt(Mathf.Lerp(24, 170, strength)), 0.035f, 0.075f,
@@ -122,6 +144,20 @@ namespace CarCrash
 
         private void LateUpdate()
         {
+            if (Time.timeScale > 0f && _vehicle != null && Time.time >= _nextSmoke)
+            {
+                _nextSmoke = Time.time + .085f;
+                if (_vehicle.SpeedKmh > 36f && (Mathf.Abs(_vehicle.CurrentSteer) > .56f || _vehicle.BoostActive))
+                {
+                    TireSmoke(_vehicle.rearLeftCollider);
+                    TireSmoke(_vehicle.rearRightCollider);
+                }
+                if (_scoring != null && _scoring.Damage > 38f)
+                {
+                    var hood = transform.TransformPoint(new Vector3(0, GetComponent<BoxCollider>().bounds.size.y * .62f, 1.72f));
+                    Emit(_smoke, hood, Vector3.up, 2, .21f, .42f, 1.3f, new Color(.30f,.32f,.32f,.29f), 1.4f);
+                }
+            }
             for (var i = 0; i < _rings.Length; i++)
             {
                 if (_rings[i] == null || !_rings[i].gameObject.activeSelf) continue;
@@ -133,6 +169,58 @@ namespace CarCrash
                 _block.SetColor("_Color", new Color(0.74f, 0.68f, 0.51f, (1f - age) * 0.22f));
                 _rings[i].GetComponent<Renderer>().SetPropertyBlock(_block);
             }
+        }
+
+        private void TireSmoke(WheelCollider wheel)
+        {
+            if (!wheel.GetGroundHit(out var hit) || (Mathf.Abs(hit.sidewaysSlip) < .34f && Mathf.Abs(hit.forwardSlip) < .45f)) return;
+            Emit(_smoke, hit.point + Vector3.up * .09f, Vector3.up - transform.forward * .35f, 3, .16f, .28f, 1.7f,
+                new Color(.72f,.73f,.71f,.28f), 1.15f);
+        }
+
+        private static AudioClip BakeImpactAudio()
+        {
+            const int rate = 24000;
+            var samples = new float[rate * 43 / 100];
+            var random = new System.Random(238);
+            var filtered = 0f;
+            for (var i = 0; i < samples.Length; i++)
+            {
+                var t = i / (float)rate;
+                var noise = (float)random.NextDouble() * 2f - 1f;
+                filtered = Mathf.Lerp(filtered, noise, .11f);
+                var pulse = Mathf.Min(1, t * 850f) * Mathf.Exp(-t * 26f);
+                var thud = Mathf.Sin(390 * t + 4f * (1 - Mathf.Exp(-t * 22))) * Mathf.Exp(-t * 20f);
+                var resonance = (Mathf.Sin(1412 * t) * .11f + Mathf.Sin(2157 * t) * .13f + Mathf.Sin(2891 * t) * .07f) * Mathf.Exp(-t * 12f);
+                samples[i] = (noise * .24f + filtered * .52f) * pulse + (thud * .53f + resonance) * Mathf.Min(1, t * 680f);
+            }
+            var clip = AudioClip.Create("Metal and body impact", samples.Length, 1, rate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        private void ImpactHaptic(float strength)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (Time.unscaledTime < _nextHaptic) return;
+            _nextHaptic = Time.unscaledTime + .55f;
+            try
+            {
+                using var unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                using var activity = unity.GetStatic<AndroidJavaObject>("currentActivity");
+                using var vibrator = activity.Call<AndroidJavaObject>("getSystemService", "vibrator");
+                if (vibrator == null || !vibrator.Call<bool>("hasVibrator")) return;
+                using var type = new AndroidJavaClass("android.os.VibrationEffect");
+                using var effect = type.CallStatic<AndroidJavaObject>("createOneShot", (long)Mathf.Lerp(19, 35, strength), (int)Mathf.Lerp(54, 98, strength));
+                vibrator.Call("vibrate", effect);
+            }
+            catch (AndroidJavaException) { }
+#endif
+        }
+
+        private void OnDestroy()
+        {
+            if (_clang != null) Destroy(_clang);
         }
     }
 }

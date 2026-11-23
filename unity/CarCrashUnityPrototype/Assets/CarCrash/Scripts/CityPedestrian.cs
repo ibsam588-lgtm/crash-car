@@ -12,14 +12,18 @@ namespace CarCrash
         public Transform player;
         public float avenueCenterX;
         public bool Yielding { get; private set; }
+        public bool IsDown { get; private set; }
+        public bool IsLimping => !IsDown && Time.time < _limpUntil;
         public float DistanceWalked { get; private set; }
         public string LastObstacle { get; private set; }
 
         private Rigidbody _body;
         private Animation _animation;
         private Renderer[] _renderers;
+        private ArcadeVehicleController _vehicle;
+        private PedestrianRagdoll _ragdoll;
         private Vector3 _destination, _previous;
-        private float _stumbleUntil, _nextVisibility;
+        private float _stumbleUntil, _limpUntil, _nextVisibility;
         private readonly RaycastHit[] _obstacles = new RaycastHit[12];
 
         private void Start()
@@ -27,6 +31,7 @@ namespace CarCrash
             _body = GetComponent<Rigidbody>();
             _animation = GetComponentInChildren<Animation>();
             _renderers = GetComponentsInChildren<Renderer>();
+            if (player != null) _vehicle = player.GetComponent<ArcadeVehicleController>();
             _destination = Vector3.Dot(transform.forward, pointB - pointA) > 0 ? pointB : pointA;
             _previous = transform.position;
             if (_animation != null && walkClip != null)
@@ -40,6 +45,7 @@ namespace CarCrash
 
         private void FixedUpdate()
         {
+            if (IsDown) return;
             DistanceWalked += Vector3.Distance(_body.position, _previous);
             _previous = _body.position;
             if (Time.time < _stumbleUntil) return;
@@ -58,9 +64,8 @@ namespace CarCrash
             {
                 var toCar = player.position - position;
                 toCar.y = 0;
-                var car = player.GetComponent<ArcadeVehicleController>();
                 var carRoadX = player.position.x - avenueCenterX;
-                if (toCar.magnitude < 5.5f && Mathf.Abs(carRoadX) > 8f && car != null && car.SpeedKmh > 5f)
+                if (toCar.sqrMagnitude < 36f && Mathf.Abs(carRoadX) > 8f && _vehicle != null && _vehicle.SpeedKmh > 5f)
                 {
                     // Step aside within the sidewalk, rather than walking into traffic.
                     var side = Mathf.Sign(pointA.x-avenueCenterX);
@@ -69,7 +74,7 @@ namespace CarCrash
                     Yielding = true;
                 }
             }
-            var desired = delta.normalized * (Yielding ? 2.2f : walkSpeed);
+            var desired = delta.normalized * (Yielding ? 2.2f : walkSpeed) * (IsLimping ? .46f : 1f);
             LastObstacle = "";
             var count = Physics.SphereCastNonAlloc(position + Vector3.up * 0.85f, 0.23f, delta.normalized,
                 _obstacles, 0.65f, ~0, QueryTriggerInteraction.Ignore);
@@ -94,6 +99,7 @@ namespace CarCrash
 
         private void LateUpdate()
         {
+            if (IsDown && _ragdoll != null && _ragdoll.HasBody) _ragdoll.ApplyPose();
             if (Time.unscaledTime < _nextVisibility || _renderers == null) return;
             _nextVisibility = Time.unscaledTime + 0.3f;
             var distance = player != null ? Vector3.Distance(transform.position, player.position) : 0f;
@@ -102,13 +108,41 @@ namespace CarCrash
                 renderer.enabled = distance < 100f;
                 renderer.shadowCastingMode = distance < 38f ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
             }
-            if (_animation != null) _animation.enabled = distance < 100f;
+            if (_animation != null) _animation.enabled = !IsDown && distance < 100f;
         }
 
         private void OnCollisionEnter(Collision collision)
         {
-            if (collision.rigidbody != null && collision.rigidbody.GetComponent<ArcadeVehicleController>() != null)
-                _stumbleUntil = Time.time + 1.2f;
+            if (IsDown || collision.rigidbody == null || collision.rigidbody.GetComponent<ArcadeVehicleController>() == null) return;
+            var speed = collision.relativeVelocity.magnitude * 3.6f;
+            if (speed < 3f) return;
+            if (speed < 25f)
+            {
+                _stumbleUntil = Time.time + .48f;
+                _limpUntil = Time.time + 5f;
+                if (_animation != null && _animation["Walk"] != null) _animation["Walk"].speed = .25f;
+                return;
+            }
+
+            IsDown = true;
+            Yielding = false;
+            var direction = Vector3.ProjectOnPlane(collision.rigidbody.linearVelocity, Vector3.up).normalized;
+            if (direction.sqrMagnitude < .1f) direction = (transform.position - collision.rigidbody.position).normalized;
+            var push = direction * Mathf.Clamp(speed * .07f, 1.5f, 6f) + Vector3.up * .45f;
+            if (_animation != null)
+            {
+                _animation.enabled = false;
+                _ragdoll = new PedestrianRagdoll(transform, _animation, push);
+            }
+            if (_ragdoll != null && _ragdoll.HasBody)
+            {
+                GetComponent<CapsuleCollider>().enabled = false;
+                _body.isKinematic = true;
+                return;
+            }
+            _body.constraints = RigidbodyConstraints.None;
+            _body.linearVelocity = push;
+            _body.angularVelocity = Vector3.Cross(Vector3.up, direction) * 2.6f;
         }
     }
 }

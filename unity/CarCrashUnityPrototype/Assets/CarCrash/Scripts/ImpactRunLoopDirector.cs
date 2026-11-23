@@ -34,19 +34,31 @@ namespace CarCrash
                 var offset = attempt == 0 ? 0 : ((attempt + 1) / 2) * 6f * (attempt % 2 == 0 ? 1f : -1f);
                 position = roadPosition + rotation * Vector3.forward * offset;
                 if (!CityRoadNetwork.InsideWorld(position,12f)) continue;
-                var occupied = false;
-                var chassis=vehicle.GetComponent<BoxCollider>();
-                var halfSize=chassis.size*.5f+new Vector3(.3f,.08f,.6f);
-                foreach (var collider in Physics.OverlapBox(position+rotation*chassis.center,halfSize,rotation,~0,QueryTriggerInteraction.Ignore))
-                    if (collider.attachedRigidbody != playerBody && collider.bounds.max.y > position.y + 0.28f)
-                        occupied = true;
-                if (occupied) continue;
-                vehicle.RecoverAt(position, rotation);
-                RecoverySuggested = false;
-                _blockedSeconds=0;_lastPosition=position;
-                return;
+                if (TryRecover(position, rotation)) return;
             }
             RecoverySuggested = true;
+        }
+
+        public bool RecoverFromCheckpoint(Vector3 position, Quaternion rotation)
+        {
+            var right = rotation * Vector3.right;
+            foreach (var side in new[] { 0f, -2.5f, 2.5f, -4.5f, 4.5f })
+                if (TryRecover(position + right * side, rotation)) return true;
+            RecoverySuggested = true;
+            return false;
+        }
+
+        private bool TryRecover(Vector3 position, Quaternion rotation)
+        {
+            var chassis = vehicle.GetComponent<BoxCollider>();
+            var halfSize = chassis.size * .5f + new Vector3(.3f, .08f, .6f);
+            foreach (var collider in Physics.OverlapBox(position + rotation * chassis.center, halfSize, rotation, ~0, QueryTriggerInteraction.Ignore))
+                if (collider.attachedRigidbody != playerBody && collider.bounds.max.y > position.y + .28f) return false;
+            vehicle.RecoverAt(position, rotation);
+            RecoverySuggested = false;
+            _blockedSeconds = 0f;
+            _lastPosition = position;
+            return true;
         }
     }
 }

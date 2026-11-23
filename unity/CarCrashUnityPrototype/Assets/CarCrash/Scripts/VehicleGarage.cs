@@ -54,10 +54,12 @@ namespace CarCrash
             controller.frontLeftVisual = visuals[0]; controller.frontRightVisual = visuals[1];
             controller.rearLeftVisual = visuals[2]; controller.rearRightVisual = visuals[3];
             controller.ConfigureVehicle(spec);
+            var details = visualRoot.gameObject.AddComponent<VehicleDetailKit>();
+            details.Fit(transform, spec);
             var shell = GetComponent<CrashCarShellAnimator>();
             if (shell != null)
             {
-                shell.BindShell(visualRoot);
+                shell.BindShell(visualRoot, details);
                 for (var i = 0; i < shell.tailLightGlows.Length; i++)
                     if (shell.tailLightGlows[i] != null) shell.tailLightGlows[i].transform.localPosition =
                         new Vector3((i == 0 ? -1 : 1) * spec.size.x * .28f, Mathf.Max(.6f,spec.size.y*.43f), -spec.size.z*.49f);

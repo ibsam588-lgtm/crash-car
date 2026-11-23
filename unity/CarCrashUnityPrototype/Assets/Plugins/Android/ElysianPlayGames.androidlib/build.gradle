@@ -1,0 +1,15 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.corsairlabs.elysian.games'
+    compileSdk getProperty('unity.compileSdkVersion') as int
+
+    defaultConfig {
+        minSdk getProperty('unity.minSdkVersion') as int
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+}
+
+dependencies {
+    implementation 'com.google.android.gms:play-services-games-v2:22.1.0'
+}
