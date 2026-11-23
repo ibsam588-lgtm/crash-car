@@ -22,7 +22,7 @@ on:
         default: draft
 
 permissions:
-  contents: read
+  contents: write # GitHub requires push access to read unpublished draft assets.
 
 concurrency:
   group: crash-car-play-internal
@@ -35,7 +35,7 @@ env:
 jobs:
   release:
     name: Sign and verify prepared Android game
-    if: github.ref == 'refs/heads/main'
+    if: github.repository == 'ibsam588-lgtm/crash-car' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
@@ -83,12 +83,11 @@ jobs:
           curl --fail --location --retry 3 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output "$RUNNER_TEMP/bundletool.jar"
           echo "$BUNDLETOOL_SHA256  $RUNNER_TEMP/bundletool.jar" | sha256sum --check
           python3 ci/android_release.py verify --aab build/Android/CrashCar.aab --bundletool "$RUNNER_TEMP/bundletool.jar" --version-code "$VERSION_CODE" --certificate-sha256 "$CERTIFICATE_SHA256"
-      - name: Save verified Android release
+      - name: Save release verification reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: crash-car-android-${{ steps.native.outputs.version_code }}
           path: |
-            build/Android/CrashCar.aab
             build/Android/release-manifest.json
             build/Android/native-source.json
           if-no-files-found: error

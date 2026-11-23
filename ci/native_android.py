@@ -20,7 +20,9 @@ UNITY_PATH = "unity/CarCrashUnityPrototype"
 
 
 def checked(command: list[str]) -> str:
-    result = subprocess.run(command, text=True, capture_output=True, check=True)
+    result = subprocess.run(command, text=True, capture_output=True)
+    if result.returncode:
+        raise ValueError(f"{command[0]} {command[1]} failed: {result.stderr.strip()[-1000:]}")
     return result.stdout.strip()
 
 
@@ -60,7 +62,8 @@ def validate_candidate(aab: Path, receipt: dict, expected_sha: str, main_tree: s
 
 
 def download_candidate(tag: str, digest: str, output: Path) -> tuple[str, int]:
-    if not re.fullmatch(r"android-native-[0-9]{3,5}(?:-[a-f0-9]{7,12})?", tag):
+    tag_match = re.fullmatch(r"android-native-([0-9]{3,5})(?:-[a-f0-9]{7,12})?", tag)
+    if not tag_match:
         raise ValueError("Use an android-native-VERSIONCODE draft release tag")
     if not re.fullmatch(r"[a-f0-9]{64}", digest):
         raise ValueError("Candidate SHA-256 must contain 64 lowercase hexadecimal characters")
@@ -82,7 +85,7 @@ def download_candidate(tag: str, digest: str, output: Path) -> tuple[str, int]:
     source_tree = checked(["git", "rev-parse", f"{receipt['sourceCommit']}:{UNITY_PATH}"])
     version = validate_candidate(output / "CrashCar-cloud.aab", receipt, digest, current_tree,
                                  source_tree, ancestor, release.get("targetCommitish", ""))
-    if not tag.startswith(f"android-native-{version[1]}") or re.match(r"android-native-([0-9]+)", tag)[1] != str(version[1]):
+    if tag_match[1] != str(version[1]):
         raise ValueError("Draft tag and candidate version code differ")
     print(f"Verified local candidate source {receipt['sourceCommit']}, version {version[0]} ({version[1]})")
     if os.environ.get("GITHUB_OUTPUT"):
@@ -99,7 +102,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         download_candidate(args.tag, args.sha256, args.output)
-    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+    except (ValueError, OSError) as error:
         parser.exit(1, f"Native Android candidate: {error}\n")
 
 

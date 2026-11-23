@@ -70,8 +70,10 @@ The workflow rejects another app or repository, changed bytes, an unmerged sourc
 commit, a different Unity source tree, a stale Editor, or a non-draft release.
 It replaces temporary signing with Guardian's registered key and applies the same
 actual-AAB signature, manifest, ARM64 IL2CPP and 16 KB page checks as the cloud
-workflow. Only the verified signed game and public receipts become Actions
-artifacts. This manual path does not enable automatic cloud builds.
+workflow. The signed game goes directly from the runner to Play internal testing.
+Actions retains the verification receipts. The repo is public, so the workflow
+keeps the AAB out of Actions artifacts. Its ephemeral GitHub token has the
+repository contents permission required to read the unpublished draft.
 
 ## Workflow
 

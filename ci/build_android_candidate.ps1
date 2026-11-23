@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory=$true)][string]$AndroidSdk,
     [Parameter(Mandatory=$true)][string]$AndroidNdk,
     [Parameter(Mandatory=$true)][string]$Jdk,
-    [Parameter(Mandatory=$true)][ValidateRange(292,2100000000)][int]$VersionCode,
+    [Parameter(Mandatory=$true)][ValidateRange(292,99999)][int]$VersionCode,
     [string]$VersionName='1.1.0'
 )
 $ErrorActionPreference='Stop'
