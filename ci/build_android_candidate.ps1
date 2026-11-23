@@ -20,7 +20,9 @@ if($LASTEXITCODE -ne 0){throw 'Cannot read the source commit.'}
 $tree=(git rev-parse 'HEAD:unity/CarCrashUnityPrototype').Trim()
 if($LASTEXITCODE -ne 0){throw 'Cannot read the Unity source tree.'}
 $buildStamp=Get-Date -Format 'yyyyMMdd-HHmmss'
-$buildRoot=Join-Path $repo "build/native-android/$commit-$VersionCode-$buildStamp"
+# Unity's Android CMake dependencies gain long generated paths below the project.
+# Keep the directory short and record the full source commit in the receipt.
+$buildRoot=Join-Path $repo "build/android-$VersionCode-$buildStamp"
 $project=Join-Path $buildRoot 'project'
 if(Test-Path -LiteralPath $buildRoot){throw "Build directory already exists. Inspect it before retrying: $buildRoot"}
 New-Item -ItemType Directory -Path $project -Force | Out-Null
