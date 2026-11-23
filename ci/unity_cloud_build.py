@@ -186,13 +186,15 @@ def main():
     parser.add_argument("--cancel-receipt", type=Path)
     args = parser.parse_args()
     try:
+        if args.cancel_receipt and not args.cancel_receipt.is_file():
+            print("No cloud build receipt; nothing to cancel", flush=True)
+            return
         client = Client()
         if args.cancel_receipt:
-            if args.cancel_receipt.is_file():
-                receipt = json.loads(args.cancel_receipt.read_text(encoding="utf-8"))
-                if receipt.get("target") != client.target:
-                    raise ValueError("The cloud receipt belongs to a different build target")
-                client.cancel(receipt["build"])
+            receipt = json.loads(args.cancel_receipt.read_text(encoding="utf-8"))
+            if receipt.get("target") != client.target:
+                raise ValueError("The cloud receipt belongs to a different build target")
+            client.cancel(receipt["build"])
         elif args.commit:
             build(client, args.commit, args.output, args.timeout_minutes)
         else:
