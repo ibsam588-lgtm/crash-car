@@ -1,4 +1,4 @@
-name: Unity Android · Play internal
+name: Crash Car Android · Guardian internal
 
 on:
   workflow_dispatch:
@@ -49,8 +49,7 @@ jobs:
   build:
     name: Build Android app bundle
     # Unity Build Automation activates its own Editor; Google SSO stays unchanged.
-    if: github.ref == 'refs/heads/main' && (github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' ||
-      vars.UNITY_CI_ENABLED == 'true'))
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.UNITY_CI_ENABLED == 'true')
     runs-on: ubuntu-22.04
     timeout-minutes: 100
     outputs:
@@ -62,6 +61,14 @@ jobs:
           ref: ${{ github.sha }}
       - name: Validate release tooling
         run: python3 -m unittest discover -s ci -v
+      - name: Check Guardian upload key before starting Unity
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          CERTIFICATE_SHA256: ${{ vars.ANDROID_UPLOAD_CERT_SHA256 }}
+        run: python3 ci/android_release.py check-key --certificate-sha256 "$CERTIFICATE_SHA256"
       - name: Compile Android in Unity Build Automation
         id: cloud
         env:
@@ -119,8 +126,8 @@ jobs:
   publish:
     name: Upload Android internal test
     needs: build
-    if: github.ref == 'refs/heads/main' && (github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' &&
-      inputs.publish) || (github.event_name == 'push' && vars.PLAY_PUBLISH_ENABLED == 'true')))
+    if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.publish) ||
+      (github.event_name == 'push' && vars.PLAY_PUBLISH_ENABLED == 'true'))
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -144,7 +151,7 @@ jobs:
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.ibsam.crashcar
+          packageName: com.corsairlabs.guardian
           releaseFiles: release/CrashCar.aab
           tracks: internal
           status: ${{ inputs.release_status || vars.PLAY_RELEASE_STATUS || 'draft' }}

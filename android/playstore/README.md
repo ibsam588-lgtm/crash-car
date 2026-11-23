@@ -1,8 +1,34 @@
 # Crash Car: Elysian — Unity internal testing
 
 The Android release is the native Unity game in `unity/CarCrashUnityPrototype`.
-Package: `com.ibsam.crashcar`. The Flutter app and its Fastlane lane are legacy
+Package: `com.corsairlabs.guardian`, the existing **GuardIan — Parental Controls**
+Play record being repurposed for **Crash Car: Elysian**. The package cannot be
+renamed. The Flutter app and its Fastlane lane are legacy
 prototypes and are not used by the Unity workflow.
+
+## Existing app mapping
+
+- Play developer ID: `6403845194305642986`.
+- Play app ID: `4974135516168218399`.
+- Existing internal track ID: `4701222303150185899`.
+- Highest observed bundle version code: **291** (checked November 22, 2026).
+  Local releases reject codes below **292**; the cloud sequence starts at **100001**.
+- Registered upload certificate SHA-256:
+  `5415E182EC66E1E235D55CBE65E3A1370924812E8389FDDDD209A61D338E326F`.
+- Play app-signing certificate SHA-256:
+  `77F9C31B76CAC0676A99C297C036F99B9943E284EE87A232DCCCB9B2BD7C3200`.
+
+These are public certificate fingerprints, not signing keys. Keep the existing
+Play app-signing key. The newly generated Crash Car upload key is a different
+key and cannot update Guardian unless Play first approves an upload-key reset.
+The workflow checks the configured keystore against `ANDROID_UPLOAD_CERT_SHA256`
+**before** requesting a cloud build, and checks the signed AAB again afterwards.
+Do not change that variable merely to bypass a mismatch.
+
+Mapping the package does not finish an upload. Automatic builds and publishing
+must stay disabled until Guardian-compatible upload signing, app-scoped publisher
+access, the Unity target and the first verified internal release are ready. Never
+publish to the separate unused `com.ibsam.crashcar` Play record from this workflow.
 
 ## Workflow
 
@@ -19,7 +45,7 @@ certificate, package, version, target SDK, debug flag, and every native library'
 16 KB ELF segment alignment. It saves the AAB and public `release-manifest.json`
 as a 14-day Actions artifact. Private signing files and Unity logs are not uploaded.
 
-In Actions → **Unity Android · Play internal** → **Run workflow**, leave **publish**
+In Actions → **Crash Car Android · Guardian internal** → **Run workflow**, leave **publish**
 off for a build-only run. Enable it to upload to **internal**. There is no
 production track path. Start with **draft** for a new Play app, then use
 **completed** after Play's first-release setup is finished. Version names default
@@ -63,7 +89,7 @@ passwords into issues, pull requests or chat.
 
 | Variable | Value |
 | --- | --- |
-| `ANDROID_UPLOAD_CERT_SHA256` | Public SHA-256 fingerprint of the upload certificate |
+| `ANDROID_UPLOAD_CERT_SHA256` | Guardian's registered upload certificate fingerprint shown above; update only after a verified Play key change |
 | `ANDROID_VERSION_NAME` | `1.1.0` initially |
 | `UNITY_BUILD_ORG` | Unity organization numeric ID |
 | `UNITY_BUILD_PROJECT` | The separate Crash Car Unity Cloud project GUID |
@@ -108,24 +134,33 @@ block later builds. An Actions timeout or cancellation attempts to stop only its
 own unfinished cloud build; an interrupted run's receipt identifies it in the
 Unity dashboard. Never publish a different commit's cached artifact.
 
-## First Play Console setup
+## Reusing the Guardian Play app
 
-1. Create **Crash Car: Elysian**, game, free, English (United States), with the
-   available package `com.ibsam.crashcar` in the intended developer account. The
-   owner must authorize the policy and export-law declarations.
-2. Enable the Google Play Android Developer API in a dedicated Google Cloud
-   project. Create an internal-release service account; no project Owner/Editor
-   role is needed.
-3. Invite its email in Play Console → Users and permissions. Restrict access to
-   this app; grant app visibility and release-to-testing permissions. Do not grant
-   production release or access to other apps. Store the JSON key only as the
-   GitHub secret above and retain a private recovery copy.
-4. Enroll in Play App Signing and upload the first signed AAB to internal testing
-   in Play Console. Google may require this manual first upload before API
-   publishing. Complete the app declarations based on the shipped game and add
-   the intended internal testers.
-5. Run the workflow with publish enabled and verify the resulting internal
-   release. Enable automatic push publishing only after this succeeds.
+1. Use the existing Guardian Play record above. Do not create another app or
+   change the Play app-signing key. Keep the closed and production tracks untouched.
+2. Restore Guardian's existing upload keystore and its passwords to the four
+   Android secrets in `ibsam588-lgtm/crash-car`, or complete an owner-approved
+   upload-key reset using the existing Crash Car upload certificate. A public
+   certificate alone cannot sign a bundle. GitHub cannot reveal secret values
+   stored in the old `guardian-app` repository through its secrets API.
+3. Disable the old Guardian repository's automatic Play uploader before enabling
+   the new one, so it cannot publish the retired parental-control app over the game.
+4. Use the dedicated Play publisher with permissions only for Guardian: read app
+   information and release to testing tracks, plus the dependent read-only app
+   quality permission. Remove its previous Crash Car app scope when switching.
+   Do not grant production or account-wide access. The existing Google Cloud
+   Android Publisher API/key can be retained; no project Owner/Editor role is needed.
+5. Select the existing **Crash Car Internal Testers** list on Guardian's internal
+   track. Keep private tester addresses out of this public repository. Do not
+   modify its closed-testing audience or other apps' tester selections.
+6. Prepare the store title, game category, screenshots, privacy URL and declarations
+   for the actual game. The old Guardian descriptions and parental-control/data
+   declarations do not describe this build. Guardian's old API and billing warnings
+   are not cleared simply by renaming it; verify the uploaded game uses API 36 and
+   has no obsolete billing dependency.
+7. Run a build-only dispatch, inspect its verified native AAB, then upload only to
+   internal testing. Enable automatic push builds/publishing after a successful
+   verified internal release. Do not apply for production access as part of this setup.
 
 The game currently includes no login, ads, analytics SDK, in-app purchases or
 online multiplayer. Check the final Android manifest and future dependencies
@@ -142,11 +177,12 @@ an upload-key reset.
 With the four Android signing environment variables set securely:
 
 ```powershell
-python ci/android_release.py prepare --project unity/CarCrashUnityPrototype --version-name 1.1.0 --version-code 2
+python ci/android_release.py check-key --certificate-sha256 GUARDIAN_UPLOAD_CERTIFICATE_SHA256
+python ci/android_release.py prepare --project unity/CarCrashUnityPrototype --version-name 1.1.0 --version-code 100001
 # Run Unity with Android support, -batchmode -quit, the project path, and:
 # -executeMethod CarCrashEditor.AndroidReleaseBuilder.Build
 # Output: build/Android/CrashCar.aab
-python ci/android_release.py verify --aab build/Android/CrashCar.aab --bundletool /path/to/bundletool.jar --version-code 2 --certificate-sha256 PUBLIC_CERTIFICATE_SHA256
+python ci/android_release.py verify --aab build/Android/CrashCar.aab --bundletool /path/to/bundletool.jar --version-code 100001 --certificate-sha256 GUARDIAN_UPLOAD_CERTIFICATE_SHA256
 python -m unittest discover -s ci -v
 ```
 

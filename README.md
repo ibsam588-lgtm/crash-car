@@ -55,14 +55,20 @@ flutter build appbundle --release
 
 ## Play Store Prep
 
-The Android package is `com.ibsam.crashcar`.
+The native Unity game updates the existing Guardian Play app, package
+`com.corsairlabs.guardian`. Its installed name is **Crash Car: Elysian**. The
+Guardian package is permanent even when its store title changes.
 
-Store metadata and screenshots are in `android/fastlane/metadata/android/en-US/`. Release signing is configured to use `android/key.properties` when present; see `android/playstore/README.md` for keystore and upload steps.
+The Android-only GitHub workflow builds the Unity project and uploads only to
+internal testing after verifying the existing app's upload key, package, version,
+API level and native libraries. See [release setup](android/playstore/README.md)
+for signing and the remaining activation steps. The Flutter/Fastlane files are
+legacy prototypes and do not produce this game release.
 
 The current local bundle path after a release build is:
 
 ```text
-build/app/outputs/bundle/release/app-release.aab
+build/Android/CrashCar.aab
 ```
 
 See `THIRD_PARTY_NOTICES.md` for 3D model attribution.

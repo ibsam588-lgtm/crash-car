@@ -11,6 +11,8 @@ namespace CarCrashEditor
     // The signing file is provisioned outside Assets, ignored by git, and deleted by CI.
     public static class AndroidReleaseBuilder
     {
+        private const string PackageName="com.corsairlabs.guardian";
+        private const int MinimumVersionCode=292; // Guardian's previous Play version is 291.
         [Serializable] private sealed class Signing
         {
             public string keystore,storePassword,keyAlias,keyPassword,versionName,packageName;
@@ -29,7 +31,7 @@ namespace CarCrashEditor
             PlayerSettings.Android.keystoreName="";PlayerSettings.Android.keystorePass="";
             PlayerSettings.Android.keyaliasName="";PlayerSettings.Android.keyaliasPass="";
             EditorBuildSettings.scenes=new[]{new EditorBuildSettingsScene("Assets/CarCrash/Scenes/ImpactRunPrototype.unity",true)};
-            Debug.Log("ANDROID_CLOUD_CONFIG_PASS package=com.ibsam.crashcar versionCode="+PlayerSettings.Android.bundleVersionCode);
+            Debug.Log("ANDROID_CLOUD_CONFIG_PASS package="+PackageName+" versionCode="+PlayerSettings.Android.bundleVersionCode);
         }
 
         public static void Build()
@@ -38,7 +40,7 @@ namespace CarCrashEditor
             var config=Path.Combine(project,".ci/android-signing.json");
             if(!File.Exists(config))throw new InvalidOperationException("Missing private Android signing configuration. Run ci/android_release.py prepare first.");
             var signing=JsonUtility.FromJson<Signing>(File.ReadAllText(config));
-            if(signing==null||signing.packageName!="com.ibsam.crashcar"||signing.versionCode<2||signing.versionCode>2100000000||string.IsNullOrWhiteSpace(signing.versionName))
+            if(signing==null||signing.packageName!=PackageName||signing.versionCode<MinimumVersionCode||signing.versionCode>2100000000||string.IsNullOrWhiteSpace(signing.versionName))
                 throw new InvalidOperationException("Invalid Android release identity or version.");
             var keystore=Path.GetFullPath(Path.Combine(project,signing.keystore));
             if(!File.Exists(keystore)||string.IsNullOrEmpty(signing.storePassword)||string.IsNullOrEmpty(signing.keyAlias)||string.IsNullOrEmpty(signing.keyPassword))
@@ -56,7 +58,7 @@ namespace CarCrashEditor
             {
                 var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{"Assets/CarCrash/Scenes/ImpactRunPrototype.unity"},locationPathName=output,target=BuildTarget.Android,options=BuildOptions.CompressWithLz4HC});
                 if(report.summary.result!=BuildResult.Succeeded)throw new InvalidOperationException("Android bundle build failed: "+report.summary.result);
-                Debug.Log("ANDROID_RELEASE_PASS package=com.ibsam.crashcar versionCode="+signing.versionCode+" bytes="+report.summary.totalSize);
+                Debug.Log("ANDROID_RELEASE_PASS package="+PackageName+" versionCode="+signing.versionCode+" bytes="+report.summary.totalSize);
             }
             finally
             {
@@ -70,11 +72,11 @@ namespace CarCrashEditor
         {
             var scene=Path.Combine(Application.dataPath,"CarCrash/Scenes/ImpactRunPrototype.unity");
             if(!File.Exists(scene))throw new InvalidOperationException("The verified game scene is missing. Regenerate it locally before releasing.");
-            if(string.IsNullOrWhiteSpace(versionName)||versionCode<2||versionCode>2100000000)
+            if(string.IsNullOrWhiteSpace(versionName)||versionCode<MinimumVersionCode||versionCode>2100000000)
                 throw new InvalidOperationException("Invalid Android release version.");
             PlayerSettings.companyName="Corsair Labs";
             PlayerSettings.productName="Crash Car: Elysian";
-            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android,"com.ibsam.crashcar");
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android,PackageName);
             PlayerSettings.bundleVersion=versionName;
             PlayerSettings.Android.bundleVersionCode=versionCode;
             PlayerSettings.Android.minSdkVersion=(AndroidSdkVersions)26;
