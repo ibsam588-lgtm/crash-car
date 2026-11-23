@@ -43,7 +43,9 @@ $log=Join-Path $buildRoot 'unity-android.log'
 $arguments=@('-batchmode','-nographics','-quit','-buildTarget','Android','-projectPath',('"'+$project+'"'),'-executeMethod','CarCrashEditor.AndroidReleaseBuilder.BuildForGitHubSigning','-logFile',('"'+$log+'"'))
 Write-Output "Building committed Android source $commit with Unity $UnityEditor"
 Write-Output "Build log: $log"
-$process=Start-Process -FilePath $UnityEditor -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput (Join-Path $buildRoot 'stdout.log') -RedirectStandardError (Join-Path $buildRoot 'stderr.log')
+$process=Start-Process -FilePath $UnityEditor -ArgumentList $arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $buildRoot 'stdout.log') -RedirectStandardError (Join-Path $buildRoot 'stderr.log')
+# Gradle can keep a background daemon alive after Unity has finished the export.
+$process.WaitForExit()
 if($process.ExitCode -ne 0){throw "Unity Android export failed ($($process.ExitCode)). Inspect $log"}
 $receipt=Join-Path $buildRoot 'native-source.json'
 if(-not (Test-Path -LiteralPath $receipt)){throw 'Unity did not produce a native build receipt.'}
