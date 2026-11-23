@@ -11,10 +11,10 @@ namespace CarCrash
         public readonly Vector3 Position;
         public readonly float Yaw;
 
-        public ImpactTargetSpec(ImpactTargetKind kind, float x, float z, float yaw = 0f)
+        public ImpactTargetSpec(ImpactTargetKind kind, float x, float z, float yaw = 0f, float groundHeight = .04f)
         {
             Kind = kind;
-            Position = new Vector3(x, 0.04f, z);
+            Position = new Vector3(x, groundHeight, z);
             Yaw = yaw;
         }
 
@@ -77,7 +77,9 @@ namespace CarCrash
         private static ImpactTargetSpec B(float x, float z, float yaw = 0f) => new(ImpactTargetKind.Barrier, x, z, yaw);
         private static ImpactTargetSpec W(float x, float z, float yaw = 0f) => new(ImpactTargetKind.Wreck, x, z, yaw);
         private static ImpactTargetSpec K(float x, float z, float yaw = 0f) => new(ImpactTargetKind.Crate, x, z, yaw);
-        private static ImpactTargetSpec L(float x, float z) => new(ImpactTargetKind.Streetlight, x, z);
+        private static ImpactTargetSpec Lamp(float x, float z, float yaw = 0f) => new(ImpactTargetKind.Streetlight, x, z, yaw);
+        private static ImpactTargetSpec CurbLamp(float avenue, float z) =>
+            new(ImpactTargetKind.Streetlight, avenue + CityRoadNetwork.CurbsideLightOffset, z, 180f, .15f);
 
         public static readonly ImpactCourse[] Catalog =
         {
@@ -98,12 +100,12 @@ namespace CarCrash
                     B(-158.5f,-137), C(-161.1f,-96), K(-161,-85), C(-182,-55.2f),
                     B(-197,-55.3f,70), K(-210,-56.1f), C(-222,-55.2f),
                     C(-267.7f,-27), K(-267.7f,-20), C(-267.7f,-9), B(-266.4f,4,20),
-                    K(-267.8f,54), K(-267.8f,57), C(-269,65), L(-264,91),
+                    K(-267.8f,54), K(-267.8f,57), C(-269,65), CurbLamp(-270,67),
                     C(-267.7f,116), B(-267.7f,126,12), C(-268,164),
                     K(-248,184.5f), C(-233,184.6f), C(-216,199), C(-214,210),
                     C(-207,218), C(-206,222), K(-206,225), C(-206,230),
                     B(-227.5f,215,35), K(-232.3f,219), new(ImpactTargetKind.Crate,-232.3f,219.9f,18),
-                    K(-232.7f,222), L(-231.6f,228), B(-227.5f,231,16), W(-215,229,14),
+                    K(-232.7f,222), Lamp(-240.7f,230), B(-227.5f,231,16), W(-215,229,14),
                 }),
             new("old-town", "Old Town", "Wind between downtown storefronts. Line up small targets on the approaches, then slow for the turns.",
                 P(2.3f, -253f), 0f, 160, 340, 520, 0,
@@ -117,9 +119,9 @@ namespace CarCrash
                 new[]
                 {
                     C(2.3f,-237), C(3.2f,-233), K(3.8f,-227), K(4.1f,-215), C(1.4f,-196),
-                    K(2.3f,-155), B(1.6f,-138,-16), C(2.3f,-99), L(4,-74),
+                    K(2.3f,-155), B(1.6f,-138,-16), C(2.3f,-99), CurbLamp(0,-74),
                     C(15,-60.3f), K(25,-60.3f,70), C(35,-59.6f), B(44,-59.6f,75),
-                    C(56.3f,-37), K(55.7f,-18), C(55.9f,-13), L(57.5f,9),
+                    C(56.3f,-37), K(55.7f,-18), C(55.9f,-13), CurbLamp(54,2),
                     K(56.3f,57), B(55.2f,67,-15), C(55.2f,79), K(56.3f,92),
                     C(38,110.3f), K(30,110.3f,85), C(13,110.3f), K(-12,110.8f,95), W(-28,109.3f,105),
                 }),
@@ -135,10 +137,10 @@ namespace CarCrash
                 new[]
                 {
                     C(272.3f,144), C(272.3f,149), K(273,158), B(273,172,10), C(272.3f,220),
-                    K(272.3f,232), C(272,246), L(273.5f,279), K(273,335), C(272,345),
+                    K(272.3f,232), C(272,246), CurbLamp(270,279), K(273,335), C(272,345),
                     B(272.3f,359), K(272.3f,379), C(272.3f,391), C(251,412.3f),
                     K(241,412.3f,90), B(222,412.3f,90), C(209,412.3f), K(190,412.3f,70),
-                    C(164.3f,438), K(163.9f,452), L(166,478), C(164.3f,496),
+                    C(164.3f,438), K(163.9f,452), CurbLamp(162,478), C(164.3f,496),
                     C(199,507.7f), K(215,507.7f,90), B(237,507.7f,105), K(249,507.7f,90), W(282,507.7f,86),
                 }),
             new("apex-motor-park", "Apex Motor Park", "Bank your score before the clock runs out. Use the circuit's outer lanes to reach the finish.",
@@ -153,10 +155,10 @@ namespace CarCrash
                 new[]
                 {
                     C(-267.7f,359), K(-267.7f,372), B(-266.5f,390), C(-267.7f,425),
-                    K(-267.7f,436), L(-265,454), C(-267.7f,492), C(-248,507.7f),
+                    K(-267.7f,436), CurbLamp(-270,451), C(-267.7f,492), C(-248,507.7f),
                     K(-236,507.7f,90), B(-226,507.7f,95), C(-216,521), C(-206,531),
                     K(-196,531,90), B(-190,531,110), K(-182,543), C(-182,550),
-                    B(-182,560), K(-182,576), L(-190,584), K(-202,584,90), W(-216,584,86),
+                    B(-182,560), K(-182,576), Lamp(-190,591.5f,90), K(-202,584,90), W(-216,584,86),
                 }),
         };
     }

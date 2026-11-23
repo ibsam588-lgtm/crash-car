@@ -28,6 +28,11 @@ namespace CarCrashEditor
         private static int _oldPaint, _oldBest, _oldVehicle, _oldExplored;
         private static bool _hadPaint, _hadBest, _hadVehicle, _hadExplored;
         private static bool _capturedPrefs;
+        private static int? _oldMusic;
+        private static ElysianSoundtrack _soundtrack;
+        private static Rigidbody _curbLamp;
+        private static int _scoreBeforeCurbLamp;
+        private static float _curbLampApproachAt;
         private static readonly Dictionary<string, int?> CareerPrefs = new();
         private static int _gateToTest;
         private static CityPedestrian _impactPedestrian;
@@ -87,11 +92,21 @@ namespace CarCrashEditor
                         _hadVehicle = PlayerPrefs.HasKey("CarCrash.Vehicle");
                         _oldVehicle = PlayerPrefs.GetInt("CarCrash.Vehicle");
                         _hadExplored=PlayerPrefs.HasKey("CarCrash.ExploredPlaces");_oldExplored=PlayerPrefs.GetInt("CarCrash.ExploredPlaces");
+                        _oldMusic = PlayerPrefs.HasKey(ElysianSoundtrack.PreferenceKey) ? PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) : null;
                         _capturedPrefs = true;
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Home && Time.timeScale == 0f && _session.CameraRig.Showcasing,
                             "The game opens at a real home screen with the city safely paused");
                         Check(GameObject.Find("Free Drive") != null && GameObject.Find("Impact Run") != null && GameObject.Find("Open garage") != null,
                             "Home offers Free Drive, Impact Run, and the garage");
+                        _soundtrack = _session.Soundtrack;
+                        var source = _soundtrack.GetComponent<AudioSource>();
+                        Check(source.clip != null && source.clip.length > 60f && source.clip.channels == 2 && source.loop && source.spatialBlend == 0f,
+                            "The city soundtrack is bundled as a looping stereo mix");
+                        _soundtrack.SetMusicEnabled(true);
+                        GameObject.Find("Home music").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(!_soundtrack.MusicEnabled && !source.isPlaying && PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) == 0,
+                            "Home can turn music off and save the setting");
+                        CheckLightPlacement();
                         var clearShowcase = true;
                         foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
                             if (Vector3.Distance(traffic.transform.position, _session.vehicle.transform.position) < 12f)
@@ -280,6 +295,9 @@ namespace CarCrashEditor
                             "Pause freezes physics and the run timer");
                         Check(!_session.Hud.GasHeld && !_session.Hud.LeftHeld && !_session.Hud.BrakeHeld,
                             "Pause releases every touch control");
+                        GameObject.Find("Pause music").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(_soundtrack.MusicEnabled && PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) == 1,
+                            "The pause menu can turn music back on");
                         _session.ResumeRun();
                         Check(Time.timeScale > 0f && Time.timeScale < 1f, "Resume preserves the unfinished slow-motion effect");
                         _stage = 5;
@@ -363,6 +381,9 @@ namespace CarCrashEditor
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Countdown, "Retry resets the scene and starts a fresh countdown");
                         Check(Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None).Length == 1,
                             "Scene reload removes the previous HUD and input objects");
+                        Check(_session.Soundtrack == _soundtrack && _soundtrack.MusicEnabled &&
+                            Object.FindObjectsByType<ElysianSoundtrack>(FindObjectsSortMode.None).Length == 1,
+                            "A scene reload preserves the soundtrack and its setting without starting a second source");
                         _stage = 7;
                         break;
                     case 7:
@@ -436,6 +457,24 @@ namespace CarCrashEditor
                         Check(_session.Mission.HitsOf(ImpactTargetKind.Cone) > 0 && _session.Mission.Score >= 10,
                             "A real collision with the opening cones awards mission points");
                         CaptureFrame("freight-yard-scored-hit");
+                        PositionCurbLampImpact();
+                        _stage = 21;
+                        break;
+                    case 21:
+                        if (Time.time < _curbLampApproachAt) return;
+                        var approachBody = _session.Mission.VehicleBody;
+                        _scoreBeforeCurbLamp = _session.Mission.Score;
+                        approachBody.linearVelocity = approachBody.rotation * Vector3.forward * 20f;
+                        _nextAt = EditorApplication.timeSinceStartup + .65;
+                        _stage = 20;
+                        break;
+                    case 20:
+                        if (_curbLamp.isKinematic || _session.Mission.Score != _scoreBeforeCurbLamp + 100)
+                            throw new Exception($"Curbside lamp check: parked={_curbLamp.isKinematic}, points={_session.Mission.Score - _scoreBeforeCurbLamp}, " +
+                                $"player={_session.Mission.VehicleBody.position}, speed={_session.vehicle.SpeedKmh:0.0} km/h, lamp={_curbLamp.position}");
+                        Check(!_curbLamp.isKinematic && _session.Mission.HitsOf(ImpactTargetKind.Streetlight) == 1 &&
+                            _session.Mission.Score == _scoreBeforeCurbLamp + 100,
+                            "A curbside streetlight falls and awards its 100 points once");
                         DriveAcross(_session.Mission.Course.Gates[^1]);
                         _stage = 12;
                         break;
@@ -529,6 +568,41 @@ namespace CarCrashEditor
             }
         }
 
+        private static void CheckLightPlacement()
+        {
+            var lightCount = 0;
+            foreach (var prop in Object.FindObjectsByType<BreakableCityProp>(FindObjectsSortMode.None))
+            {
+                if (!prop.name.StartsWith("Breakaway streetlight", StringComparison.Ordinal) &&
+                    !prop.name.StartsWith("Breakaway traffic signal", StringComparison.Ordinal)) continue;
+                var pole = prop.GetComponentInChildren<Collider>();
+                if (pole == null || !OutsideRoads(pole.bounds.center, pole.bounds.extents.x, pole.bounds.extents.z))
+                    throw new Exception($"{prop.name} blocks the road at {prop.transform.position}");
+                lightCount++;
+            }
+            Check(lightCount > 100, $"All {lightCount} city light and signal poles clear both intersecting roads");
+
+            foreach (var course in ImpactCourse.Catalog)
+            foreach (var target in course.Targets)
+            {
+                if (target.Kind != ImpactTargetKind.Streetlight) continue;
+                var position = target.Position;
+                if (!OutsideRoads(position, .15f, .15f) ||
+                    !Physics.Raycast(position + Vector3.up * .25f, Vector3.down, out var ground, .33f) ||
+                    ground.point.y > position.y)
+                    throw new Exception($"{course.Name} has a streetlight without a clear, visible roadside base at {position}");
+            }
+            Check(true, "Scoring streetlights stand off the marked roads with visible ground markers");
+        }
+
+        private static bool OutsideRoads(Vector3 point, float extentX, float extentZ)
+        {
+            var avenue = CityRoadNetwork.Nearest(CityRoadNetwork.AvenueX, point.x);
+            var crossing = CityRoadNetwork.Nearest(CityRoadNetwork.CrossStreetZ, point.z);
+            return Mathf.Abs(point.x - avenue) > CityRoadNetwork.AvenueHalfWidth + extentX &&
+                Mathf.Abs(point.z - crossing) > CityRoadNetwork.CrossStreetHalfWidth + extentZ;
+        }
+
         private static void CheckLane(Vector3 from, Vector3 to, string course)
         {
             var distance = Vector3.Distance(from, to);
@@ -563,6 +637,22 @@ namespace CarCrashEditor
             Physics.SyncTransforms();
             _session.Mission.SyncPosition();
             _nextAt = EditorApplication.timeSinceStartup + .7;
+        }
+
+        private static void PositionCurbLampImpact()
+        {
+            var spec = Array.Find(_session.Mission.Course.Targets, target => target.Kind == ImpactTargetKind.Streetlight);
+            _curbLamp = null;
+            foreach (var target in Object.FindObjectsByType<ImpactCourseTarget>(FindObjectsSortMode.None))
+                if (Vector3.Distance(target.transform.position, spec.Position) < .1f) _curbLamp = target.GetComponent<Rigidbody>();
+            Check(_curbLamp != null && _curbLamp.isKinematic, "The marked curbside streetlight spawns with a solid breakaway base");
+            var approach = new Vector3(.65f, 0f, 1f).normalized;
+            var startingPoint = spec.Position - approach * 7f;
+            startingPoint.y = .21f;
+            _session.vehicle.RecoverAt(startingPoint, Quaternion.LookRotation(approach));
+            _session.Mission.SyncPosition();
+            // Let the recovery settle the suspension before applying the approach speed.
+            _curbLampApproachAt = Time.time + .33f;
         }
 
         private static void CaptureFrame(string name)
@@ -677,6 +767,8 @@ namespace CarCrashEditor
                 if (_hadBest) PlayerPrefs.SetInt("CarCrash.BestImpactScore", _oldBest); else PlayerPrefs.DeleteKey("CarCrash.BestImpactScore");
                 if (_hadVehicle) PlayerPrefs.SetInt("CarCrash.Vehicle", _oldVehicle); else PlayerPrefs.DeleteKey("CarCrash.Vehicle");
                 if(_hadExplored)PlayerPrefs.SetInt("CarCrash.ExploredPlaces",_oldExplored);else PlayerPrefs.DeleteKey("CarCrash.ExploredPlaces");
+                if (_oldMusic.HasValue) PlayerPrefs.SetInt(ElysianSoundtrack.PreferenceKey, _oldMusic.Value);
+                else PlayerPrefs.DeleteKey(ElysianSoundtrack.PreferenceKey);
                 PlayerPrefs.Save();
             }
             Directory.CreateDirectory(Path.GetDirectoryName(ReportPath));

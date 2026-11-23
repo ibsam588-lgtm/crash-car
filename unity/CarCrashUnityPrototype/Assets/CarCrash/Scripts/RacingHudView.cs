@@ -30,6 +30,7 @@ namespace CarCrash
         private float _displayScore;
         private GameObject _home, _help, _briefing, _showroom, _race, _controls, _pause, _results, _missionResults, _countdown, _map, _missionMap;
         private Text _timerCaption, _modeCaption;
+        private Text _homeMusic, _pauseMusic;
         private Text _score, _hits, _combo, _timer, _speed, _gear, _boostLabel, _integrity, _cameraLabel, _eventLabel;
         private Text _paintLabel, _countdownText, _impactTitle, _impactScore;
         private Text _vehicleName, _vehicleSpecs;
@@ -144,8 +145,8 @@ namespace CarCrash
         {
             var pad=_portrait ? 24f : 48f;
             Brand(root,pad,28);
-            Chip(root,"Live city",_width-pad-112,31,112,new Color(.10f,.24f,.28f,.92f),new Color(.50f,.91f,.80f));
             var guideWidth=Mathf.Max(112,Units(112));
+            _homeMusic = MusicButton(root, "Home music", _width - pad - guideWidth, 31, guideWidth);
             ActionButton(root,"Home driving guide","Controls",_width-pad-guideWidth,84,guideWidth,42,()=>ShowHelp(true),PanelColor,White,14);
             var y=_compactWide ? 116f : _portrait ? 126f : 158f;
             Label(root,"City stunt driving",pad,y,_portrait ? _width-pad*2 : 780,72,_portrait || _compactWide ? 39 : 60,White);
@@ -423,6 +424,8 @@ namespace CarCrash
             Dim(root);var w=Mathf.Min(_width-40,420);var h=440f;
             var panel=Shape(root,"Pause panel",(_width-w)*.5f,(_height-h)*.5f,w,h,RacingHudGraphic.Shape.Panel,PanelColor);
             Chip(panel.transform,"On pause",26,25,110,new Color(.08f,.16f,.24f),Accent);
+            var musicWidth = Mathf.Max(112, Units(112));
+            _pauseMusic = MusicButton(panel.transform, "Pause music", w - 26 - musicWidth, 24, musicWidth);
             Label(panel.transform,"Take a moment.",26,81,w-52,46,31,White);
             Label(panel.transform,"Your city will be right here.",26,135,w-52,30,15,Muted);
             IconAction(panel.transform,"Resume driving","Keep driving",RacingHudGraphic.Symbol.Play,26,192,w-52,56,_session.ResumeRun,true);
@@ -432,6 +435,21 @@ namespace CarCrash
             ActionButton(panel.transform,"End driving session","End drive",38+(w-64)*.5f,324,(w-64)*.5f,46,_session.EndSession,PanelColor,Muted,15);
             if (!Application.isMobilePlatform)
                 Label(panel.transform,"P / Esc to resume",26,397,w-52,20,12,Muted,TextAnchor.MiddleCenter);
+        }
+
+        private string MusicLabel => _session.Soundtrack.MusicEnabled ? "Music on" : "Music off";
+
+        private Text MusicButton(Transform parent, string name, float x, float y, float width)
+        {
+            return ActionButton(parent, name, MusicLabel, x, y, width, 42, ToggleMusic, PanelColor, White, 14)
+                .GetComponentInChildren<Text>();
+        }
+
+        private void ToggleMusic()
+        {
+            _session.Soundtrack.SetMusicEnabled(!_session.Soundtrack.MusicEnabled);
+            SetText(_homeMusic, MusicLabel);
+            SetText(_pauseMusic, MusicLabel);
         }
 
         private void BuildResults(Transform root)

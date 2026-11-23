@@ -214,7 +214,7 @@ namespace CarCrashEditor
             Plane("District ground",new Vector3(-140,-.07f,centerZ),width+280,length+300,grass,true);
             foreach(var avenue in CityRoadNetwork.AvenueX)
             {
-                Plane("Connected avenue",new Vector3(avenue,0,centerZ),18,length,_asphalt,true);
+                Plane("Connected avenue",new Vector3(avenue,0,centerZ),CityRoadNetwork.AvenueHalfWidth*2,length,_asphalt,true);
                 var previous=CityRoadNetwork.MinZ+1;
                 foreach(var crossing in CrossStreets)
                 {
@@ -232,7 +232,7 @@ namespace CarCrashEditor
             segments.Add(new Vector2(left,CityRoadNetwork.MaxX));
             foreach(var z in CrossStreets)
             {
-                Plane("Connected cross street",new Vector3(0,.006f,z),width,14,_asphalt,true);
+                Plane("Connected cross street",new Vector3(0,.006f,z),width,CityRoadNetwork.CrossStreetHalfWidth*2,_asphalt,true);
                 foreach(var segment in segments)
                 {
                     var x=(segment.x+segment.y)*.5f;var span=segment.y-segment.x;
@@ -489,14 +489,18 @@ namespace CarCrashEditor
             {
                 var z = -355f + i * 22.5f;
                 if (NearCrossStreet(z, 10f)) continue;
+                var lampZ = z + 6f;
+                if (NearCrossStreet(lampZ, CityRoadNetwork.CrossStreetHalfWidth + 3f)) lampZ = z - 6f;
                 foreach (var side in new[] { -1f, 1f })
                 {
                     var x = side * 10.7f;
                     Palm(new Vector3(x, 0.15f, z), i % 3);
-                    var lampZ = z + 6;
-                    var lampAssembly=BeginBreakable(side<0 ? "Breakaway streetlight west" : "Breakaway streetlight east",new Vector3(side*9.9f,.15f,lampZ),65);
-                    Tube("Streetlight column", new Vector3(side * 9.9f, 0.15f, lampZ), new Vector3(side * 9.9f, 6.8f, lampZ), 0.075f, _metal, true);
-                    Tube("Streetlight outreach", new Vector3(side * 9.9f, 6.8f, lampZ), new Vector3(side * 7.8f, 6.6f, lampZ), 0.07f, _metal);
+                    var lampX = side * CityRoadNetwork.CurbsideLightOffset;
+                    var lampFoot = new Vector3(lampX, .15f, lampZ);
+                    var lampTop = new Vector3(lampX, 6.8f, lampZ);
+                    var lampAssembly = BeginBreakable(side < 0 ? "Breakaway streetlight west" : "Breakaway streetlight east", lampFoot, 65);
+                    Tube("Streetlight column", lampFoot, lampTop, 0.075f, _metal, true);
+                    Tube("Streetlight outreach", lampTop, new Vector3(side * 7.8f, 6.6f, lampZ), 0.07f, _metal);
                     Box("Streetlight housing", new Vector3(side * 7.75f, 6.55f, lampZ), new Vector3(0.65f, 0.14f, 0.35f), _metal);
                     Box("Streetlight lens", new Vector3(side * 7.75f, 6.45f, lampZ), new Vector3(0.5f, 0.025f, 0.25f), _light);
                     EndBreakable(lampAssembly);
@@ -515,14 +519,18 @@ namespace CarCrashEditor
             {
                 foreach (var side in new[] { -1f, 1f })
                 {
-                    var assembly=BeginBreakable(side<0 ? "Breakaway traffic signal west" : "Breakaway traffic signal east",new Vector3(side*9.6f,.2f,z-side*6.5f),115);
+                    var signalZ = z - side * (CityRoadNetwork.CrossStreetHalfWidth + 2.5f);
+                    var signalFoot = new Vector3(side * 9.6f, .15f, signalZ);
+                    var signalTop = signalFoot + Vector3.up * 5.6f;
+                    var armEnd = new Vector3(side * 4.8f, signalTop.y, signalZ);
+                    var assembly = BeginBreakable(side < 0 ? "Breakaway traffic signal west" : "Breakaway traffic signal east", signalFoot, 115);
                     _city.GetComponent<BreakableCityProp>().breakSpeedKmh=25f;
-                    Tube("Traffic signal pole", new Vector3(side * 9.6f, 0.2f, z - side * 6.5f), new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), 0.10f, _metal, true);
-                    Tube("Traffic signal arm", new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), new Vector3(side * 4.8f, 5.8f, z - side * 6.5f), 0.075f, _metal);
-                    var signal = Box("Three lens traffic signal", new Vector3(side * 4.8f, 5.25f, z - side * 6.5f), new Vector3(0.40f, 1.0f, 0.28f), _metal);
+                    Tube("Traffic signal pole", signalFoot, signalTop, 0.10f, _metal, true);
+                    Tube("Traffic signal arm", signalTop, armEnd, 0.075f, _metal);
+                    var signal = Box("Three lens traffic signal", armEnd + Vector3.down * .55f, new Vector3(0.40f, 1.0f, 0.28f), _metal);
                     var green = RealismMaterialLibrary.Standard("M_Signal_Green", new Color(0.12f, 0.63f, 0.29f), 0, 0.6f, 1.4f);
                     Box("Signal green lens", signal.transform.position + new Vector3(0, -0.26f, -0.17f), new Vector3(0.21f, 0.21f, 0.04f), green);
-                    var signPosition = new Vector3(side * 9.6f, 4.1f, z - side * 6.5f);
+                    var signPosition = signalFoot + Vector3.up * 3.9f;
                     var streetPlate=RealismMaterialLibrary.Standard("M_Street_Sign_Green",new Color(.035f,.16f,.095f),.15f,.25f);
                     Box("Street name plate", signPosition, new Vector3(2.1f, 0.38f, 0.06f), streetPlate);
                     Sign(streetName, signPosition + Vector3.back * 0.05f, Quaternion.identity, 0.065f, Color.white,1.85f,.22f);

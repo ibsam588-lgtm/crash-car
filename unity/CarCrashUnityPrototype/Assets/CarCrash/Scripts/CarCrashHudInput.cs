@@ -22,6 +22,7 @@ namespace CarCrash
         public bool GarageForMission => _garageForMission;
         public ImpactMission Mission { get; private set; }
         public ElysianPlayGames PlayGames { get; private set; }
+        public ElysianSoundtrack Soundtrack { get; private set; }
         public ImpactCourse SelectedCourse => ImpactCourse.Catalog[_selectedCourse];
         public bool CourseUnlocked => ImpactCareer.Unlocked(_selectedCourse);
         public bool NextCourseUnlocked => ImpactCareer.Unlocked(_selectedCourse + 1);
@@ -77,6 +78,7 @@ namespace CarCrash
             Navigation=gameObject.AddComponent<CityNavigator>();Navigation.player=vehicle.transform;
             Mission = gameObject.AddComponent<ImpactMission>();
             PlayGames = gameObject.AddComponent<ElysianPlayGames>();
+            Soundtrack = ElysianSoundtrack.GetOrCreate();
             ApplyPaint(PaintIndex);
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
