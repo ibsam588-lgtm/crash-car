@@ -161,6 +161,17 @@ namespace CarCrashEditor
                         _session.Hud.ShowHelp(false);
                         _session.OpenGarage();
                         _session.SelectVehicle(0);
+                        Check(GameObject.Find("Speed meter") != null && GameObject.Find("Acceleration meter") != null &&
+                            GameObject.Find("Steering meter") != null && GameObject.Find("Armor meter") != null,
+                            "The garage presents four visual performance gauges");
+                        Check(GameObject.Find("Select vehicle roadbreaker") != null && GameObject.Find("Select vehicle velocity") == null,
+                            "The fleet shelf contains no premium models");
+                        GameObject.Find("Garage premium tab").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(_session.Garage.Current.premium && GameObject.Find("Select vehicle roadbreaker") == null &&
+                            GameObject.Find("Select vehicle velocity") != null,
+                            "The premium tab reveals its own collection and previews a premium model");
+                        GameObject.Find("Garage fleet tab").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(_session.Garage.Current.id == "roadbreaker", "Returning to Fleet restores its previous selection");
                         var readableButtons = true;
                         var uiCanvas = Object.FindFirstObjectByType<Canvas>();
                         foreach (var button in uiCanvas.GetComponentsInChildren<UnityEngine.UI.Button>(true))

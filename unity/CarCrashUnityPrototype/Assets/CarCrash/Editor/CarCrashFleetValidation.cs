@@ -64,14 +64,18 @@ namespace CarCrashEditor
                         _session=Object.FindFirstObjectByType<CarCrashHudInput>();
                         if(_session==null || _session.Hud==null)return;
                         _hadVehicle=PlayerPrefs.HasKey("CarCrash.Vehicle"); _oldVehicle=PlayerPrefs.GetInt("CarCrash.Vehicle");
-                        Check(_session.Garage!=null && _session.Garage.vehicles.Length==9,"The garage offers nine complete vehicle models");
+                        var rides = _session.Garage.vehicles;
+                        Check(Array.FindAll(rides, ride => !ride.premium).Length == 7 &&
+                            Array.FindAll(rides, ride => ride.premium).Length >= 5,
+                            "The garage includes seven fleet vehicles and at least five premium models");
                         _session.OpenGarage();
-                        foreach(var spec in _session.Garage.vehicles)
+                        _session.SelectVehicle(0);
+                        foreach(var spec in rides)
                         {
                             var button=GameObject.Find("Select vehicle "+spec.id)?.GetComponent<Button>();
                             if (button == null)
                             {
-                                GameObject.Find("More vehicles")?.GetComponent<Button>().onClick.Invoke();
+                                GameObject.Find(spec.premium ? "Garage premium tab" : "Garage fleet tab")?.GetComponent<Button>().onClick.Invoke();
                                 button=GameObject.Find("Select vehicle "+spec.id)?.GetComponent<Button>();
                             }
                             Check(button!=null,"A working garage card exists for "+spec.displayName);
@@ -86,6 +90,10 @@ namespace CarCrashEditor
                         CheckEditionHardware("police", "Patrol lightbar plinth");
                         CheckEditionHardware("velocity", "Velocity RS carbon aerofoil");
                         CheckEditionHardware("bulwark", "Bulwark upper brush guard");
+                        CheckEditionHardware("solstice", "Integrated fastback deck lip");
+                        CheckEditionHardware("switchback", "Rally roof scoop");
+                        CheckEditionHardware("undertow", "Full-width front luminous belt");
+                        CheckEditionHardware("monarch", "Shooting brake liftgate spoiler");
                         CheckGarageUpgrades();
                         _session.SelectVehicle(0);
                         foreach(var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))traffic.gameObject.SetActive(false);

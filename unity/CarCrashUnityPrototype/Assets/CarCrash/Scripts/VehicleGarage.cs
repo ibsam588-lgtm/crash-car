@@ -6,15 +6,18 @@ namespace CarCrash
     [Serializable]
     public sealed class GarageVehicle
     {
-        public string id, displayName, category, description;
+        public string id, displayName, shortName, category, description;
         public GameObject visualPrefab;
         public Vector3 size, colliderCenter, colliderSize;
         public Vector3[] wheelCenters = new Vector3[4];
         public float wheelRadius = 0.385f, mass = 1350f, topSpeed = 192f, acceleration = 7.2f;
         public float suspension = 0.18f, spring = 42000f, damper = 5400f;
         public float steering = 29f, reverseSpeed = 30f;
-        public bool allWheelDrive;
+        public bool allWheelDrive, premium;
         [Range(0f, 1f)] public float impactResistance, trafficPush;
+        internal int defaultPaint;
+        internal Vector3 driverHead;
+        internal Color stockHeadlight;
 
         internal GarageVehicle Variant(string variantId, string name, string type, string blurb)
         {
@@ -38,7 +41,8 @@ namespace CarCrash
         private GarageUpgradeVisuals _upgradeVisuals;
         private HeadlightProfile Lamp => GarageCustomization.Lamps[GetUpgrade(GarageUpgrade.Headlights)];
 
-        public Color HeadlightColor => Lamp.Color;
+        public Color HeadlightColor => Current?.premium == true && GetUpgrade(GarageUpgrade.Headlights) == 0
+            ? Current.stockHeadlight : Lamp.Color;
         public float HeadlightRange => Lamp.Range;
         public float HeadlightAngle => Lamp.Angle;
         public float HeadlightIntensityScale => Lamp.Intensity;
@@ -47,6 +51,17 @@ namespace CarCrash
         {
             foreach (var vehicle in vehicles)
             {
+                if (string.IsNullOrEmpty(vehicle.shortName))
+                    vehicle.shortName = vehicle.id switch
+                    {
+                        "roadbreaker" => "Roadbreaker",
+                        "apex" => "Apex GT",
+                        "suv" => "Summit AWD",
+                        "pickup" => "Ridgeback",
+                        "hauler" => "Atlas Hauler",
+                        "monster" => "Ironclaw",
+                        _ => vehicle.displayName
+                    };
                 (vehicle.impactResistance, vehicle.trafficPush) = vehicle.id switch
                 {
                     "roadbreaker" => (.12f, .06f),
@@ -59,12 +74,12 @@ namespace CarCrash
                 };
             }
 
-            if (Array.Find(vehicles, vehicle => vehicle.id == "roadbreaker") is { } coupe &&
-                Array.Find(vehicles, vehicle => vehicle.id == "apex") is { } roadster &&
-                Array.Find(vehicles, vehicle => vehicle.id == "pickup") is { } truck)
+            if (!Array.Exists(vehicles, vehicle => vehicle.id == "police") &&
+                Array.Find(vehicles, vehicle => vehicle.id == "roadbreaker") is { } coupe)
             {
                 var police = coupe.Variant("police", "ELYSIAN INTERCEPTOR", "PURSUIT CRUISER",
                     "Quick turn-in, a reinforced push bar and a low-profile lightbar.");
+                police.shortName = "Interceptor";
                 police.mass = 1630f;
                 police.topSpeed = 216f;
                 police.acceleration = 8.4f;
@@ -76,37 +91,10 @@ namespace CarCrash
                 police.impactResistance = .34f;
                 police.trafficPush = .26f;
 
-                var velocity = roadster.Variant("velocity", "VELOCITY RS", "TRACK SPECIAL",
-                    "A light, fast roadster with a rear wing and a close-ratio gearbox.");
-                velocity.mass = 1220f;
-                velocity.topSpeed = 252f;
-                velocity.acceleration = 10.8f;
-                velocity.steering = 32f;
-                velocity.spring = 47000f;
-                velocity.damper = 6000f;
-                velocity.impactResistance = .05f;
-                velocity.trafficPush = .03f;
-
-                var bulwark = truck.Variant("bulwark", "BULWARK XR", "ARMORED 4×4",
-                    "A reinforced truck with a brush guard, recovery gear and all-wheel drive.");
-                bulwark.mass = 3220f;
-                bulwark.topSpeed = 162f;
-                bulwark.acceleration = 6.4f;
-                bulwark.steering = 30f;
-                bulwark.spring *= 1.30f;
-                bulwark.damper *= 1.23f;
-                bulwark.colliderCenter.z += .10f;
-                bulwark.colliderSize.z += .20f;
-                bulwark.impactResistance = .86f;
-                bulwark.trafficPush = .82f;
-
-                foreach (var variant in new[] { police, velocity, bulwark })
-                {
-                    if (Array.Exists(vehicles, vehicle => vehicle.id == variant.id)) continue;
-                    Array.Resize(ref vehicles, vehicles.Length + 1);
-                    vehicles[^1] = variant;
-                }
+                Array.Resize(ref vehicles, vehicles.Length + 1);
+                vehicles[^1] = police;
             }
+            vehicles = PremiumVehicleFleet.Append(vehicles);
         }
 
         public bool TryGetHeadlightLenses(out Vector3 left, out Vector3 right)
@@ -123,7 +111,8 @@ namespace CarCrash
             return index >= 0 && index < _upgrades.Length ? _upgrades[index] : 0;
         }
 
-        public int GetPaint(int fallback) => Current == null ? fallback : PlayerPrefs.GetInt(GarageCustomization.PaintKey(Current.id), fallback);
+        public int GetPaint(int fallback) => Current == null ? fallback : PlayerPrefs.GetInt(
+            GarageCustomization.PaintKey(Current.id), Current.premium ? Current.defaultPaint : fallback);
 
         public void RememberPaint(int paint)
         {
@@ -174,6 +163,7 @@ namespace CarCrash
             if (visualRoot != null) { visualRoot.gameObject.SetActive(false); Destroy(visualRoot.gameObject); }
             visualRoot = Instantiate(spec.visualPrefab, transform, false).transform;
             visualRoot.name = "Selected vehicle / " + spec.id;
+            if (spec.premium) visualRoot.gameObject.AddComponent<PremiumVehicleMaterials>().Fit(spec);
             var shape = GetComponent<BoxCollider>();
             shape.center = spec.colliderCenter;
             shape.size = spec.colliderSize;
@@ -215,6 +205,8 @@ namespace CarCrash
             _upgradeVisuals.Bind(transform, spec, visuals);
             LoadUpgrades(spec.id);
             VehicleCabinOccupant.InstallPlayer(transform, spec.id);
+            if (spec.premium && transform.Find("Cabin driver") is { } driver)
+                driver.localPosition = spec.driverHead;
             controller.ResetForRelaunch(0f);
         }
 

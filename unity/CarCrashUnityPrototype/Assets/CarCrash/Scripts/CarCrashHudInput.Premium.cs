@@ -6,17 +6,21 @@ namespace CarCrash
 {
     public sealed partial class CarCrashHudInput
     {
-        public bool SelectedRideLocked => Garage?.Current != null && RideLocked(Garage.Current.id);
+        public bool SelectedRideLocked => RideLocked(Garage?.Current);
 
-        public static bool IsPremiumRide(string id) => id is "velocity" or "bulwark";
+        public static bool RideLocked(GarageVehicle ride) => ride?.premium == true && RentalRemaining(ride) == TimeSpan.Zero;
 
-        public static bool RideLocked(string id) => IsPremiumRide(id) &&
-            (!long.TryParse(PlayerPrefs.GetString(RentalKey(id)), NumberStyles.None, CultureInfo.InvariantCulture, out var expires) ||
-                expires <= DateTime.UtcNow.Ticks);
+        public static TimeSpan RentalRemaining(GarageVehicle ride)
+        {
+            if (ride?.premium != true || !long.TryParse(PlayerPrefs.GetString(RentalKey(ride.id)),
+                NumberStyles.None, CultureInfo.InvariantCulture, out var expires) || expires > DateTime.MaxValue.Ticks)
+                return TimeSpan.Zero;
+            return TimeSpan.FromTicks(Math.Max(0L, expires - DateTime.UtcNow.Ticks));
+        }
 
         public void RewardPremiumVideo(string id)
         {
-            if (Phase != RunPhase.Showroom || Garage?.Current?.id != id || !RideLocked(id)) return;
+            if (Phase != RunPhase.Showroom || Garage?.Current?.id != id || !SelectedRideLocked) return;
             PlayerPrefs.SetString(RentalKey(id), DateTime.UtcNow.AddDays(1).Ticks.ToString(CultureInfo.InvariantCulture));
             RememberRide();
             Hud.RefreshVehicle();
@@ -28,7 +32,7 @@ namespace CarCrash
         {
             if (Garage.vehicles.Length == 0) return 0;
             var index = Mathf.Clamp(PlayerPrefs.GetInt("CarCrash.Vehicle", 0), 0, Garage.vehicles.Length - 1);
-            return !RideLocked(Garage.vehicles[index].id) ? index : 0;
+            return !RideLocked(Garage.vehicles[index]) ? index : 0;
         }
 
         private void RememberRide()
