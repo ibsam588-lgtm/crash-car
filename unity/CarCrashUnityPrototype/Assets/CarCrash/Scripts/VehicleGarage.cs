@@ -14,6 +14,17 @@ namespace CarCrash
         public float suspension = 0.18f, spring = 42000f, damper = 5400f;
         public float steering = 29f, reverseSpeed = 30f;
         public bool allWheelDrive;
+        [Range(0f, 1f)] public float impactResistance, trafficPush;
+
+        internal GarageVehicle Variant(string variantId, string name, string type, string blurb)
+        {
+            var variant = (GarageVehicle)MemberwiseClone();
+            variant.id = variantId;
+            variant.displayName = name;
+            variant.category = type;
+            variant.description = blurb;
+            return variant;
+        }
     }
 
     [RequireComponent(typeof(ArcadeVehicleController))]
@@ -31,6 +42,72 @@ namespace CarCrash
         public float HeadlightRange => Lamp.Range;
         public float HeadlightAngle => Lamp.Angle;
         public float HeadlightIntensityScale => Lamp.Intensity;
+
+        private void Awake()
+        {
+            foreach (var vehicle in vehicles)
+            {
+                (vehicle.impactResistance, vehicle.trafficPush) = vehicle.id switch
+                {
+                    "roadbreaker" => (.12f, .06f),
+                    "apex" => (.06f, .04f),
+                    "suv" => (.38f, .32f),
+                    "pickup" => (.47f, .45f),
+                    "hauler" => (.66f, .71f),
+                    "monster" => (.73f, 1f),
+                    _ => (vehicle.impactResistance, vehicle.trafficPush)
+                };
+            }
+
+            if (Array.Find(vehicles, vehicle => vehicle.id == "roadbreaker") is { } coupe &&
+                Array.Find(vehicles, vehicle => vehicle.id == "apex") is { } roadster &&
+                Array.Find(vehicles, vehicle => vehicle.id == "pickup") is { } truck)
+            {
+                var police = coupe.Variant("police", "ELYSIAN INTERCEPTOR", "PURSUIT CRUISER",
+                    "Quick turn-in, a reinforced push bar and a low-profile lightbar.");
+                police.mass = 1630f;
+                police.topSpeed = 216f;
+                police.acceleration = 8.4f;
+                police.steering = 33f;
+                police.spring = 49000f;
+                police.damper = 6200f;
+                police.colliderCenter.z += .095f;
+                police.colliderSize.z += .19f;
+                police.impactResistance = .34f;
+                police.trafficPush = .26f;
+
+                var velocity = roadster.Variant("velocity", "VELOCITY RS", "TRACK SPECIAL",
+                    "A light, fast roadster with a rear wing and a close-ratio gearbox.");
+                velocity.mass = 1220f;
+                velocity.topSpeed = 252f;
+                velocity.acceleration = 10.8f;
+                velocity.steering = 32f;
+                velocity.spring = 47000f;
+                velocity.damper = 6000f;
+                velocity.impactResistance = .05f;
+                velocity.trafficPush = .03f;
+
+                var bulwark = truck.Variant("bulwark", "BULWARK XR", "ARMORED 4×4",
+                    "A reinforced truck with a brush guard, recovery gear and all-wheel drive.");
+                bulwark.mass = 3220f;
+                bulwark.topSpeed = 162f;
+                bulwark.acceleration = 6.4f;
+                bulwark.steering = 30f;
+                bulwark.spring *= 1.30f;
+                bulwark.damper *= 1.23f;
+                bulwark.colliderCenter.z += .10f;
+                bulwark.colliderSize.z += .20f;
+                bulwark.impactResistance = .86f;
+                bulwark.trafficPush = .82f;
+
+                foreach (var variant in new[] { police, velocity, bulwark })
+                {
+                    if (Array.Exists(vehicles, vehicle => vehicle.id == variant.id)) continue;
+                    Array.Resize(ref vehicles, vehicles.Length + 1);
+                    vehicles[^1] = variant;
+                }
+            }
+        }
 
         public bool TryGetHeadlightLenses(out Vector3 left, out Vector3 right)
         {

@@ -45,11 +45,11 @@ namespace CarCrash
             ShowNextGate();
         }
 
-        public void StartDriving()
+        public void StartDriving(bool timeTrial = false)
         {
             SyncPosition();
             Running = true;
-            Notice("Break marked targets  /  Follow the course", 4f);
+            Notice(timeTrial ? "Race the clock  /  Clear each checkpoint" : "Break marked targets  /  Follow the course", 4f);
         }
 
         public void SyncPosition() => _previous = VehicleBody.position;

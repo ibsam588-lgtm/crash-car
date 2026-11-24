@@ -37,7 +37,7 @@ namespace CarCrash
         private float _displaySpeed;
         private float _displayScore;
         private GameObject _home, _help, _briefing, _showroom, _race, _controls, _pause, _results, _missionResults, _countdown, _map, _missionMap;
-        private Text _timerCaption, _modeCaption;
+        private Text _timerCaption, _modeCaption, _scoreCaption;
         private Text _score, _hits, _combo, _timer, _speed, _gear, _boostLabel, _integrity, _cameraLabel, _eventLabel;
         private Text _paintLabel, _countdownText, _impactTitle, _impactScore;
         private Text _vehicleName, _vehicleSpecs;
@@ -48,7 +48,7 @@ namespace CarCrash
         private GameObject _goldLock, _goldHint;
         private readonly Text[] _targetAmounts = new Text[ImpactTargetSpec.Points.Length];
         private RacingHudGraphic _coursePreview, _missionRoute;
-        private readonly Graphic[] _vehicleCards = new Graphic[6];
+        private Graphic[] _vehicleCards;
         private readonly Graphic[] _destinationCards = new Graphic[6];
         private CanvasGroup _impact;
         private RacingHudGraphic _dial, _radar, _atmosphere, _worldMap;
@@ -94,6 +94,7 @@ namespace CarCrash
             if (_canvas != null && (_lastSize.x != Screen.width || _lastSize.y != Screen.height || _lastSafeArea != Screen.safeArea))
                 RebuildLayout();
             if (SettingsVisible) RefreshSettings();
+            StepPremiumVideo();
         }
 
         private void RebuildLayout()
@@ -140,6 +141,8 @@ namespace CarCrash
             BuildResults(_results.transform);
             _missionResults = Group(_safe, "Impact Run results");
             BuildMissionResults(_missionResults.transform);
+            _timeTrialResults = Group(_safe, "Time trial results");
+            BuildTrialResults(_timeTrialResults.transform);
             _map=Group(_safe,"Explore city map");BuildCityMap(_map.transform);
             _missionMap = Group(_safe, "Mission route map");
             BuildMissionMap(_missionMap.transform);
@@ -150,6 +153,7 @@ namespace CarCrash
             BuildSettings(_settings.transform);
             ShowSettings(settingsWasVisible);
             BuildDrivingDemoHud();
+            if (PremiumVideoVisible) BuildPremiumOverlay();
             RefreshPaint();
             RefreshVehicle();
             RefreshPhase();
@@ -176,10 +180,12 @@ namespace CarCrash
             dock.cornerRadius = 19f;
             if (_portrait)
             {
-                IconAction(dock.transform, "Impact Run", "Impact Run", RacingHudGraphic.Symbol.Bolt,
-                    14, 14, width - 28, 63, _session.StartImpactRun, true);
                 var tileWidth = (width - 38f) * .5f;
-                HomeCard(dock.transform, "Free Drive", "Free Drive", "Explore the city", 14, 88, tileWidth, 76,
+                IconAction(dock.transform, "Impact Run", "Impact Run", RacingHudGraphic.Symbol.Bolt,
+                    14, 14, tileWidth, 63, _session.StartImpactRun, true);
+                HomeCard(dock.transform, "Race mode", "Race", "Time trials", 24 + tileWidth, 14, tileWidth, 63,
+                    _session.StartTimeTrial, RacingHudGraphic.Symbol.Play);
+                HomeCard(dock.transform, "Free Drive", "Free Drive", "Smash for points", 14, 88, tileWidth, 76,
                     _session.StartFreeDrive, RacingHudGraphic.Symbol.Map);
                 HomeCard(dock.transform, "Open garage", "Garage", "Customize your car", 24 + tileWidth, 88, tileWidth, 76,
                     _session.OpenGarage, RacingHudGraphic.Symbol.Garage);
@@ -187,13 +193,15 @@ namespace CarCrash
             else
             {
                 const float inset = 15, gap = 12;
-                var tileWidth = (width - inset * 2 - gap * 2) / 3f;
+                var tileWidth = (width - inset * 2 - gap * 3) / 4f;
                 var tileHeight = dockHeight - inset * 2;
                 IconAction(dock.transform, "Impact Run", "Impact Run", RacingHudGraphic.Symbol.Bolt,
                     inset, inset, tileWidth, tileHeight, _session.StartImpactRun, true);
-                HomeCard(dock.transform, "Free Drive", "Free Drive", "Explore the city", inset + tileWidth + gap, inset,
+                HomeCard(dock.transform, "Race mode", "Race", "Time trials", inset + tileWidth + gap, inset,
+                    tileWidth, tileHeight, _session.StartTimeTrial, RacingHudGraphic.Symbol.Play);
+                HomeCard(dock.transform, "Free Drive", "Free Drive", "Smash for points", inset + (tileWidth + gap) * 2, inset,
                     tileWidth, tileHeight, _session.StartFreeDrive, RacingHudGraphic.Symbol.Map);
-                HomeCard(dock.transform, "Open garage", "Garage", "Customize your car", inset + (tileWidth + gap) * 2, inset,
+                HomeCard(dock.transform, "Open garage", "Garage", "Customize your car", inset + (tileWidth + gap) * 3, inset,
                     tileWidth, tileHeight, _session.OpenGarage, RacingHudGraphic.Symbol.Garage);
             }
             if (!Application.isMobilePlatform)
@@ -207,7 +215,8 @@ namespace CarCrash
             var h = Mathf.Min(_height - 30, _portrait ? 690 : 500);
             const float pad = 22f;
             var panel = Shape(root, "Course card", (_width - w) * .5f, (_height - h) * .5f, w, h, RacingHudGraphic.Shape.Panel, PanelColor);
-            Label(panel.transform, "IMPACT RUN", pad, 17, w - 156, 28, 16, Accent).font = _mediumFont;
+            _courseMode = Label(panel.transform, "IMPACT RUN", pad, 17, w - 156, 28, 16, Accent);
+            _courseMode.font = _mediumFont;
             _courseIndex = Label(panel.transform, "", w - 188, 19, 62, 42, 15, Muted, TextAnchor.MiddleCenter);
             IconAction(panel.transform, "Previous course", "", RacingHudGraphic.Symbol.ArrowLeft, w - 121, 19, 44, 42, () => _session.ChangeCourse(-1));
             IconAction(panel.transform, "Next course preview", "", RacingHudGraphic.Symbol.ArrowRight, w - 69, 19, 44, 42, () => _session.ChangeCourse(1));
@@ -221,13 +230,15 @@ namespace CarCrash
             _coursePreview = Shape(panel.transform, "Course preview map", mapX, mapY, mapWidth, mapHeight,
                 RacingHudGraphic.Shape.CoursePreview, Ink);
             _courseBrief = Label(panel.transform, "", pad, 116, infoWidth, 66, 17, Muted, TextAnchor.UpperLeft);
-            Label(panel.transform, "Smash marked obstacles. Cross the finish to bank your score.", pad, _portrait ? 183 : 179,
+            _courseInstruction = Label(panel.transform, "Smash marked obstacles. Cross the finish to bank your score.", pad, _portrait ? 183 : 179,
                 infoWidth, 44, 16, White, TextAnchor.UpperLeft);
 
             var statsY = _portrait ? mapY + mapHeight + 13 : 231;
             _courseMedals = Label(panel.transform, "", pad, statsY, infoWidth, 32, 14, Accent);
-            Label(panel.transform, "Cones 10  /  Crates 25  /  Barriers 50\nStreetlights 100  /  Wrecks 200", pad, statsY + 36,
+            _coursePointsHelp = Label(panel.transform, "Cones 10  /  Crates 25  /  Barriers 50\nStreetlights 100  /  Wrecks 200", pad, statsY + 36,
                 infoWidth, 44, 13, Muted, TextAnchor.UpperLeft);
+            _dailyTrialButton = ActionButton(panel.transform, "Daily trial", "Daily trial", pad, statsY + 37,
+                Mathf.Min(infoWidth, 188f), 39, _session.ToggleDailyTrial, TileColor, White, 14);
             _courseRide = Label(panel.transform, "", pad, statsY + 84, infoWidth, 24, 15, White);
             _courseStatus = Label(panel.transform, "", pad, statsY + 111, _portrait ? infoWidth : w - pad * 2,
                 26, 14, Muted);
@@ -243,6 +254,18 @@ namespace CarCrash
         public void RefreshBriefing()
         {
             var course = _session.SelectedCourse;
+            var trial = _session.IsTrial;
+            SetText(_courseMode, trial ? "RACE MODE" : "IMPACT RUN");
+            SetText(_courseInstruction, trial ? "Beat your best time. Recovery adds 4 seconds." :
+                "Smash marked obstacles. Cross the finish to bank your score.");
+            _coursePointsHelp.gameObject.SetActive(!trial);
+            _dailyTrialButton.gameObject.SetActive(trial);
+            SetText(_startMission.GetComponentInChildren<Text>(), trial ? "Start race" : "Start run");
+            if (trial)
+            {
+                RefreshTrialBriefing(course);
+                return;
+            }
             SetText(_courseName, course.Name);
             SetText(_courseIndex, $"{System.Array.IndexOf(ImpactCourse.Catalog, course) + 1} / {ImpactCourse.Catalog.Length}");
             SetText(_courseBrief, course.Brief);
@@ -299,9 +322,9 @@ namespace CarCrash
             Label(root,"Garage",pad,_compactWide ? 102 : 122,_width-pad*2,50,_portrait||_compactWide ? 30 : 45,White);
             var footerY=_height-(_portrait ? Mathf.Max(456,Units(350)) : 164);
             var footer=Shape(root,"Garage selection sheet",_portrait ? 12 : 24,footerY,_width-(_portrait ? 24 : 48),_height-footerY+18,RacingHudGraphic.Shape.Panel,new Color(.025f,.045f,.08f,.97f));
-            Label(root,"Selected ride",pad,footerY+18,260,20,12,Muted);
-            _vehicleName=Label(root,"",pad,footerY+43,_portrait ? _width-pad*2 : 370,36,_portrait ? 25 : 29,White);
-            _vehicleSpecs=Label(root,"",pad,footerY+80,_portrait ? _width-pad*2 : 375,24,13,Muted);
+            _vehicleSlot = Label(root,"Selected ride",pad,footerY+16,_portrait ? _width-pad*2-150 : 260,23,12,Muted);
+            _vehicleName=Label(root,"",pad,footerY+39,_portrait ? _width-pad*2 : 370,36,_portrait ? 25 : 29,White);
+            _vehicleSpecs=Label(root,"",pad,footerY+76,_portrait ? _width-pad*2 : 375,37,13,Muted);
             BuildVehicleChoices(root,pad,_portrait ? footerY+117 : _compactWide ? 169 : 276);
             var paintX=_portrait ? pad : _width*.43f;
             var paintY=footerY+(_portrait ? 286 : 29);
@@ -330,9 +353,8 @@ namespace CarCrash
             var actionsX = _portrait ? pad : _width - 348f;
             var actionsY = _portrait ? _height - Units(12) - driveHeight : footerY + 44f;
             var customizeWidth = (actionsWidth - 8f) * .47f;
-            var customize = ActionButton(root, "Customize ride", "Customize", actionsX, actionsY, customizeWidth, driveHeight,
+            _customizeRide = ActionButton(root, "Customize ride", "Customize", actionsX, actionsY, customizeWidth, driveHeight,
                 () => ShowCustomization(true), TileColor, White, 15);
-            customize.interactable = _session.Garage != null;
             _garageDrive = IconAction(root, "Start engine", "Drive this ride", RacingHudGraphic.Symbol.ArrowRight,
                 actionsX + customizeWidth + 8f, actionsY, actionsWidth - customizeWidth - 8f, driveHeight, _session.ConfirmGarage, true).GetComponentInChildren<Text>();
             BuildCustomization(showroom);
@@ -340,21 +362,26 @@ namespace CarCrash
 
         private void BuildVehicleChoices(Transform root,float pad,float y)
         {
-            if(_session.Garage==null)return;
+            var vehicles = _session.Garage?.vehicles;
+            _vehicleCards = new Graphic[vehicles?.Length ?? 0];
+            if (vehicles == null || vehicles.Length == 0) return;
             var columns=_portrait||_compactWide ? 3 : 2;
             var width=_portrait ? (_width-pad*2-16)/3 : _compactWide ? 164 : 180;
             var height=_portrait ? 72 : _compactWide ? 54 : 72;
-            var shortNames=new[]{"Roadbreaker","Apex GT","Summit","Ridgeback","Atlas","Ironclaw"};
-            if(_portrait&&_width<470){shortNames[0]="GT";shortNames[3]="Ridge";}
-            var types=new[]{"Coupe","Sport","SUV","Pickup","Truck","Monster"};
-            for(var i=0;i<Mathf.Min(6,_session.Garage.vehicles.Length);i++)
+            var shortNames=new[]{"Roadbreaker","Apex GT","Summit","Ridgeback","Atlas","Ironclaw","Interceptor","Velocity RS","Bulwark XR"};
+            if(_portrait&&_width<470){shortNames[0]="Road GT";shortNames[3]="Ridge";}
+            var types=new[]{"Coupe","Sport","SUV","Pickup","Truck","Monster","Police","Premium","Premium"};
+            for(var i=0;i<vehicles.Length;i++)
             {
-                var index=i;var spec=_session.Garage.vehicles[i];
-                var button=ActionButton(root,"Select vehicle "+spec.id,"",pad+i%columns*(width+8),y+i/columns*(height+8),width,height,()=>_session.SelectVehicle(index),PanelColor,White);
+                var index=i;var spec=vehicles[i];
+                var slot = i % VehiclePageSize;
+                var button=ActionButton(root,"Select vehicle "+spec.id,"",pad+slot%columns*(width+8),y+slot/columns*(height+8),width,height,()=>_session.SelectVehicle(index),PanelColor,White);
                 _vehicleCards[i]=button.targetGraphic;
-                Label(button.transform,shortNames[i],10,13,width-20,24,PixelFont(15,16),White).font=_mediumFont;
-                if(!_compactWide)Label(button.transform,types[i],10,44,width-20,20,12,Muted);
+                Label(button.transform,i < shortNames.Length ? shortNames[i] : TitleCase(spec.displayName),
+                    10,13,width-20,24,PixelFont(15,16),White).font=_mediumFont;
+                if(!_compactWide)Label(button.transform,i < types.Length ? types[i] : TitleCase(spec.category),10,44,width-20,20,12,Muted);
             }
+            BuildVehiclePager(root, pad, y);
         }
 
         private void BuildRace(Transform root)
@@ -383,7 +410,7 @@ namespace CarCrash
 
             var scoreX = right - pauseSize - gap - scoreWidth;
             var scoreCard = Shape(root, "Impact score card", scoreX, top, scoreWidth, headerHeight, RacingHudGraphic.Shape.Panel, PanelColor);
-            Label(scoreCard.transform, "Score", 12, 6, scoreWidth - 24, 18, 12, Muted);
+            _scoreCaption = Label(scoreCard.transform, "Score", 12, 6, scoreWidth - 24, 18, 12, Muted);
             _score = Label(scoreCard.transform, "0", 12, 23, scoreWidth - 24, 34, 25, White);
             _score.resizeTextForBestFit = true;
             _score.resizeTextMinSize = 14;
@@ -633,8 +660,9 @@ namespace CarCrash
             _showroom.SetActive(phase == CarCrashHudInput.RunPhase.Showroom);
             if (_showroom.activeSelf)
             {
-                SetText(_garageBack, _session.GarageForMission ? "Mission" : "Home");
-                SetText(_garageDrive, _session.GarageForMission ? "Use this car" : "Drive this ride");
+                SetText(_garageBack, _session.GarageForMission ? (_session.IsTrial ? "Race" : "Mission") : "Home");
+                ShowSelectedVehiclePage();
+                RefreshVehicle();
             }
             _race.SetActive(phase is CarCrashHudInput.RunPhase.Driving or CarCrashHudInput.RunPhase.Countdown);
             _controls.SetActive(phase == CarCrashHudInput.RunPhase.Driving);
@@ -643,8 +671,10 @@ namespace CarCrash
             _map.SetActive(_session.MapVisible && !_session.IsMission);
             _missionMap.SetActive(_session.MapVisible && _session.IsMission);
             _results.SetActive(phase == CarCrashHudInput.RunPhase.Results && !_session.IsMission);
-            _missionResults.SetActive(phase == CarCrashHudInput.RunPhase.Results && _session.IsMission && !_session.DrivingDemoActive);
+            _missionResults.SetActive(phase == CarCrashHudInput.RunPhase.Results && _session.IsMission && !_session.IsTrial && !_session.DrivingDemoActive);
+            _timeTrialResults.SetActive(phase == CarCrashHudInput.RunPhase.Results && _session.IsTrial);
             if (_missionResults.activeSelf) RefreshMissionResults();
+            if (_timeTrialResults.activeSelf) RefreshTrialResults();
             if (_results.activeSelf)
             {
                 ResultText("Result status", _session.NewBest ? "New personal best" : "Drive complete");
@@ -682,7 +712,7 @@ namespace CarCrash
         {
             var spec=_session.Garage != null ? _session.Garage.Current : null;
             SetText(_vehicleName,spec != null ? TitleCase(spec.displayName) : "Roadbreaker GT");
-            SetText(_vehicleSpecs,(spec != null ? TitleCase(spec.category) : "Performance coupe")+" / "+_session.vehicle.maxSpeedKmh.ToString("0")+" km/h");
+            RefreshVehicleDetails(spec);
             for (var i=0;i<_vehicleCards.Length;i++)
                 if (_vehicleCards[i]!=null)
                 {
@@ -712,12 +742,19 @@ namespace CarCrash
             SetText(_score, Mathf.RoundToInt(_displayScore).ToString("N0"));
             SetText(_hits, $"{hits} hits");
             SetText(_combo, course != null ? "PTS" : $"x{score.LastMultiplier:0.0}");
-            var seconds = _session.IsTimed ? Mathf.Max(0, Mathf.CeilToInt(_session.SelectedCourse.TimeLimit - _session.ElapsedSeconds))
+            if (_session.IsTrial)
+            {
+                SetText(_score, $"{course.PassedCheckpoints}/{course.CheckpointCount}");
+                SetText(_hits, "Cleared");
+                SetText(_combo, "RACE");
+            }
+            SetText(_scoreCaption, _session.IsTrial ? "Checkpoints" : "Score");
+            var seconds = _session.IsTimed && !_session.IsTrial ? Mathf.Max(0, Mathf.CeilToInt(_session.SelectedCourse.TimeLimit - _session.ElapsedSeconds))
                 : Mathf.FloorToInt(_session.ElapsedSeconds);
             SetText(_timer, $"{seconds / 60:00}:{seconds % 60:00}");
-            if (_timerCaption != null) SetText(_timerCaption, _session.IsTimed ? "Time left" : "Session");
-            SetText(_modeCaption, _session.DrivingDemoActive ? "Driving demo" : course != null ? "Impact Run" : "Free roam");
-            _timer.color = _session.IsTimed && seconds <= 10 ? new Color(1f, 0.36f, 0.22f) : White;
+            if (_timerCaption != null) SetText(_timerCaption, _session.IsTrial ? "Race time" : _session.IsTimed ? "Time left" : "Session");
+            SetText(_modeCaption, _session.DrivingDemoActive ? "Driving demo" : _session.IsTrial ? "Time trial" : course != null ? "Impact Run" : "Free Drive");
+            _timer.color = !_session.IsTrial && _session.IsTimed && seconds <= 10 ? new Color(1f, 0.36f, 0.22f) : White;
             SetText(_speed, Mathf.RoundToInt(_displaySpeed).ToString("0"));
             SetText(_gear, car.Reversing ? "R" : car.SpeedKmh < 1f ? "N" : Mathf.Clamp(Mathf.FloorToInt(car.SpeedKmh / 38f) + 1, 1, 6).ToString());
             SetText(_cameraLabel, _portrait&&_width<450 ? "View" : _session.CameraRig.View.ToString());
@@ -757,7 +794,7 @@ namespace CarCrash
                 ? Mathf.Clamp01((feedbackDuration - sinceImpact) * 2.8f) : 0f;
             if (_impact.alpha > 0)
             {
-                SetText(_impactTitle, course != null ? course.LastTarget : score.LastChainDepth > 0 ? $"Chain reaction  x{score.LastChainDepth + 1}" : "Solid impact");
+                SetText(_impactTitle, course != null ? course.LastTarget : score.LastImpactLabel);
                 SetText(_impactScore, $"+{(course != null ? course.LastPoints : score.LastImpactScore):N0}");
                 _impact.transform.localScale = Vector3.one * (1f + Mathf.Max(0f, 0.16f - sinceImpact) * 0.8f);
             }

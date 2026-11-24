@@ -20,6 +20,7 @@ namespace CarCrash
         public float LastDamageKmh { get; private set; }
         public Vector3 LastDamagePoint { get; private set; }
         public int LastImpactScore { get; private set; }
+        public string LastImpactLabel { get; private set; }
         public float LastImpactKmh { get; private set; }
         public int LastChainDepth { get; private set; }
         public int PeakChainDepth { get; private set; }
@@ -27,6 +28,8 @@ namespace CarCrash
         public float LastImpactRealtime { get; private set; } = -10f;
         public bool SlowMotionActive => _slowMotionRoutine != null;
         public bool SimulationPaused { get; private set; }
+        public bool AwardCityPropPoints { get; set; } = true;
+        public bool ImpactSlowMotionEnabled { get; set; } = true;
 
         private Coroutine _slowMotionRoutine;
         private float _activeSlowMotionScale = 1f;
@@ -70,6 +73,7 @@ namespace CarCrash
             RegisterDamage(point, impactKmh, impactKmh * 0.08f * (1f + LastChainDepth * 0.10f));
             LastImpactKmh = impactKmh;
             LastImpactScore = Mathf.RoundToInt(impactKmh * scorePerKmh * LastMultiplier + LastChainDepth * 520f);
+            LastImpactLabel = LastChainDepth > 0 ? $"Chain reaction  x{LastChainDepth + 1}" : "Traffic impact";
             Score += LastImpactScore;
             LastImpactRealtime = Time.realtimeSinceStartup;
             GetComponent<VehicleImpactEffects>()?.EmitImpact(point, -relativeVelocity.normalized, relativeVelocity, impactKmh);
@@ -80,13 +84,33 @@ namespace CarCrash
                 KickLooseParts(point, direction, impactKmh);
             }
 
-            if (_slowMotionRoutine != null)
+            if (ImpactSlowMotionEnabled)
             {
-                StopCoroutine(_slowMotionRoutine);
+                if (_slowMotionRoutine != null) StopCoroutine(_slowMotionRoutine);
+                _slowMotionRoutine = StartCoroutine(SlowMotionBurst(LastChainDepth));
             }
-            _slowMotionRoutine = StartCoroutine(SlowMotionBurst(LastChainDepth));
 
             Debug.Log($"[CrashChain] vehicle={target.name} depth={LastChainDepth} impact={impactKmh:F1} score={LastImpactScore} total={Score}");
+        }
+
+        public void RegisterCityPropBreak(VehicleImpactSurface surface, float speedKmh)
+        {
+            if (!AwardCityPropPoints || SimulationPaused) return;
+            var (label, points) = surface switch
+            {
+                VehicleImpactSurface.Glass => ("Storefront glass", 80),
+                VehicleImpactSurface.Wood => ("Tree down", 125),
+                VehicleImpactSurface.Metal => ("Street fixture", 65),
+                _ => ("Street prop", 35)
+            };
+            Hits++;
+            LastChainDepth = 0;
+            LastMultiplier = 1f;
+            LastImpactKmh = speedKmh;
+            LastImpactLabel = label;
+            LastImpactScore = points;
+            Score += points;
+            LastImpactRealtime = Time.realtimeSinceStartup;
         }
 
         public void RegisterSceneryDamage(Vector3 point, float closingSpeedKmh)
@@ -97,7 +121,8 @@ namespace CarCrash
 
         private void RegisterDamage(Vector3 point, float speedKmh, float amount)
         {
-            Damage = Mathf.Min(100f, Damage + amount);
+            var resistance = GetComponent<VehicleGarage>()?.Current?.impactResistance ?? 0f;
+            Damage = Mathf.Min(100f, Damage + amount * (1f - Mathf.Clamp01(resistance) * .48f));
             LastDamageKmh = speedKmh;
             LastDamagePoint = point;
             DamageRevision++;

@@ -13,9 +13,11 @@ namespace CarCrash
         private CrashScoring _scoring;
         private ElysianSoundtrack _settings;
         private AudioSource _engine;
+        private AudioSource _engineLoad;
         private AudioSource _friction;
         private AudioSource _oneShots;
         private AudioClip _engineLoop;
+        private AudioClip _engineLoadLoop;
         private AudioClip _tyres;
         private AudioClip _scrape;
         private AudioClip _boost;
@@ -31,10 +33,13 @@ namespace CarCrash
             _scoring = GetComponent<CrashScoring>();
             _settings = ElysianSoundtrack.GetOrCreate();
             _engine = CreateSource(true, .08f, 120);
+            _engineLoad = CreateSource(true, 0f, 100);
             _friction = CreateSource(true, .19f, 115);
             _oneShots = CreateSource(false, .18f, 85);
             _engineLoop = CreateClip("Player engine", 1f, 9, EngineSample, false);
             _engine.clip = _engineLoop;
+            _engineLoadLoop = CreateClip("Loaded engine", 1f, 31, EngineLoadSample, false);
+            _engineLoad.clip = _engineLoadLoop;
             _tyres = CreateClip("Tyre slip", 1.1f, 72, (t, mid, high) =>
                 .52f * mid + .30f * high + .11f * Mathf.Sin(Tau * (874f * t + .24f * Mathf.Sin(t * 14f))));
             _scrape = CreateClip("Body scraping", .83f, 132, (t, mid, high) =>
@@ -99,7 +104,7 @@ namespace CarCrash
             }
 
             var speedKmh = _vehicle.SpeedKmh;
-            var load = Mathf.Abs(_vehicle.CurrentThrottle);
+            var load = Mathf.Abs(_vehicle.RequestedThrottle);
             var roadSpeed = Mathf.Clamp01(speedKmh / Mathf.Max(40f, _vehicle.maxSpeedKmh));
             var revs = _vehicle.Reversing ? Mathf.Clamp01(speedKmh / 40f) : Mathf.Repeat(speedKmh / 39f, 1f);
             var pitch = .87f + .84f * revs + .23f * load + .12f * roadSpeed;
@@ -107,9 +112,14 @@ namespace CarCrash
                 pitch *= 1f + Mathf.Sin(Time.unscaledTime * 43f) * .035f;
 
             var response = 1f - Mathf.Exp(-Time.unscaledDeltaTime * 13f);
+            var loadResponse = 1f - Mathf.Exp(-Time.unscaledDeltaTime * (load > 0.02f ? 26f : 12f));
             _engine.pitch = Mathf.Lerp(_engine.pitch, pitch, response);
-            _engine.volume = Mathf.Lerp(_engine.volume, .075f + .19f * load + .085f * roadSpeed, response);
+            _engine.volume = Mathf.Lerp(_engine.volume, .07f + .12f * load + .07f * roadSpeed, response);
+            _engineLoad.pitch = _engine.pitch;
+            _engineLoad.volume = Mathf.Lerp(_engineLoad.volume, .41f * load, loadResponse);
             if (!_engine.isPlaying) _engine.Play();
+            if (_engineLoad.volume > .005f && !_engineLoad.isPlaying) _engineLoad.Play();
+            if (_engineLoad.volume <= .005f && _engineLoad.isPlaying) _engineLoad.Stop();
 
             var speedFactor = Mathf.InverseLerp(18f, 91f, speedKmh);
             var skid = Mathf.Max(TyreSlip(_vehicle.rearLeftCollider), TyreSlip(_vehicle.rearRightCollider));
@@ -144,6 +154,15 @@ namespace CarCrash
             var growl = .38f * Mathf.Sin(pulse) + .29f * firing + .14f * Mathf.Sin(pulse * 3f) +
                 .10f * Mathf.Sin(pulse * 5f) + .068f * Mathf.Sin(pulse * 8f + .12f);
             return .77f * (float)Math.Tanh(growl * (1.4f + .27f * Mathf.Sin(Tau * 7f * time)));
+        }
+
+        private static float EngineLoadSample(float time, float mid, float high)
+        {
+            var cycle = Tau * 42f * time;
+            var exhaust = .50f * Mathf.Sin(cycle * 3f + .5f * Mathf.Sin(cycle)) +
+                .24f * Mathf.Sin(cycle * 5f + .22f) + .13f * Mathf.Sin(cycle * 9f);
+            var intake = .11f * Mathf.Sin(cycle * 13f) + .075f * mid;
+            return .73f * (float)Math.Tanh((exhaust + intake) * 1.74f);
         }
 
         private static AudioClip CreateImpact(VehicleImpactSurface surface)
@@ -205,9 +224,10 @@ namespace CarCrash
         {
             _playing = false;
             _engine.Stop();
+            _engineLoad.Stop();
             _friction.Stop();
             _oneShots.Stop();
-            _engine.volume = _friction.volume = 0f;
+            _engine.volume = _engineLoad.volume = _friction.volume = 0f;
         }
 
         private void OnDisable() => StopAudio();
@@ -215,6 +235,7 @@ namespace CarCrash
         private void OnDestroy()
         {
             Destroy(_engineLoop);
+            Destroy(_engineLoadLoop);
             Destroy(_tyres);
             Destroy(_scrape);
             Destroy(_boost);

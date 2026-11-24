@@ -20,13 +20,19 @@ namespace CarCrash
         }
         public void OnPointerDown(PointerEventData data)
         {
-            _pointers.Add(data.pointerId);
+            if (data.button == PointerEventData.InputButton.Left)
+                _pointers.Add(data.pointerId);
         }
         public void OnPointerUp(PointerEventData data)
         {
             _pointers.Remove(data.pointerId);
         }
-        public void OnPointerExit(PointerEventData data) => OnPointerUp(data);
+        public void OnPointerExit(PointerEventData data)
+        {
+            // Touches retain their press target until lift, even if a thumb drifts.
+            // The event system sends PointerUp to that target outside its bounds.
+            if (data.pointerId < 0) OnPointerUp(data);
+        }
         public void Release()
         {
             _pointers.Clear();

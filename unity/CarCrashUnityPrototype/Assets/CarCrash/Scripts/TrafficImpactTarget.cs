@@ -76,8 +76,48 @@ namespace CarCrash
                 return;
             }
 
+            if (player != null && player.CurrentThrottle >= 0f && player.CurrentBrake < .2f)
+                PushTraffic(collision.rigidbody, contact, collision.relativeVelocity);
             _crashVisual?.ApplyImpact(contact.point, collision.relativeVelocity, impactKmh, chainDepth);
             scoring?.RegisterTrafficImpact(this, contact.point, collision.relativeVelocity, impactKmh, chainDepth);
+        }
+
+        private void PushTraffic(Rigidbody striker, ContactPoint contact, Vector3 relativeVelocity)
+        {
+            var traffic = _mover.Body;
+            var spec = striker.GetComponent<VehicleGarage>()?.Current;
+            var push = spec?.trafficPush ?? 0f;
+            var monster = spec?.id == "monster";
+            if (push < .4f || traffic.mass > (monster ? 2450f : 1850f) || striker.mass < traffic.mass * 1.48f) return;
+
+            var forward = Vector3.ProjectOnPlane(striker.transform.forward, Vector3.up).normalized;
+            var toTraffic = Vector3.ProjectOnPlane(traffic.worldCenterOfMass - striker.worldCenterOfMass, Vector3.up);
+            if (Vector3.Dot(forward, toTraffic.normalized) < .72f || Mathf.Abs(Vector3.Dot(forward, contact.normal)) < .62f)
+                return;
+
+            // Cruising traffic is kinematic until first impact. Use its speed and the
+            // collision's approach speed to estimate how two moving bodies would share momentum.
+            var closingSpeed = Mathf.Abs(Vector3.Dot(relativeVelocity, forward));
+            var cruise = Vector3.Dot(_mover.velocity.normalized * _mover.CurrentCruiseSpeed, forward);
+            var approaching = Mathf.Min(48f, closingSpeed + cruise);
+            if (approaching < 3f) return;
+            var sharedSpeed = (striker.mass * approaching + traffic.mass * cruise) / (striker.mass + traffic.mass);
+            if (monster && closingSpeed * 3.6f > 43f)
+                _crashVisual?.CrushShell(contact.point, Mathf.Lerp(.55f, 1f, Mathf.InverseLerp(43f, 122f, closingSpeed * 3.6f)));
+
+            var outgoing = striker.linearVelocity;
+            var retained = sharedSpeed * Mathf.Lerp(.52f, .91f, push) - Vector3.Dot(outgoing, forward);
+            if (retained <= 0f) return;
+            striker.linearVelocity = outgoing + forward * retained;
+
+            // Let the heavy nose shoulder the car to the side instead of re-catching it next step.
+            var right = Vector3.Cross(Vector3.up, forward);
+            var offset = Vector3.Dot(toTraffic, right);
+            var side = Mathf.Abs(offset) > .08f ? Mathf.Sign(offset) : (GetInstanceID() % 2 == 0 ? 1f : -1f);
+            var sideways = side * Mathf.Min(4f, closingSpeed * .22f) * push;
+            var trafficVelocity = traffic.linearVelocity;
+            var forwardTransfer = Mathf.Max(0f, sharedSpeed - Vector3.Dot(trafficVelocity, forward)) * push;
+            traffic.linearVelocity = Vector3.ClampMagnitude(trafficVelocity + forward * forwardTransfer + right * sideways, 48f);
         }
     }
 }

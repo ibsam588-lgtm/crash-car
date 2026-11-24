@@ -9,8 +9,11 @@ namespace CarCrash
         private readonly List<Material> _materials = new();
         private readonly List<(Renderer renderer, int slot, Color baseGlow)> _brakes = new();
         private readonly List<Renderer> _reverse = new();
+        private readonly List<(Renderer renderer, Color glow)> _patrolLamps = new();
         private MaterialPropertyBlock _lampBlock;
         private Transform _chassis;
+        private ArcadeVehicleController _patrolController;
+        private int _patrolPhase = -1;
         private bool? _braking, _reversing;
 
         public void Fit(Transform chassis, GarageVehicle spec)
@@ -80,6 +83,9 @@ namespace CarCrash
             }
             if (spec.id == "hauler") FitHauler(spec, rear, metal, black);
             if (spec.id == "monster") FitMonster(spec, metal, black);
+            if (spec.id == "police") FitPolice(spec, black);
+            if (spec.id == "velocity") FitVelocity(spec, black, metal);
+            if (spec.id == "bulwark") FitBulwark(spec, black, metal);
             SetSignals(false, false);
         }
 
@@ -102,6 +108,19 @@ namespace CarCrash
                 _lampBlock.Clear();
                 _lampBlock.SetColor("_EmissionColor", reversing ? new Color(.84f,.94f,1f) * 2.2f : Color.black);
                 foreach (var lamp in _reverse) lamp.SetPropertyBlock(_lampBlock);
+            }
+            if (_patrolController != null)
+            {
+                var phase = _patrolController.SpeedKmh > 3f ? Mathf.FloorToInt(Time.time * 4f) % 2 : 2;
+                if (_patrolPhase == phase) return;
+                _patrolPhase = phase;
+                _lampBlock.Clear();
+                for (var i = 0; i < _patrolLamps.Count; i++)
+                {
+                    var (renderer, glow) = _patrolLamps[i];
+                    _lampBlock.SetColor("_EmissionColor", glow * (phase == i ? 2.05f : .13f));
+                    renderer.SetPropertyBlock(_lampBlock);
+                }
             }
         }
 
@@ -145,6 +164,65 @@ namespace CarCrash
                 Part("Differential cover cooling rib", new Vector3(rib*.079f,.835f,spec.wheelCenters[2].z-.201f), new Vector3(.025f,.22f,.036f), metal);
         }
 
+        private void FitPolice(GarageVehicle spec, Material black)
+        {
+            _patrolController = _chassis.GetComponent<ArcadeVehicleController>();
+            var ivory = Paint("Ivory patrol service graphics", new Color(.83f,.85f,.80f), .08f, .44f);
+            var ink = new Color(.045f,.075f,.103f);
+            var red = new Color(.92f,.06f,.02f);
+            var blue = new Color(.04f,.38f,1f);
+            var redLens = Paint("Patrol red silicon lens", red * .49f, .28f, .70f, red * .13f);
+            var blueLens = Paint("Patrol blue silicon lens", blue * .49f, .28f, .70f, blue * .13f);
+            var roof = new Vector3(0,spec.size.y + .035f,-.015f);
+            Part("Patrol lightbar plinth", roof, new Vector3(.97f,.07f,.21f), black);
+            _patrolLamps.Add((Part("Patrol red strobe bank", roof + new Vector3(-.24f,.043f,0), new Vector3(.44f,.057f,.17f), redLens), red));
+            _patrolLamps.Add((Part("Patrol blue strobe bank", roof + new Vector3(.24f,.043f,0), new Vector3(.44f,.057f,.17f), blueLens), blue));
+
+            var nose = spec.size.z * .5f;
+            Part("Patrol push beam", new Vector3(0,.53f,nose + .045f), new Vector3(1.02f,.072f,.092f), black);
+            foreach (var side in new[] { -1f, 1f })
+            {
+                Part("Patrol push beam upright", new Vector3(side * .38f,.60f,nose + .017f), new Vector3(.092f,.32f,.15f), black);
+                var decal = new Vector3(side * spec.size.x * .481f,.78f,.18f);
+                Part("Patrol door graphic", decal, new Vector3(.022f,.145f,.84f), ivory);
+                Letter("ELYSIAN PD", decal + Vector3.right * side * .015f, .077f, ink, .68f, -90f * side);
+            }
+        }
+
+        private void FitVelocity(GarageVehicle spec, Material carbon, Material metal)
+        {
+            var edge = Paint("Velocity bronze anodized trim", new Color(.63f,.285f,.075f), .72f, .62f);
+            var deck = -spec.size.z * .405f;
+            var wing = spec.size.y * .866f;
+            Part("Velocity RS carbon aerofoil", new Vector3(0,wing,deck), new Vector3(spec.size.x * .89f,.039f,.225f), carbon);
+            Part("Velocity aerofoil trailing edge", new Vector3(0,wing,-spec.size.z * .434f), new Vector3(spec.size.x * .80f,.017f,.019f), edge);
+            foreach (var side in new[] { -1f, 1f })
+            {
+                Part("Velocity swan-neck wing bracket", new Vector3(side * .49f,wing - .13f,deck + .029f), new Vector3(.037f,.24f,.083f), metal);
+                Part("Velocity carbon wing endplate", new Vector3(side * spec.size.x * .432f,wing,.012f + deck), new Vector3(.028f,.087f,.25f), carbon);
+                Part("Velocity bronze diffuser edge", new Vector3(side * .37f,.38f,-spec.size.z * .49f), new Vector3(.27f,.027f,.107f), edge);
+            }
+            Letter("VELOCITY RS", new Vector3(0,.693f,-spec.size.z * .499f), .085f, new Color(.84f,.61f,.28f), .44f);
+        }
+
+        private void FitBulwark(GarageVehicle spec, Material black, Material metal)
+        {
+            var amber = Paint("Bulwark amber marker lenses", new Color(.74f,.31f,.032f), .24f, .66f, new Color(.39f,.15f,.013f));
+            var guardDepth = spec.size.z * .49f;
+            Part("Bulwark upper brush guard", new Vector3(0,1.18f,guardDepth), new Vector3(spec.size.x * .67f,.079f,.126f), black);
+            Part("Bulwark brush guard face", new Vector3(0,1.18f,guardDepth + .063f), new Vector3(spec.size.x * .56f,.045f,.013f), metal);
+            foreach (var side in new[] { -1f, 1f })
+            {
+                Part("Bulwark guard upright", new Vector3(side * .54f,1.08f,guardDepth - .038f), new Vector3(.11f,.31f,.17f), black);
+                Part("Bulwark bed rack stanchion", new Vector3(side * .77f,1.60f,-1.00f), new Vector3(.089f,.68f,.112f), black);
+                Part("Bulwark bed rack rail", new Vector3(side * .77f,1.935f,-1.32f), new Vector3(.074f,.079f,.78f), black);
+                Part("Bulwark chevron side protection", new Vector3(side * 1.021f,.69f,.11f), new Vector3(.109f,.088f,2.02f), black);
+            }
+            Part("Bulwark bed rack crossbar", new Vector3(0,1.935f,-1.01f), new Vector3(1.61f,.092f,.115f), black);
+            for (var i = -2; i <= 2; i++)
+                Part("Bulwark bed rack marker", new Vector3(i * .20f,1.951f,-1.071f), new Vector3(.12f,.045f,.025f), amber);
+        }
+
         private Bounds ChassisBounds(Transform source, Bounds bounds)
         {
             var result = new Bounds(_chassis.InverseTransformPoint(source.TransformPoint(bounds.center)), Vector3.zero);
@@ -184,11 +262,10 @@ namespace CarCrash
             return renderer;
         }
 
-        private void Letter(string value, Vector3 point, float height, Color tint)
+        private void Letter(string value, Vector3 point, float height, Color tint, float width = .39f, float yaw = 0f)
         {
             var font = Resources.Load<Font>("Fonts/Inter-SemiBold");
             var label = new GameObject(value, typeof(TextMesh));
-            label.transform.SetPositionAndRotation(_chassis.TransformPoint(point), _chassis.rotation);
             var text = label.GetComponent<TextMesh>();
             text.font = font;
             text.text = value;
@@ -203,7 +280,8 @@ namespace CarCrash
                 _materials.Add(face);
                 mesh.sharedMaterial = face;
             }
-            label.transform.localScale *= Mathf.Min(.39f / Mathf.Max(.001f, mesh.bounds.size.x), height / Mathf.Max(.001f, mesh.bounds.size.y));
+            label.transform.localScale *= Mathf.Min(width / Mathf.Max(.001f, mesh.bounds.size.x), height / Mathf.Max(.001f, mesh.bounds.size.y));
+            label.transform.SetPositionAndRotation(_chassis.TransformPoint(point), _chassis.rotation * Quaternion.Euler(0f, yaw, 0f));
             label.transform.SetParent(transform, true);
         }
 

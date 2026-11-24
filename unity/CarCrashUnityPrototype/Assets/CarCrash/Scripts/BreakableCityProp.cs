@@ -64,8 +64,9 @@ namespace CarCrash
             if(vehicle!=null)
             {
                 var effects=vehicle.GetComponent<VehicleImpactEffects>();
-                var surface=GetComponent<VehicleImpactMaterial>();
-                effects?.EmitImpact(point,Vector3.up,direction,speed,surface!=null?surface.surface:VehicleImpactSurface.Default);
+                var surface=GetComponent<VehicleImpactMaterial>()?.surface ?? VehicleImpactSurface.Default;
+                effects?.EmitImpact(point,Vector3.up,direction,speed,surface);
+                vehicle.GetComponent<CrashScoring>()?.RegisterCityPropBreak(surface,speed);
             }
         }
         public void Release(Vector3 direction,float impactKmh,Vector3 point)

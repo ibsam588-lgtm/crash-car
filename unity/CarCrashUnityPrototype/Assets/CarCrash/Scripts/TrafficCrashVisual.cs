@@ -8,9 +8,11 @@ namespace CarCrash
     {
         public Transform visualRoot;
         public int maximumDetachedParts = 3;
+        public bool IsCrushed => _crushedMeshes.Count > 0;
 
         private readonly List<Transform> _detachable = new();
         private readonly HashSet<int> _detachedIds = new();
+        private readonly List<(MeshFilter filter, Mesh original, Mesh damaged)> _crushedMeshes = new();
         private Renderer[] _renderers = Array.Empty<Renderer>();
 
         private void Awake()
@@ -59,6 +61,72 @@ namespace CarCrash
                 DetachPart(part, point, relativeVelocity, impactKmh, chainDepth);
                 detached += 1;
             }
+        }
+
+        internal void CrushShell(Vector3 worldPoint, float strength)
+        {
+            if (visualRoot == null || IsCrushed || !TryGetComponent<BoxCollider>(out var hull)) return;
+
+            var contact = transform.InverseTransformPoint(worldPoint) - hull.center;
+            var halfSize = hull.size * .5f;
+            var alongLength = Mathf.Abs(contact.z / halfSize.z) >= Mathf.Abs(contact.x / halfSize.x);
+            var strikeAxis = alongLength ? Vector3.forward * Mathf.Sign(contact.z) : Vector3.right * Mathf.Sign(contact.x);
+            var extent = alongLength ? halfSize.z : halfSize.x;
+            var crushDepth = Mathf.Min(extent * .4f, .63f) * strength;
+
+            foreach (var filter in visualRoot.GetComponentsInChildren<MeshFilter>())
+            {
+                var source = filter.sharedMesh;
+                if (source == null || !source.isReadable || IsWheelPart(filter.transform)) continue;
+
+                var meshToHull = transform.worldToLocalMatrix * filter.transform.localToWorldMatrix;
+                var hullToMesh = meshToHull.inverse;
+                var vertices = source.vertices;
+                var changed = false;
+                for (var i = 0; i < vertices.Length; i++)
+                {
+                    var local = meshToHull.MultiplyPoint3x4(vertices[i]);
+                    var offset = local - hull.center;
+                    var edge = Vector3.Dot(offset, strikeAxis) / extent;
+                    var buckle = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.16f, .98f, edge));
+                    if (buckle <= .001f) continue;
+
+                    var upperPanel = Mathf.InverseLerp(-halfSize.y * .18f, halfSize.y, offset.y);
+                    local -= strikeAxis * (crushDepth * buckle);
+                    local.y -= Mathf.Min(.39f, halfSize.y * .61f) * buckle * strength * upperPanel;
+                    vertices[i] = hullToMesh.MultiplyPoint3x4(local);
+                    changed = true;
+                }
+                if (!changed) continue;
+
+                var damaged = Instantiate(source);
+                damaged.name = source.name + " / crumpled";
+                damaged.vertices = vertices;
+                damaged.RecalculateNormals();
+                damaged.RecalculateBounds();
+                filter.sharedMesh = damaged;
+                _crushedMeshes.Add((filter, source, damaged));
+            }
+        }
+
+        internal void RestoreCrush()
+        {
+            foreach (var (filter, original, damaged) in _crushedMeshes)
+            {
+                if (filter != null && filter.sharedMesh == damaged) filter.sharedMesh = original;
+                Destroy(damaged);
+            }
+            _crushedMeshes.Clear();
+        }
+
+        private void OnDestroy() => RestoreCrush();
+
+        private bool IsWheelPart(Transform part)
+        {
+            for (var current = part; current != visualRoot && current != null; current = current.parent)
+                if (current.name.Contains("Wheel", StringComparison.OrdinalIgnoreCase) ||
+                    current.name.Contains("Tyre", StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
         }
 
         private void DarkenNearestPanel(Vector3 point, float impactKmh)

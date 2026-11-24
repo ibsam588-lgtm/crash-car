@@ -34,9 +34,9 @@ namespace CarCrash
         // shoulders behind the dashboard. The monster shares the pickup cab 1.2 m higher.
         private static Vector3 HeadPosition(string vehicleId) => vehicleId switch
         {
-            "apex" => new(-.33f, .99f, .03f),
+            "apex" or "velocity" => new(-.33f, .99f, .03f),
             "suv" => new(-.413f, 1.47f, .29f),
-            "pickup" => new(-.436f, 1.59f, .59f),
+            "pickup" or "bulwark" => new(-.436f, 1.59f, .59f),
             "hauler" => new(-.494f, 2.06f, 2.54f),
             "monster" => new(-.436f, 2.79f, .59f),
             _ => new(-.35f, 1.095f, .09f)
