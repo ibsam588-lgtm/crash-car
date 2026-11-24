@@ -78,6 +78,7 @@ namespace CarCrashEditor
                     case 0:
                         _session = Object.FindFirstObjectByType<CarCrashHudInput>();
                         if (_session == null || _session.Hud == null) return;
+                        _session.CameraRig.SetShowcase(false);
                         var trafficCars = Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None);
                         foreach (var traffic in trafficCars)
                         {
@@ -322,10 +323,13 @@ namespace CarCrashEditor
         private static void CheckDriver(Transform chassis)
         {
             var driver = chassis.Find("Cabin driver");
-            var mesh = driver == null ? null : driver.GetComponent<MeshFilter>();
-            Check(mesh != null && mesh.sharedMesh != null && mesh.sharedMesh.vertexCount > 100 &&
-                driver.GetComponent<MeshRenderer>().enabled,
-                "A seated driver is drawn in the cabin: " + chassis.name);
+            var mesh = driver != null ? driver.GetComponentInChildren<MeshFilter>() : null;
+            var renderer = mesh != null ? mesh.GetComponent<MeshRenderer>() : null;
+            var textured = renderer != null && Array.Exists(renderer.sharedMaterials,
+                material => material != null && material.mainTexture != null && material.mainTexture != Texture2D.whiteTexture);
+            Check(textured && renderer.enabled && mesh.sharedMesh != null &&
+                renderer.bounds.size.y is > .72f and < 1.02f && driver.GetComponentInChildren<Collider>() == null,
+                "A textured driver is seated at human scale without adding collision: " + chassis.name);
         }
 
         private static bool HasGaitBinding(Animation animation, AnimationClip clip)
