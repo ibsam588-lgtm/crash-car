@@ -336,7 +336,7 @@ namespace CarCrash
             }
             else
             {
-                var height = size.y * (_spec.id == "apex" ? .68f : .79f);
+                var height = size.y * (_spec.id is "apex" or "velocity" ? .68f : .79f);
                 Part(_bodyKit.transform,"Rear lip spoiler",new Vector3(0,height,-size.z*.46f),new Vector3(size.x*.74f,.057f,.190f),_guard);
                 Part(_bodyKit.transform,"Rear lip edge",new Vector3(0,height+.027f,-size.z*.51f),new Vector3(size.x*.71f,.020f,.019f),_trim);
             }

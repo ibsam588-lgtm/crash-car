@@ -157,6 +157,7 @@ namespace CarCrash
 
         public void ResetTraffic()
         {
+            GetComponent<TrafficCrashVisual>()?.RestoreCrush();
             _released = false;
             CurrentCruiseSpeed = 0f;
             ChainDepth = 0;

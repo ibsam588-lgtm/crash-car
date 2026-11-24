@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background>
+        <shape android:shape="rectangle">
+            <gradient android:angle="315" android:startColor="#0D4144" android:endColor="#071C1F" />
+        </shape>
+    </background>
+    <foreground>
+        <inset android:drawable="@drawable/elysian_launcher_wordmark"
+            android:insetLeft="16%" android:insetTop="33%"
+            android:insetRight="16%" android:insetBottom="33%" />
+    </foreground>
+</adaptive-icon>

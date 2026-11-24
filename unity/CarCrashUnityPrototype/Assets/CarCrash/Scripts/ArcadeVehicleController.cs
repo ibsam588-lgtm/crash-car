@@ -39,6 +39,7 @@ namespace CarCrash
         public bool Reversing => CurrentThrottle < -0.01f || ForwardSpeedKmh < -1f;
         public float CurrentSteer { get; private set; }
         public float CurrentThrottle { get; private set; }
+        internal float RequestedThrottle => _useMobileInput ? _mobileThrottle : CurrentThrottle;
         public float CurrentBrake { get; private set; }
         public bool BoostActive => _boostTimer > 0f;
         public float BoostCharge { get; private set; } = 1f;
@@ -204,8 +205,11 @@ namespace CarCrash
                 _body.AddForce(transform.forward * (throttle * arcadeDriveAcceleration * torqueFalloff * boostForce), ForceMode.Acceleration);
             }
 
-            frontLeftCollider.steerAngle = steer * maxSteerAngle;
-            frontRightCollider.steerAngle = steer * maxSteerAngle;
+            var steeringTravel = Mathf.SmoothStep(1.32f, 0.62f, Mathf.InverseLerp(20f, 125f, SpeedKmh));
+            var steerAngle = steer * maxSteerAngle * steeringTravel;
+            frontLeftCollider.steerAngle = frontRightCollider.steerAngle = steerAngle;
+            if (brake < 0.05f && handbrake < 0.05f)
+                AssistLowSpeedTurn(steerAngle);
 
             frontLeftCollider.motorTorque = frontRightCollider.motorTorque = allWheelDrive ? torque*.5f : 0f;
             rearLeftCollider.motorTorque = rearRightCollider.motorTorque = allWheelDrive ? torque*.5f : torque;
@@ -268,6 +272,25 @@ namespace CarCrash
             // Vehicle swaps can change tire inertia by an order of magnitude.
             // Clear stored angular momentum while the chassis is held at its pose.
             frontLeftCollider.brakeTorque = frontRightCollider.brakeTorque = rearLeftCollider.brakeTorque = rearRightCollider.brakeTorque = 1000000f;
+        }
+
+        private void AssistLowSpeedTurn(float steerAngle)
+        {
+            if (Mathf.Abs(steerAngle) < 0.5f || SpeedKmh >= 54f) return;
+            var forwardSpeed = Vector3.Dot(_body.linearVelocity, transform.forward);
+            if (Mathf.Abs(forwardSpeed) < 0.4f) return;
+            if ((!frontLeftCollider.isGrounded && !frontRightCollider.isGrounded) ||
+                (!rearLeftCollider.isGrounded && !rearRightCollider.isGrounded)) return;
+
+            // Aim for the ground turn implied by the front wheels and actual wheelbase.
+            // Signed speed naturally reverses the yaw when backing out of a turn.
+            var axleSeparation = frontLeftCollider.transform.position - rearLeftCollider.transform.position;
+            var wheelbase = Mathf.Max(1.5f, Vector3.Dot(axleSeparation, transform.forward));
+            var targetYaw = forwardSpeed * Mathf.Tan(steerAngle * Mathf.Deg2Rad) / wheelbase;
+            var actualYaw = Vector3.Dot(_body.angularVelocity, transform.up);
+            var correction = Mathf.Clamp((targetYaw - actualYaw) * 3.6f, -2.4f, 2.4f);
+            var assistance = 1f - Mathf.InverseLerp(22f, 54f, SpeedKmh);
+            _body.AddTorque(transform.up * (correction * assistance), ForceMode.Acceleration);
         }
 
         private void ApplyStability(float speedLimit)

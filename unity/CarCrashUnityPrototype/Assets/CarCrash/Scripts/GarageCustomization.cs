@@ -84,6 +84,6 @@ namespace CarCrash
             _ => System.Array.Empty<string>()
         };
 
-        internal static bool IsUtility(string vehicleId) => vehicleId is "pickup" or "monster" or "suv" or "hauler";
+        internal static bool IsUtility(string vehicleId) => vehicleId is "pickup" or "monster" or "suv" or "hauler" or "bulwark";
     }
 }

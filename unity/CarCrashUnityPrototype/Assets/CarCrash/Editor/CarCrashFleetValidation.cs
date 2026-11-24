@@ -23,6 +23,9 @@ namespace CarCrashEditor
         private static float _heading;
         private static string _runtimeError;
         private static int _particlesAtPause;
+        private static TrafficImpactTarget _trafficTarget;
+        private static double _trafficDeadline;
+        private static float _coupeImpactSpeed;
         private static readonly List<string> Checks=new();
         private static readonly List<string> Failures=new();
         private static readonly List<DriveResult> Drives=new();
@@ -61,12 +64,18 @@ namespace CarCrashEditor
                         _session=Object.FindFirstObjectByType<CarCrashHudInput>();
                         if(_session==null || _session.Hud==null)return;
                         _hadVehicle=PlayerPrefs.HasKey("CarCrash.Vehicle"); _oldVehicle=PlayerPrefs.GetInt("CarCrash.Vehicle");
-                        Check(_session.Garage!=null && _session.Garage.vehicles.Length==6,"The garage offers six complete playable vehicles");
+                        Check(_session.Garage!=null && _session.Garage.vehicles.Length==9,"The garage offers nine complete vehicle models");
                         _session.OpenGarage();
                         foreach(var spec in _session.Garage.vehicles)
                         {
                             var button=GameObject.Find("Select vehicle "+spec.id)?.GetComponent<Button>();
+                            if (button == null)
+                            {
+                                GameObject.Find("More vehicles")?.GetComponent<Button>().onClick.Invoke();
+                                button=GameObject.Find("Select vehicle "+spec.id)?.GetComponent<Button>();
+                            }
                             Check(button!=null,"A working garage card exists for "+spec.displayName);
+                            if(button==null)continue;
                             button.onClick.Invoke();
                             Check(_session.Garage.Current==spec && Mathf.Abs(_session.vehicle.GetComponent<Rigidbody>().mass-spec.mass)<1f,
                                 "The card selects the actual vehicle and its handling: "+spec.id);
@@ -74,6 +83,9 @@ namespace CarCrashEditor
                             Check(wheels.Length==4 && _session.vehicle.frontLeftVisual!=null && _session.vehicle.rearRightVisual!=null,
                                 "All four physical wheels bind to the selected model: "+spec.id);
                         }
+                        CheckEditionHardware("police", "Patrol lightbar plinth");
+                        CheckEditionHardware("velocity", "Velocity RS carbon aerofoil");
+                        CheckEditionHardware("bulwark", "Bulwark upper brush guard");
                         CheckGarageUpgrades();
                         _session.SelectVehicle(0);
                         foreach(var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))traffic.gameObject.SetActive(false);
@@ -145,6 +157,24 @@ namespace CarCrashEditor
                         _session.ResumeRun(); _next=EditorApplication.timeSinceStartup+3; _stage=11; break;
                     case 11:
                         Check(_session.vehicle.GetComponent<VehicleImpactEffects>().LiveParticles==0,"Crash particles expire without accumulating across a session");
+                        StartTrafficImpact("roadbreaker",2350f); _stage=12; break;
+                    case 12:
+                        if (!TrafficImpactReady()) return;
+                        _coupeImpactSpeed=ImpactSpeed();
+                        StartTrafficImpact("monster",2350f); _stage=13; break;
+                    case 13:
+                        if (!TrafficImpactReady()) return;
+                        var monsterSpeed=ImpactSpeed();
+                        var shove=Mathf.Abs(_trafficTarget.GetComponent<Rigidbody>().linearVelocity.x);
+                        Check(monsterSpeed>20f && monsterSpeed>_coupeImpactSpeed+12f && shove>.6f &&
+                            _trafficTarget.GetComponent<TrafficCrashVisual>().IsCrushed,
+                            $"Monster retains speed, crumples and shoulders a 2,350 kg traffic car aside (coupe {_coupeImpactSpeed:F1}, monster {monsterSpeed:F1} km/h, shove {shove:F1} m/s)");
+                        StartTrafficImpact("monster",4100f); _stage=14; break;
+                    case 14:
+                        if (!TrafficImpactReady()) return;
+                        var heavySpeed=ImpactSpeed();
+                        Check(heavySpeed<14f && !_trafficTarget.GetComponent<TrafficCrashVisual>().IsCrushed,
+                            $"A 4,100 kg truck blocks Monster and keeps its shell shape ({heavySpeed:F1} km/h after impact)");
                         Complete();break;
                 }
             }
@@ -156,6 +186,50 @@ namespace CarCrashEditor
             if(down)ExecuteEvents.Execute(GameObject.Find(name),pointer,ExecuteEvents.pointerDownHandler);
             else ExecuteEvents.Execute(GameObject.Find(name),pointer,ExecuteEvents.pointerUpHandler);
         }
+
+        private static void CheckEditionHardware(string vehicleId, string partName)
+        {
+            var garage = _session.Garage;
+            garage.Select(Array.FindIndex(garage.vehicles, spec => spec.id == vehicleId));
+            Check(Array.Exists(garage.visualRoot.GetComponentsInChildren<Transform>(), part => part.name == partName),
+                "The selected model has its own exterior hardware: " + vehicleId);
+        }
+
+        private static void StartTrafficImpact(string vehicleId, float targetMass)
+        {
+            if (_trafficTarget != null) _trafficTarget.gameObject.SetActive(false);
+            var vehicle = _session.vehicle;
+            var garage = _session.Garage;
+            garage.Select(Array.FindIndex(garage.vehicles, spec => spec.id == vehicleId));
+            var approach = new Vector3(1000f, 15f, -8f);
+            vehicle.RecoverAt(approach, Quaternion.identity);
+            var car = new GameObject("Fleet QA traffic", typeof(BoxCollider), typeof(Rigidbody));
+            car.transform.position = approach + new Vector3(0f, vehicle.GetComponent<BoxCollider>().center.y, 8f);
+            var hull = car.GetComponent<BoxCollider>();
+            hull.size = new Vector3(1.65f, 1f, 4f);
+            var traffic = car.GetComponent<Rigidbody>();
+            traffic.mass = targetMass;
+            traffic.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
+            car.AddComponent<MovingTrafficObstacle>();
+            var shell = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            shell.transform.SetParent(car.transform, false);
+            shell.transform.localScale = hull.size;
+            shell.GetComponent<Collider>().enabled = false;
+            car.AddComponent<TrafficCrashVisual>();
+            _trafficTarget = car.AddComponent<TrafficImpactTarget>();
+            Physics.SyncTransforms();
+            vehicle.GetComponent<Rigidbody>().linearVelocity = Vector3.forward * (60f / 3.6f);
+            _trafficDeadline = EditorApplication.timeSinceStartup + 3f;
+        }
+
+        private static bool TrafficImpactReady()
+        {
+            if (_trafficTarget.IsReleased) return true;
+            if (EditorApplication.timeSinceStartup < _trafficDeadline) return false;
+            throw new TimeoutException("No traffic impact for " + _session.Garage.Current.id);
+        }
+
+        private static float ImpactSpeed() => _session.vehicle.GetComponent<Rigidbody>().linearVelocity.z * 3.6f;
 
         private static void CheckGarageUpgrades()
         {

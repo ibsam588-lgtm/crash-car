@@ -32,6 +32,7 @@ namespace CarCrashEditor
         private static bool _capturedPrefs;
         private static int? _oldMusic, _oldEffects, _oldNight;
         private static ElysianSoundtrack _soundtrack;
+        private static AudioSource _loadedEngine;
         private static Rigidbody _curbLamp;
         private static int _scoreBeforeCurbLamp;
         private static float _curbLampApproachAt;
@@ -272,14 +273,23 @@ namespace CarCrashEditor
                                 foreach (var renderer in traffic.GetComponentsInChildren<MeshRenderer>())
                                     if (!renderer.name.StartsWith("Damage_Windshield_Crack", StringComparison.Ordinal)) trafficRestored &= renderer.enabled;
                         Check(trafficRestored, "Starting a drive restores the nearby traffic bodywork and wheels");
+                        _loadedEngine = Array.Find(_session.vehicle.GetComponents<AudioSource>(),
+                            audio => audio.clip != null && audio.clip.name == "Loaded engine");
+                        Check(_loadedEngine != null && _loadedEngine.volume < .01f, "The loaded engine layer is silent before gas");
                         Pointer("Accelerator pedal", true, 101);
                         Pointer("Steer left", true, 102);
+                        var driftingTouch = new PointerEventData(EventSystem.current) { pointerId = 102 };
+                        ExecuteEvents.Execute(GameObject.Find("Steer left"), driftingTouch, ExecuteEvents.pointerExitHandler);
+                        Check(_session.Hud.LeftHeld && _session.Hud.GasHeld,
+                            "A touch still steers after the thumb drifts outside the original button");
                         _nextAt = EditorApplication.timeSinceStartup + 1.3;
                         _stage = 2;
                         break;
                     case 2:
                         Check(_session.vehicle.SpeedKmh > 5f && _session.vehicle.CurrentThrottle > 0.9f && _session.vehicle.CurrentSteer < -0.9f,
                             "Independent held touch controls accelerate and steer real vehicle physics");
+                        Check(_loadedEngine.volume > .32f && !_soundtrack.MusicEnabled && _soundtrack.EffectsEnabled,
+                            "Gas brings in the separate engine layer while music is muted");
                         Pointer("Brake pedal", true, 103);
                         _nextAt = EditorApplication.timeSinceStartup + 0.2;
                         _stage = 3;
@@ -287,6 +297,7 @@ namespace CarCrashEditor
                     case 3:
                         Check(_session.vehicle.CurrentBrake > 0.9f && _session.vehicle.CurrentThrottle == 0f,
                             "Braking overrides the accelerator");
+                        Check(_loadedEngine.volume < .12f, "Overriding the gas releases the loaded engine layer");
                         _session.Hud.ReleaseControls();
                         Pointer("Accelerator pedal", true, 201);
                         Pointer("Accelerator pedal", true, 202);
@@ -336,6 +347,7 @@ namespace CarCrashEditor
                             "Pause freezes physics and the run timer");
                         Check(!_session.Hud.GasHeld && !_session.Hud.LeftHeld && !_session.Hud.BrakeHeld,
                             "Pause releases every touch control");
+                        Check(_loadedEngine.volume == 0f && !_loadedEngine.isPlaying, "Pause silences the loaded engine layer");
                         GameObject.Find("Pause settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         Check(_session.Hud.SettingsVisible && !GameObject.Find("Replay driving demo").GetComponent<UnityEngine.UI.Button>().interactable,
                             "Paused drivers can change settings without replacing their run");
