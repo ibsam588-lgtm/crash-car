@@ -29,6 +29,8 @@ namespace CarCrashEditor
             var groups=new Dictionary<(Mesh,Material,int,int),List<BreakableCityProp>>();
             foreach(var prop in _city.GetComponentsInChildren<BreakableCityProp>())
             {
+                // Keep each clear pane individually sorted and ready to disappear.
+                if(prop.shatterGlass)continue;
                 var byMaterial=new Dictionary<Material,List<CombineInstance>>();
                 var originals=new List<GameObject>();
                 foreach(var filter in prop.GetComponentsInChildren<MeshFilter>())
@@ -62,7 +64,10 @@ namespace CarCrashEditor
             foreach(var group in groups)
             {
                 var point=group.Value[0].transform.position;var bounds=new Bounds(point,Vector3.one*16);
-                foreach(var prop in group.Value)bounds.Encapsulate(new Bounds(prop.transform.position,Vector3.one*16));
+                foreach(var prop in group.Value)
+                {
+                    foreach(var renderer in prop.visibleParts)bounds.Encapsulate(renderer.bounds);
+                }
                 batches.Add(new CityBreakableRenderer.Batch{mesh=group.Key.Item1,material=group.Key.Item2,props=group.Value.ToArray(),bounds=bounds});
             }
             _city.gameObject.AddComponent<CityBreakableRenderer>().batches=batches.ToArray();

@@ -132,6 +132,7 @@ namespace CarCrashEditor
         {
             Check(CityRoadNetwork.AvenueX.Length==7&&CityRoadNetwork.CrossStreetZ.Length==13,"Seven avenues and thirteen cross streets form a connected world");
             Check((CityRoadNetwork.MaxX-CityRoadNetwork.MinX)*(CityRoadNetwork.MaxZ-CityRoadNetwork.MinZ)>650000,"The explorable district exceeds 650,000 square metres");
+            CheckTrafficSignals();
             foreach(var x in CityRoadNetwork.AvenueX)
             {
                 var clear=true;string obstacle="";
@@ -159,6 +160,34 @@ namespace CarCrashEditor
                 Check(Physics.Raycast(place.position+Vector3.up*20,Vector3.down,out var floor,30)&&floor.point.y<.5f&&
                     Clear(place.position+Vector3.up*.75f,new Vector3(1,.3f,1.5f),out _),"The destination has accessible ground and arrival space: "+place.name);
             }
+        }
+
+        private static void CheckTrafficSignals()
+        {
+            var signals = Object.FindFirstObjectByType<CityTrafficSignals>();
+            Check(signals != null && signals.HasSignalHeads && GameObject.Find("Cross-street signal") != null,
+                "The city installs working avenue and cross-street lamps on its existing signal poles");
+            var conflict = false;
+            foreach (var avenue in CityRoadNetwork.AvenueX)
+            foreach (var street in CityRoadNetwork.CrossStreetZ)
+            for (var time = 0f; time < 30f; time += .25f)
+            {
+                var northSouth = CityTrafficSignals.AspectAt(time, avenue, street, true);
+                var eastWest = CityTrafficSignals.AspectAt(time, avenue, street, false);
+                conflict |= northSouth != CitySignalAspect.Red && eastWest != CitySignalAspect.Red;
+            }
+            Check(!conflict, "No crossing axes receive green or amber together throughout the timed cycle");
+            Check(CityTrafficSignals.AspectAt(14f, 0f, 35f, true) == CitySignalAspect.Amber &&
+                CityTrafficSignals.AspectAt(16f, 0f, 35f, true) == CitySignalAspect.Red &&
+                CityTrafficSignals.AspectAt(16f, 0f, 35f, false) == CitySignalAspect.Red &&
+                CityTrafficSignals.AspectAt(17f, 0f, 35f, false) == CitySignalAspect.Green,
+                "An avenue green gives way to amber and an all-red clearance before cross traffic moves");
+            var approach = new Vector3(2.3f, .2f, 24.4f);
+            Check(CityTrafficSignals.AvenueApproachSpeed(approach, 1f, 2.2f, 0f, 8f, 17f) == 0f &&
+                CityTrafficSignals.AvenueApproachSpeed(approach, 1f, 2.2f, 0f, 8f, 2f) == 8f,
+                "Civilian traffic stops short of the crosswalk on red and proceeds on green");
+            Check(CityTrafficSignals.AvenueApproachSpeed(new Vector3(2.3f, .2f, 30f), 1f, 2.2f, 7f, 8f, 17f) == 8f,
+                "Traffic that has crossed the stop line can clear the intersection on a changing light");
         }
         private static bool Clear(Vector3 position,Vector3 half,out string obstacle)
         {

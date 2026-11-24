@@ -23,6 +23,69 @@ namespace CarCrash
         public Transform visualRoot;
         public int SelectedIndex { get; private set; }
         public GarageVehicle Current => vehicles.Length > 0 ? vehicles[SelectedIndex] : null;
+        private readonly int[] _upgrades = new int[(int)GarageUpgrade.WindowTint + 1];
+        private GarageUpgradeVisuals _upgradeVisuals;
+        private HeadlightProfile Lamp => GarageCustomization.Lamps[GetUpgrade(GarageUpgrade.Headlights)];
+
+        public Color HeadlightColor => Lamp.Color;
+        public float HeadlightRange => Lamp.Range;
+        public float HeadlightAngle => Lamp.Angle;
+        public float HeadlightIntensityScale => Lamp.Intensity;
+
+        public bool TryGetHeadlightLenses(out Vector3 left, out Vector3 right)
+        {
+            left = right = Vector3.zero;
+            if (_upgradeVisuals == null) return false;
+            _upgradeVisuals.LampPositions(out left, out right);
+            return true;
+        }
+
+        public int GetUpgrade(GarageUpgrade upgrade)
+        {
+            var index = (int)upgrade;
+            return index >= 0 && index < _upgrades.Length ? _upgrades[index] : 0;
+        }
+
+        public int GetPaint(int fallback) => Current == null ? fallback : PlayerPrefs.GetInt(GarageCustomization.PaintKey(Current.id), fallback);
+
+        public void RememberPaint(int paint)
+        {
+            if (Current == null) return;
+            PlayerPrefs.SetInt(GarageCustomization.PaintKey(Current.id), paint);
+            PlayerPrefs.Save();
+        }
+
+        public bool SetUpgrade(GarageUpgrade upgrade, int option)
+        {
+            if (Current == null || _upgradeVisuals == null) return false;
+            var count = GarageCustomization.Options(Current.id, upgrade).Count;
+            if (option < 0 || option >= count || option == GetUpgrade(upgrade)) return false;
+            _upgrades[(int)upgrade] = option;
+            PlayerPrefs.SetInt(GarageCustomization.UpgradeKey(Current.id, upgrade), option);
+            PlayerPrefs.Save();
+            switch (upgrade)
+            {
+                case GarageUpgrade.Wheels:
+                case GarageUpgrade.RimFinish:
+                case GarageUpgrade.Sidewalls:
+                    ApplyWheelOptions();
+                    break;
+                case GarageUpgrade.Headlights:
+                    _upgradeVisuals.ApplyHeadlights(option);
+                    ApplyAuxiliaryLights();
+                    break;
+                case GarageUpgrade.AuxiliaryLights:
+                    ApplyAuxiliaryLights();
+                    break;
+                case GarageUpgrade.BodyKit:
+                    _upgradeVisuals.ApplyBodyKit(option);
+                    break;
+                case GarageUpgrade.WindowTint:
+                    _upgradeVisuals.ApplyWindows(option);
+                    break;
+            }
+            return true;
+        }
 
         public void Select(int index)
         {
@@ -54,10 +117,12 @@ namespace CarCrash
             controller.frontLeftVisual = visuals[0]; controller.frontRightVisual = visuals[1];
             controller.rearLeftVisual = visuals[2]; controller.rearRightVisual = visuals[3];
             controller.ConfigureVehicle(spec);
+            var details = visualRoot.gameObject.AddComponent<VehicleDetailKit>();
+            details.Fit(transform, spec);
             var shell = GetComponent<CrashCarShellAnimator>();
             if (shell != null)
             {
-                shell.BindShell(visualRoot);
+                shell.BindShell(visualRoot, details);
                 for (var i = 0; i < shell.tailLightGlows.Length; i++)
                     if (shell.tailLightGlows[i] != null) shell.tailLightGlows[i].transform.localPosition =
                         new Vector3((i == 0 ? -1 : 1) * spec.size.x * .28f, Mathf.Max(.6f,spec.size.y*.43f), -spec.size.z*.49f);
@@ -69,7 +134,32 @@ namespace CarCrash
                 if (child.name.StartsWith("Damage_Windshield_Crack", StringComparison.Ordinal))
                     foreach (var renderer in child.GetComponentsInChildren<Renderer>(true)) { renderer.enabled = false; cracks.Add(renderer); }
             damage.windshieldCracks = cracks.ToArray();
+            _upgradeVisuals = visualRoot.gameObject.AddComponent<GarageUpgradeVisuals>();
+            _upgradeVisuals.Bind(transform, spec, visuals);
+            LoadUpgrades(spec.id);
+            VehicleCabinOccupant.InstallPlayer(transform, spec.id);
             controller.ResetForRelaunch(0f);
         }
+
+        private void LoadUpgrades(string id)
+        {
+            for (var i = 0; i < _upgrades.Length; i++)
+            {
+                var part = (GarageUpgrade)i;
+                var count = GarageCustomization.Options(id, part).Count;
+                _upgrades[i] = Mathf.Clamp(PlayerPrefs.GetInt(GarageCustomization.UpgradeKey(id, part)), 0, count - 1);
+            }
+            ApplyWheelOptions();
+            _upgradeVisuals.ApplyHeadlights(GetUpgrade(GarageUpgrade.Headlights));
+            ApplyAuxiliaryLights();
+            _upgradeVisuals.ApplyBodyKit(GetUpgrade(GarageUpgrade.BodyKit));
+            _upgradeVisuals.ApplyWindows(GetUpgrade(GarageUpgrade.WindowTint));
+        }
+
+        private void ApplyWheelOptions() => _upgradeVisuals.ApplyWheels(
+            GetUpgrade(GarageUpgrade.Wheels), GetUpgrade(GarageUpgrade.RimFinish), GetUpgrade(GarageUpgrade.Sidewalls));
+
+        private void ApplyAuxiliaryLights() => _upgradeVisuals.ApplyAuxiliary(
+            GetUpgrade(GarageUpgrade.AuxiliaryLights), GetUpgrade(GarageUpgrade.Headlights));
     }
 }

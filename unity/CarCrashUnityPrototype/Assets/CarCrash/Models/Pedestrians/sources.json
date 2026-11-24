@@ -16,5 +16,26 @@
     "source": "https://www.innerscene.com/tools/library/3d-parts/brisk-walk-harper-3d-person-animated-0efea8f3",
     "license": "CC0-1.0",
     "sha256": "ab3fa8b1580c6ccf8bfe8bc7d4422bb483f04d4cf4d2f82f215b9bbe713bfcf9"
+  },
+  {
+    "name": "maya locomotion",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/locomotion-collection-maya-3d-person-animated-1499b2fd",
+    "license": "CC0-1.0",
+    "sha256": "fabac991096e806f87ac71013865d4e4fac38d041dd64337c0173859b8249b15",
+    "retainedAnimations": ["Idle_Standing", "Jog", "Run"]
+  },
+  {
+    "name": "sam locomotion",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/locomotion-collection-sam-3d-person-animated-dc23800f",
+    "license": "CC0-1.0",
+    "sha256": "b29700eeba1607d879f85f0a93a58ad458d5397ec509226826b0868b2ce40777",
+    "retainedAnimations": ["Idle_Standing", "Jog", "Run"]
+  },
+  {
+    "name": "harper locomotion",
+    "source": "https://www.innerscene.com/tools/library/3d-parts/locomotion-collection-harper-3d-person-animated-797e1e2a",
+    "license": "CC0-1.0",
+    "sha256": "90c1d54e35b2ee91f337fa7a5fdc3e49fc7b3798525d1aaf43f06644c12e6fc7",
+    "retainedAnimations": ["Idle_Standing", "Jog", "Run"]
   }
 ]

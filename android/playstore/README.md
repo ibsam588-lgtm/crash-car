@@ -80,6 +80,14 @@ Actions retains the verification receipts. The repo is public, so the workflow
 keeps the AAB out of Actions artifacts. Its ephemeral GitHub token has the
 repository contents permission required to read the unpublished draft.
 
+## Play Games Services
+
+The native Android build uses the Google Play Games Services v2 SDK through `Assets/Plugins/Android/ElysianPlayGames.androidlib`. The app attempts platform authentication in the background when configured. The results screen can open the course leaderboard and achievements, and submits course bests only for completed runs. Players keep their local progress without a Play Games profile.
+
+In Play Console, use the Play Games project associated with the mapped `com.corsairlabs.guardian` game. Its Android OAuth client uses that package and the **Play app-signing** SHA-1 from **App integrity**. Enable only the intended Play Games test users for a draft service configuration. Set the project, four leaderboard, and three achievement IDs in the plug-in's `src/main/res/values/play-games.xml`. These are public resource IDs. The module remains inactive when a build has no project ID.
+
+Use higher-is-better integer leaderboards for Freight Yard, Old Town, Sunset Marina, and Apex Motor Park. The achievements are First Finish, Break 25 Obstacles (across finished runs), and Earn Gold. Verify sign-in, a finished test score, and an achievement from a Play-installed build using an enrolled Play Games tester. The debug-signed QA APK uses a different certificate from the Play-installed build.
+
 ## Workflow
 
 `.github/workflows/unity-play-internal.yml` asks Unity Build Automation to compile

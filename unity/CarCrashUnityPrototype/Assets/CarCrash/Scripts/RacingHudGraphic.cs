@@ -6,11 +6,11 @@ namespace CarCrash
     // Resolution-independent HUD art; no baked gauge or mock telemetry textures.
     public sealed class RacingHudGraphic : MaskableGraphic
     {
-        public enum Shape { Panel, Gauge, Radar, Atmosphere, CityMap, Circle, Icon }
-        public enum Symbol { Play, ArrowLeft, ArrowRight, Map, Camera, Recover, Pause, Garage, Bolt, Plus, Minus, Locate }
+        public enum Shape { Panel, Gauge, Radar, Atmosphere, CityMap, Circle, Icon, CoursePreview }
+        public enum Symbol { Play, ArrowLeft, ArrowRight, Map, Camera, Recover, Pause, Garage, Bolt, Plus, Minus, Locate, Lock }
         public Symbol symbol;
         public float cornerRadius=16,strokeWidth=1;
-        public Color borderColor=new(.74f,.84f,1f,.14f);
+        public Color borderColor=CoastalHudTheme.Border;
         private readonly Vector2[] _outer=new Vector2[36],_inner=new Vector2[36];
         public Shape shape;
         public float value;
@@ -20,7 +20,9 @@ namespace CarCrash
         public MovingTrafficObstacle[] traffic;
         public BoxCollider[] cityBuildings;
         public CityNavigator navigation;
-        public Color accent = new(.36f,.78f,.98f);
+        public ImpactMission mission;
+        public ImpactCourse previewCourse;
+        public Color accent = CoastalHudTheme.Seafoam;
 
         protected override void OnPopulateMesh(VertexHelper vh)
         {
@@ -38,6 +40,7 @@ namespace CarCrash
                     else Disc(vh,r.center,radius,color);
                     break;
                 case Shape.Icon: Icon(vh,r);break;
+                case Shape.CoursePreview: CoursePreview(vh, r);break;
                 default: Panel(vh, r); break;
             }
         }
@@ -89,6 +92,10 @@ namespace CarCrash
                 case Symbol.Garage:L(.12f,.18f,.12f,.65f);L(.12f,.65f,.5f,.88f);L(.5f,.88f,.88f,.65f);L(.88f,.65f,.88f,.18f);L(.27f,.2f,.27f,.52f);L(.27f,.52f,.73f,.52f);L(.73f,.52f,.73f,.2f);L(.27f,.36f,.73f,.36f);break;
                 case Symbol.Recover:CircleArc(vh,P(.5f,.5f),r.width*.32f,r.width*.065f,65,295,color);L(.82f,.5f,.67f,.65f);L(.82f,.5f,.96f,.65f);break;
                 case Symbol.Locate:CircleArc(vh,r.center,r.width*.25f,r.width*.06f,0,360,color);L(.5f,.05f,.5f,.25f);L(.5f,.75f,.5f,.95f);L(.05f,.5f,.25f,.5f);L(.75f,.5f,.95f,.5f);break;
+                case Symbol.Lock:
+                    L(.27f,.17f,.73f,.17f); L(.73f,.17f,.73f,.55f); L(.73f,.55f,.27f,.55f); L(.27f,.55f,.27f,.17f);
+                    L(.35f,.55f,.35f,.77f); L(.35f,.77f,.43f,.87f); L(.43f,.87f,.57f,.87f); L(.57f,.87f,.65f,.77f); L(.65f,.77f,.65f,.55f);
+                    break;
             }
         }
 
@@ -96,10 +103,10 @@ namespace CarCrash
         {
             var center = r.center;
             var radius = Mathf.Min(r.width, r.height) * 0.46f;
-            Disc(vh, center, radius + 4f, new Color(0.015f, 0.025f, 0.035f, 0.85f));
-            Arc(vh, center, radius, 1f, 0f, 1f, new Color(0.8f, 0.9f, 1f, 0.22f));
-            Arc(vh, center, radius - 8f, 5f, 0f, 1f, new Color(0.7f, 0.8f, 0.87f, 0.12f));
-            Arc(vh, center, radius - 8f, 5f, 0f, Mathf.Clamp01(value), boosting ? new Color(0.24f, 0.85f, 1f) : accent);
+            Disc(vh, center, radius + 4f, CoastalHudTheme.Panel);
+            Arc(vh, center, radius, 1f, 0f, 1f, CoastalHudTheme.Border);
+            Arc(vh, center, radius - 8f, 5f, 0f, 1f, new Color(.70f,.87f,.80f,.16f));
+            Arc(vh, center, radius - 8f, 5f, 0f, Mathf.Clamp01(value), boosting ? CoastalHudTheme.Amber : accent);
             Arc(vh, center, radius - 8f, 5f, 0.83f, 1f, new Color(1f, 0.26f, 0.18f, 0.85f));
             for (var i = 0; i <= 40; i++)
             {
@@ -139,7 +146,7 @@ namespace CarCrash
                     var a = Map(bounds.min); var b = Map(bounds.max);
                     var min = new Vector2(Mathf.Max(inner.xMin, a.x), Mathf.Max(inner.yMin, a.y));
                     var max = new Vector2(Mathf.Min(inner.xMax, b.x), Mathf.Min(inner.yMax, b.y));
-                    if (min.x < max.x && min.y < max.y) Quad(vh, min, max, new Color(.09f,.15f,.22f));
+                    if (min.x < max.x && min.y < max.y) Quad(vh, min, max, CoastalHudTheme.MapBuilding);
                 }
             }
             foreach (var avenue in CityRoadNetwork.AvenueX)
@@ -150,7 +157,7 @@ namespace CarCrash
                 var bottom=Mathf.Max(inner.yMin,Map(new Vector3(avenue,0,CityRoadNetwork.MinZ)).y);
                 var top=Mathf.Min(inner.yMax,Map(new Vector3(avenue,0,CityRoadNetwork.MaxZ)).y);
                 Quad(vh, new Vector2(Mathf.Max(inner.xMin, x - width * .5f), bottom),
-                    new Vector2(Mathf.Min(inner.xMax, x + width * .5f), top),new Color(.25f,.35f,.45f));
+                    new Vector2(Mathf.Min(inner.xMax, x + width * .5f), top),CoastalHudTheme.MapRoad);
             }
             foreach (var crossing in CityRoadNetwork.CrossStreetZ)
             {
@@ -158,15 +165,16 @@ namespace CarCrash
                 if (y < inner.yMin || y > inner.yMax) continue;
                 var width = Mathf.Max(2f,14f*(overview ? scale : inner.height/spanZ));
                 Quad(vh, new Vector2(Mathf.Max(inner.xMin,Map(new Vector3(CityRoadNetwork.MinX,0,crossing)).x), Mathf.Max(inner.yMin, y - width * .5f)),
-                    new Vector2(Mathf.Min(inner.xMax,Map(new Vector3(CityRoadNetwork.MaxX,0,crossing)).x), Mathf.Min(inner.yMax, y + width * .5f)), new Color(.25f,.35f,.45f));
+                    new Vector2(Mathf.Min(inner.xMax,Map(new Vector3(CityRoadNetwork.MaxX,0,crossing)).x), Mathf.Min(inner.yMax, y + width * .5f)), CoastalHudTheme.MapRoad);
             }
             var coastSouth=Map(new Vector3(296,0,-385));var coastNorth=Map(new Vector3(296,0,615));
             if(coastSouth.x>=inner.xMin&&coastSouth.x<=inner.xMax&&coastNorth.y>=inner.yMin&&coastSouth.y<=inner.yMax)
-                Line(vh,new Vector2(coastSouth.x,Mathf.Max(inner.yMin,coastSouth.y)),new Vector2(coastNorth.x,Mathf.Min(inner.yMax,coastNorth.y)),Mathf.Max(2,14*(overview ? scale : inner.width/spanX)),new Color(.25f,.35f,.45f));
-            if(navigation!=null)
+                Line(vh,new Vector2(coastSouth.x,Mathf.Max(inner.yMin,coastSouth.y)),new Vector2(coastNorth.x,Mathf.Min(inner.yMax,coastNorth.y)),Mathf.Max(2,14*(overview ? scale : inner.width/spanX)),CoastalHudTheme.MapRoad);
+            if (mission?.Course != null || navigation != null)
             {
                 var previous=player.position;
-                foreach(var waypoint in navigation.Route)
+                var route = mission?.Course != null ? mission.Guidance : navigation.Route;
+                foreach(var waypoint in route)
                 {
                     var a=Map(previous);var b=Map(waypoint);previous=waypoint;
                     if((a.x<inner.xMin&&b.x<inner.xMin)||(a.x>inner.xMax&&b.x>inner.xMax)||(a.y<inner.yMin&&b.y<inner.yMin)||(a.y>inner.yMax&&b.y>inner.yMax))continue;
@@ -179,8 +187,8 @@ namespace CarCrash
             {
                 var marker=Map(CityRoadNetwork.Places[i].position);if(!inner.Contains(marker))continue;
                 var active=navigation!=null&&navigation.Destination==i;
-                Disc(vh,marker,overview ? (active ? 13 : 11) : 5f,new Color(.03f,.07f,.12f));
-                Disc(vh,marker,overview ? 9f : 3.5f,active ? Color.white : accent);
+                Disc(vh,marker,overview ? (active ? 13 : 11) : 5f,CoastalHudTheme.Ink);
+                Disc(vh,marker,overview ? 9f : 3.5f,active ? CoastalHudTheme.Amber : accent);
             }
             if (traffic != null)
             {
@@ -189,15 +197,69 @@ namespace CarCrash
                     if (target == null || !target.gameObject.activeInHierarchy) continue;
                     var point = Map(target.transform.position);
                     if (!inner.Contains(point)) continue;
-                    Disc(vh, point, 2f, target.IsReleased ? new Color(0.85f, 0.29f, 0.20f) : new Color(0.50f, 0.71f, 0.81f));
+                    Disc(vh, point, 2f, target.IsReleased ? CoastalHudTheme.Coral : CoastalHudTheme.Muted);
                 }
             }
             var p = Map(player.position);
-            Disc(vh,p,10,new Color(.36f,.78f,.98f,.20f));
+            Disc(vh,p,10,new Color(accent.r,accent.g,accent.b,.23f));
             var direction = new Vector2(player.forward.x, player.forward.z).normalized;
             var side = new Vector2(-direction.y, direction.x);
             Triangle(vh, p + direction * 7, p - direction * 4 + side * 5, p - direction * 4 - side * 5, Color.white);
         }
+        private void CoursePreview(VertexHelper vh, Rect rect)
+        {
+            Panel(vh, rect);
+            var course = previewCourse ?? mission?.Course;
+            if (course == null) return;
+            var bounds = new Bounds(course.Start, Vector3.zero);
+            foreach (var gate in course.Gates)
+            {
+                bounds.Encapsulate(gate.Position);
+                foreach (var turn in gate.Turns) bounds.Encapsulate(turn);
+            }
+
+            var inset = new Rect(rect.xMin + 21, rect.yMin + 20, rect.width - 42, rect.height - 40);
+            var scale = Mathf.Min(inset.width / Mathf.Max(1, bounds.size.x), inset.height / Mathf.Max(1, bounds.size.z));
+            Vector2 Map(Vector3 point) => inset.center + new Vector2(point.x - bounds.center.x, point.z - bounds.center.z) * scale;
+            var grid = new Color(.50f,.73f,.66f,.18f);
+            for (var x = inset.xMin; x <= inset.xMax; x += 25f) Line(vh, new Vector2(x,inset.yMin), new Vector2(x,inset.yMax), 1f, grid);
+            for (var y = inset.yMin; y <= inset.yMax; y += 25f) Line(vh, new Vector2(inset.xMin,y), new Vector2(inset.xMax,y), 1f, grid);
+
+            var previous = Map(course.Start);
+            foreach (var gate in course.Gates)
+            {
+                foreach (var turn in gate.Turns)
+                {
+                    var point = Map(turn);
+                    Line(vh, previous, point, 4, accent);
+                    previous = point;
+                }
+                var endpoint = Map(gate.Position);
+                Line(vh, previous, endpoint, 4, accent);
+                previous = endpoint;
+            }
+            Disc(vh, Map(course.Start), 5, new Color(.59f,.94f,.72f));
+            for (var i = 0; i < course.Gates.Length; i++)
+            {
+                var gate = course.Gates[i];
+                var point = Map(gate.Position);
+                var finish = i == course.Gates.Length - 1;
+                var selected = mission?.NextGate == gate;
+                var tint = finish ? CoastalHudTheme.Amber : selected ? CoastalHudTheme.Cream : accent;
+                Disc(vh, point, selected ? 9 : 7, new Color(.03f,.10f,.14f));
+                Disc(vh, point, selected ? 6.5f : 4.6f, tint);
+            }
+            if (player != null)
+            {
+                var point = Map(player.position);
+                point.x = Mathf.Clamp(point.x, inset.xMin - 7, inset.xMax + 7);
+                point.y = Mathf.Clamp(point.y, inset.yMin - 7, inset.yMax + 7);
+                var forward = new Vector2(player.forward.x, player.forward.z).normalized;
+                var side = new Vector2(-forward.y, forward.x);
+                Triangle(vh, point + forward * 9, point - forward * 6 + side * 6, point - forward * 6 - side * 6, Color.white);
+            }
+        }
+
         private void Atmosphere(VertexHelper vh, Rect r)
         {
             var dark = color;
@@ -207,9 +269,9 @@ namespace CarCrash
             if (showroom && r.width > r.height * 1.4f)
                 Four(vh, new Vector2(r.xMin, r.yMin), new Vector2(r.xMin, r.yMax),
                     new Vector2(r.xMin + r.width * 0.55f, r.yMax), new Vector2(r.xMin + r.width * 0.55f, r.yMin),
-                    new Color(0.008f, 0.018f, 0.025f, 0.60f), Color.clear);
+                    new Color(.014f, .047f, .043f, .54f), Color.clear);
             if (value < 0.35f) return;
-            var tint = boosting ? new Color(0.2f, 0.78f, 1f, 0.23f) : new Color(0.85f, 0.93f, 1f, 0.12f);
+            var tint = boosting ? new Color(1f,.58f,.30f,.21f) : new Color(.90f,.98f,.90f,.10f);
             for (var i = 0; i < 12; i++)
             {
                 var t = Mathf.Repeat(Time.unscaledTime * (boosting ? 2f : 1.2f) + i * 0.187f, 1f);

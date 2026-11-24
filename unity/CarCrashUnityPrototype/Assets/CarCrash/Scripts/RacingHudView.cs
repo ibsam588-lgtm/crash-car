@@ -5,14 +5,22 @@ using UnityEngine.UI;
 
 namespace CarCrash
 {
-    public sealed class RacingHudView : MonoBehaviour
+    public sealed partial class RacingHudView : MonoBehaviour
     {
-        private static readonly Color Accent = new(.36f,.78f,.98f);
-        private static readonly Color White = new(.95f,.97f,1f);
-        private static readonly Color Muted = new(.65f,.73f,.84f);
-        private static readonly Color PanelColor = new(.035f,.06f,.105f,.97f);
-        private static readonly Color Ink = new(.025f,.055f,.09f);
+        private static readonly Color Accent = CoastalHudTheme.Seafoam;
+        private static readonly Color White = CoastalHudTheme.Cream;
+        private static readonly Color Muted = CoastalHudTheme.Muted;
+        private static readonly Color PanelColor = CoastalHudTheme.Panel;
+        private static readonly Color Ink = CoastalHudTheme.Ink;
+        private static readonly Color Primary = CoastalHudTheme.Coral;
+        private static readonly Color TileColor = CoastalHudTheme.Tile;
+        private static readonly Color SelectedColor = CoastalHudTheme.Selected;
+        private static readonly Color BorderColor = CoastalHudTheme.Border;
+        // Trim transparent source padding in the UI while retaining the exact artwork file.
+        private static readonly Rect LogoRegion = new(114f / 1774f, 75f / 887f, 1542f / 1774f, 724f / 887f);
+        private const float LogoAspect = 1542f / 724f;
         private CarCrashHudInput _session;
+        private Texture2D _coastalLogo;
         private Canvas _canvas;
         private CanvasScaler _scaler;
         private RectTransform _safe;
@@ -28,11 +36,18 @@ namespace CarCrash
         private float _height;
         private float _displaySpeed;
         private float _displayScore;
-        private GameObject _home, _help, _showroom, _race, _controls, _pause, _results, _countdown, _map;
+        private GameObject _home, _help, _briefing, _showroom, _race, _controls, _pause, _results, _missionResults, _countdown, _map, _missionMap;
         private Text _timerCaption, _modeCaption;
         private Text _score, _hits, _combo, _timer, _speed, _gear, _boostLabel, _integrity, _cameraLabel, _eventLabel;
         private Text _paintLabel, _countdownText, _impactTitle, _impactScore;
         private Text _vehicleName, _vehicleSpecs;
+        private Text _courseName, _courseIndex, _courseBrief, _courseMedals, _courseRide, _courseStatus;
+        private Text _missionTitle, _missionScore, _missionStatus, _missionBest, _missionSummary, _garageBack, _garageDrive;
+        private string _missionResultStatus;
+        private Button _startMission, _nextCourse;
+        private GameObject _goldLock, _goldHint;
+        private readonly Text[] _targetAmounts = new Text[ImpactTargetSpec.Points.Length];
+        private RacingHudGraphic _coursePreview, _missionRoute;
         private readonly Graphic[] _vehicleCards = new Graphic[6];
         private readonly Graphic[] _destinationCards = new Graphic[6];
         private CanvasGroup _impact;
@@ -57,6 +72,7 @@ namespace CarCrash
             _font = Resources.Load<Font>("Fonts/Inter-Regular") ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _mediumFont = Resources.Load<Font>("Fonts/Inter-Medium") ?? _font;
             _displayFont = Resources.Load<Font>("Fonts/Inter-SemiBold") ?? _font;
+            _coastalLogo = Resources.Load<Texture2D>("Brand/CoastalCircuit");
             _traffic = FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None);
             var ui = new GameObject("Racing UI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             _canvas = ui.GetComponent<Canvas>();
@@ -77,11 +93,13 @@ namespace CarCrash
         {
             if (_canvas != null && (_lastSize.x != Screen.width || _lastSize.y != Screen.height || _lastSafeArea != Screen.safeArea))
                 RebuildLayout();
+            if (SettingsVisible) RefreshSettings();
         }
 
         private void RebuildLayout()
         {
             var helpWasVisible = HelpVisible;
+            var settingsWasVisible = SettingsVisible;
             ReleaseControls();
             if (_safe != null)
             {
@@ -104,9 +122,11 @@ namespace CarCrash
             _height = _lastSafeArea.height / scale;
 
             _atmosphere = Shape(_safe, "Edge shading", 0, 0, _width, _height, RacingHudGraphic.Shape.Atmosphere,
-                new Color(0.008f, 0.018f, 0.025f, 0.52f));
+                new Color(.015f, .038f, .035f, .42f));
             _home = Group(_safe, "Home screen");
             BuildHome(_home.transform);
+            _briefing = Group(_safe, "Mission briefing");
+            BuildBriefing(_briefing.transform);
             _showroom = Group(_safe, "Live garage");
             BuildShowroom(_showroom.transform);
             _race = Group(_safe, "Driving telemetry");
@@ -118,10 +138,18 @@ namespace CarCrash
             BuildPause(_pause.transform);
             _results = Group(_safe, "Run results");
             BuildResults(_results.transform);
+            _missionResults = Group(_safe, "Impact Run results");
+            BuildMissionResults(_missionResults.transform);
             _map=Group(_safe,"Explore city map");BuildCityMap(_map.transform);
+            _missionMap = Group(_safe, "Mission route map");
+            BuildMissionMap(_missionMap.transform);
             _help = Group(_safe, "Driving guide");
             BuildHelp(_help.transform);
             _help.SetActive(helpWasVisible);
+            _settings = Group(_safe, "Driving settings");
+            BuildSettings(_settings.transform);
+            ShowSettings(settingsWasVisible);
+            BuildDrivingDemoHud();
             RefreshPaint();
             RefreshVehicle();
             RefreshPhase();
@@ -129,39 +157,113 @@ namespace CarCrash
 
         private void BuildHome(Transform root)
         {
-            var pad=_portrait ? 24f : 48f;
-            Brand(root,pad,28);
-            Chip(root,"Live city",_width-pad-112,31,112,new Color(.10f,.24f,.28f,.92f),new Color(.50f,.91f,.80f));
-            var guideWidth=Mathf.Max(112,Units(112));
-            ActionButton(root,"Home driving guide","Controls",_width-pad-guideWidth,84,guideWidth,42,()=>ShowHelp(true),PanelColor,White,14);
-            var y=_compactWide ? 116f : _portrait ? 126f : 158f;
-            Label(root,"Go anywhere.",pad,y,_portrait ? _width-pad*2 : 650,66,_portrait || _compactWide ? 39 : 66,White);
-            Label(root,"Make it yours.",pad,y+(_portrait||_compactWide ? 56 : 81),_portrait ? _width-pad*2 : 650,72,_portrait||_compactWide ? 39 : 66,White);
-            if(!_portrait&&!_compactWide)Label(root,"Open roads. Six rides. Your next story.",pad,y+178,500,32,20,Muted);
-            var dockY=_height-(_portrait ? 253 : 203);
-            var dock=Shape(root,"Home action dock",pad,dockY,_width-pad*2,_portrait ? 214 : 154,RacingHudGraphic.Shape.Panel,new Color(.025f,.045f,.08f,.92f));
-            var w=_width-pad*2;
-            if(_portrait)
+            var pad = _portrait ? 20f : 44f;
+            var width = _width - pad * 2;
+            var guideWidth = Mathf.Min(144f, (width - 10f) * .5f);
+            var right = _width - pad;
+            ActionButton(root, "Home settings", "Settings", right - guideWidth, 23, guideWidth, 44,
+                () => ShowSettings(true), TileColor, White, 15);
+            ActionButton(root, "Home driving guide", "Controls", right - guideWidth * 2 - 10, 23, guideWidth, 44,
+                () => ShowHelp(true), TileColor, White, 15);
+
+            var logoWidth = _portrait ? Mathf.Min(width, 434f) : Mathf.Min(width * .49f, 536f);
+            var logoTop = _portrait ? Mathf.Max(100f, _height * .12f) : Mathf.Max(88f, _height * .15f);
+            PlaceLogo(root, "Coastal Circuit home logo", _portrait ? (_width - logoWidth) * .5f : pad, logoTop, logoWidth);
+
+            var dockHeight = _portrait ? 179f : _compactWide ? 111f : 139f;
+            var dockY = _height - dockHeight - (_portrait ? 27f : 39f);
+            var dock = Shape(root, "Home action dock", pad, dockY, width, dockHeight, RacingHudGraphic.Shape.Panel, PanelColor);
+            dock.cornerRadius = 19f;
+            if (_portrait)
             {
-                Label(dock.transform,"The city is waiting",18,15,w-36,24,14,Muted);
-                IconAction(dock.transform,"Free Drive","Start driving",RacingHudGraphic.Symbol.ArrowRight,16,49,w-32,60,_session.StartFreeDrive,true);
-                HomeCard(dock.transform,"Open garage","Garage","6 vehicles",16,123,(w-44)*.5f,74,_session.OpenGarage,RacingHudGraphic.Symbol.Garage);
-                HomeCard(dock.transform,"Impact Run",_width<470 ? "Challenge" : "60s challenge","Chase your best",28+(w-44)*.5f,123,(w-44)*.5f,74,_session.StartImpactRun,RacingHudGraphic.Symbol.Bolt);
+                IconAction(dock.transform, "Impact Run", "Impact Run", RacingHudGraphic.Symbol.Bolt,
+                    14, 14, width - 28, 63, _session.StartImpactRun, true);
+                var tileWidth = (width - 38f) * .5f;
+                HomeCard(dock.transform, "Free Drive", "Free Drive", "Explore the city", 14, 88, tileWidth, 76,
+                    _session.StartFreeDrive, RacingHudGraphic.Symbol.Map);
+                HomeCard(dock.transform, "Open garage", "Garage", "Customize your car", 24 + tileWidth, 88, tileWidth, 76,
+                    _session.OpenGarage, RacingHudGraphic.Symbol.Garage);
             }
             else
             {
-                var cw=(w-64)/3;
-                IconAction(dock.transform,"Free Drive","Start driving",RacingHudGraphic.Symbol.ArrowRight,16,28,cw,96,_session.StartFreeDrive,true);
-                HomeCard(dock.transform,"Open garage","Your garage","Choose a ride and finish",32+cw,28,cw,96,_session.OpenGarage,RacingHudGraphic.Symbol.Garage);
-                HomeCard(dock.transform,"Impact Run","60s challenge","One minute. Make it count.",48+cw*2,28,cw,96,_session.StartImpactRun,RacingHudGraphic.Symbol.Bolt);
+                const float inset = 15, gap = 12;
+                var tileWidth = (width - inset * 2 - gap * 2) / 3f;
+                var tileHeight = dockHeight - inset * 2;
+                IconAction(dock.transform, "Impact Run", "Impact Run", RacingHudGraphic.Symbol.Bolt,
+                    inset, inset, tileWidth, tileHeight, _session.StartImpactRun, true);
+                HomeCard(dock.transform, "Free Drive", "Free Drive", "Explore the city", inset + tileWidth + gap, inset,
+                    tileWidth, tileHeight, _session.StartFreeDrive, RacingHudGraphic.Symbol.Map);
+                HomeCard(dock.transform, "Open garage", "Garage", "Customize your car", inset + (tileWidth + gap) * 2, inset,
+                    tileWidth, tileHeight, _session.OpenGarage, RacingHudGraphic.Symbol.Garage);
             }
             if (!Application.isMobilePlatform)
-                Label(root,"Enter to drive   /   G for garage",pad,_height-28,_width-pad*2,18,12,Muted);
+                Label(root, "Enter for Impact Run   /   G for garage", pad, _height - 27, width, 18, 12, Muted);
+        }
+
+        private void BuildBriefing(Transform root)
+        {
+            Dim(root);
+            var w = Mathf.Min(_width - 30, 860);
+            var h = Mathf.Min(_height - 30, _portrait ? 690 : 500);
+            const float pad = 22f;
+            var panel = Shape(root, "Course card", (_width - w) * .5f, (_height - h) * .5f, w, h, RacingHudGraphic.Shape.Panel, PanelColor);
+            Label(panel.transform, "IMPACT RUN", pad, 17, w - 156, 28, 16, Accent).font = _mediumFont;
+            _courseIndex = Label(panel.transform, "", w - 188, 19, 62, 42, 15, Muted, TextAnchor.MiddleCenter);
+            IconAction(panel.transform, "Previous course", "", RacingHudGraphic.Symbol.ArrowLeft, w - 121, 19, 44, 42, () => _session.ChangeCourse(-1));
+            IconAction(panel.transform, "Next course preview", "", RacingHudGraphic.Symbol.ArrowRight, w - 69, 19, 44, 42, () => _session.ChangeCourse(1));
+            _courseName = Label(panel.transform, "", pad, 56, w - pad * 2, 54, _portrait ? 34 : 41, White);
+
+            var infoWidth = _portrait ? w - pad * 2 : w * .51f - pad;
+            var mapX = _portrait ? pad : infoWidth + 2 * pad;
+            var mapY = _portrait ? 227 : 120;
+            var mapWidth = _portrait ? infoWidth : w - mapX - pad;
+            var mapHeight = _portrait ? Mathf.Max(95, h - 470) : h - 244;
+            _coursePreview = Shape(panel.transform, "Course preview map", mapX, mapY, mapWidth, mapHeight,
+                RacingHudGraphic.Shape.CoursePreview, Ink);
+            _courseBrief = Label(panel.transform, "", pad, 116, infoWidth, 66, 17, Muted, TextAnchor.UpperLeft);
+            Label(panel.transform, "Smash marked obstacles. Cross the finish to bank your score.", pad, _portrait ? 183 : 179,
+                infoWidth, 44, 16, White, TextAnchor.UpperLeft);
+
+            var statsY = _portrait ? mapY + mapHeight + 13 : 231;
+            _courseMedals = Label(panel.transform, "", pad, statsY, infoWidth, 32, 14, Accent);
+            Label(panel.transform, "Cones 10  /  Crates 25  /  Barriers 50\nStreetlights 100  /  Wrecks 200", pad, statsY + 36,
+                infoWidth, 44, 13, Muted, TextAnchor.UpperLeft);
+            _courseRide = Label(panel.transform, "", pad, statsY + 84, infoWidth, 24, 15, White);
+            _courseStatus = Label(panel.transform, "", pad, statsY + 111, _portrait ? infoWidth : w - pad * 2,
+                26, 14, Muted);
+
+            var controlsY = h - 60;
+            var buttonWidth = (w - pad * 2 - 16) / 3;
+            ActionButton(panel.transform, "Briefing home", "Home", pad, controlsY, buttonWidth, 44, _session.ReturnHome, PanelColor, White);
+            ActionButton(panel.transform, "Mission vehicle", "Change car", pad + buttonWidth + 8, controlsY, buttonWidth, 44, _session.OpenGarage, PanelColor, White);
+            _startMission = IconAction(panel.transform, "Start mission", "Start run", RacingHudGraphic.Symbol.Play,
+                pad + (buttonWidth + 8) * 2, controlsY, buttonWidth, 44, _session.BeginRun, true);
+        }
+
+        public void RefreshBriefing()
+        {
+            var course = _session.SelectedCourse;
+            SetText(_courseName, course.Name);
+            SetText(_courseIndex, $"{System.Array.IndexOf(ImpactCourse.Catalog, course) + 1} / {ImpactCourse.Catalog.Length}");
+            SetText(_courseBrief, course.Brief);
+            SetText(_courseMedals, $"Bronze {course.Bronze}  /  Silver {course.Silver}  /  Gold {course.Gold}");
+            var car = _session.Garage != null ? _session.Garage.Current : null;
+            SetText(_courseRide, "Your car  /  " + (car == null ? "Roadbreaker GT" : TitleCase(car.displayName)));
+            var checks = $"{course.Gates.Length - 1} checkpoints";
+            var pace = course.TimeLimit > 0 ? $"{course.TimeLimit}s limit" : "Finish-line scoring";
+            var best = ImpactCareer.Best(course);
+            var previous = System.Array.IndexOf(ImpactCourse.Catalog, course) - 1;
+            var status = _session.CourseUnlocked ? $"{checks}  /  {pace}" + (best > 0 ? $"  /  Best {best:N0}" : "")
+                : $"Finish {ImpactCourse.Catalog[previous].Name} to unlock";
+            SetText(_courseStatus, status);
+            _startMission.interactable = _session.CourseUnlocked;
+            _coursePreview.previewCourse = course;
+            _coursePreview.SetVerticesDirty();
         }
 
         private void HomeCard(Transform parent,string name,string title,string copy,float x,float y,float width,float height,UnityAction action,RacingHudGraphic.Symbol symbol)
         {
-            var button=ActionButton(parent,name,"",x,y,width,height,action,new Color(.065f,.105f,.17f,.95f),White);
+            var button=ActionButton(parent,name,"",x,y,width,height,action,TileColor,White);
             var iconSize=_portrait ? 0 : 24f;
             if(iconSize>0)Glyph(button.transform,symbol,17,18,iconSize,Accent);
             Label(button.transform,title,17+iconSize+(iconSize>0 ? 10 : 0),_portrait ? 13 : 17,width-34-iconSize,25,PixelFont(17,16),White).font=_mediumFont;
@@ -173,25 +275,28 @@ namespace CarCrash
             Dim(root);
             var w=Mathf.Min(_width-40,510f);var h=Mathf.Min(_height-32,570);
             var panel=Shape(root,"Driving guide panel",(_width-w)*.5f,(_height-h)*.5f,w,h,RacingHudGraphic.Shape.Panel,PanelColor);
-            Chip(panel.transform,"Quick start",26,24,122,new Color(.08f,.18f,.25f),Accent);
+            Chip(panel.transform,"Quick start",26,24,122,TileColor,Accent);
             Label(panel.transform,"Take the wheel.",26,76,w-52,48,32,White);
             var controls = Application.isMobilePlatform
-                ? "Hold Gas and a steering arrow to turn.\nUse Brake to stop or Rev to back up.\nTap Nitro to boost.\nTap Map to choose a destination.\nTap Unstuck if you can't move."
+                ? "Hold Gas and use the steering arrows.\nSwitch to tilt steering in Settings.\nUse Brake to stop or Rev to back up.\nTap Nitro to boost or Map to explore.\nTap Unstuck to get back on the road."
                 : _compactWide
                     ? "W  Drive     A / D  Steer     Q  Reverse\nSpace  Brake     B  Nitro     C  Camera\nM  City map     R  Unstuck     P  Pause"
                     : "W / arrows     Accelerate\nA / D                Steer\nQ / Rev             Reverse\nSpace / Brake   Stop\nB                        Nitro\nC                        Camera\nM                       City map\nR                        Unstuck";
             Label(panel.transform,controls,28,_compactWide ? 138 : 146,w-56,_compactWide ? 100 : 250,PixelFont(16,14),White);
             Label(panel.transform,"Reverse brakes first when you're moving forward.",28,h-139,w-56,55,13,Muted);
-            ActionButton(panel.transform,"Close driving guide","Let's drive",26,h-72,w-52,48,()=>ShowHelp(false),Accent,Ink,16);
+            ActionButton(panel.transform,"Close driving guide","Let's drive",26,h-72,w-52,48,()=>ShowHelp(false),Primary,Ink,16);
         }
 
         private void BuildShowroom(Transform root)
         {
             var pad=_portrait ? 24f : 48f;
             Brand(root,pad,28);
-            IconAction(root,"Garage to home","Home",RacingHudGraphic.Symbol.ArrowLeft,_width-pad-106,28,106,44,_session.ReturnHome);
-            Label(root,"Find your drive.",pad,_compactWide ? 102 : 122,_width-pad*2,50,_portrait||_compactWide ? 30 : 45,White);
-            if(!_portrait&&!_compactWide)Label(root,"Six ways to make the city yours.",pad,184,400,28,17,Muted);
+            var showroom = root;
+            _garageStockView = Group(showroom, "Garage vehicle picker");
+            root = _garageStockView.transform;
+            _garageBack = IconAction(root,"Garage to home","Home",RacingHudGraphic.Symbol.ArrowLeft,_width-pad-130,28,130,44,
+                _session.ReturnFromGarage).GetComponentInChildren<Text>();
+            Label(root,"Garage",pad,_compactWide ? 102 : 122,_width-pad*2,50,_portrait||_compactWide ? 30 : 45,White);
             var footerY=_height-(_portrait ? Mathf.Max(456,Units(350)) : 164);
             var footer=Shape(root,"Garage selection sheet",_portrait ? 12 : 24,footerY,_width-(_portrait ? 24 : 48),_height-footerY+18,RacingHudGraphic.Shape.Panel,new Color(.025f,.045f,.08f,.97f));
             Label(root,"Selected ride",pad,footerY+18,260,20,12,Muted);
@@ -207,13 +312,30 @@ namespace CarCrash
                 var button=ActionButton(root,"Paint "+CarCrashHudInput.PaintNames[i],"",paintX+i*Units(48),paintY+30,Units(40),Units(40),()=>_session.SelectPaint(index),CarCrashHudInput.PaintColors[i],White);
                 var graphic=(RacingHudGraphic)button.targetGraphic;graphic.shape=RacingHudGraphic.Shape.Circle;
                 graphic.cornerRadius=30;_swatches[i]=graphic;
+                if (i == _swatches.Length - 1)
+                {
+                    var lockPicture = Shape(button.transform, "Track Gold locked", Units(9), Units(9), Units(22), Units(22), RacingHudGraphic.Shape.Icon, White);
+                    lockPicture.symbol = RacingHudGraphic.Symbol.Lock;
+                    _goldLock = lockPicture.gameObject;
+                }
             }
+            _goldHint = Label(root,"Earn a Gold medal to unlock Track Gold",paintX,paintY+35+Units(40),
+                _portrait ? _width-pad*2 : 265,20,12,Muted).gameObject;
             var orbitY=footerY-64;
             IconAction(root,"Orbit left","",RacingHudGraphic.Symbol.ArrowLeft,_width-pad-Units(96),orbitY,Units(44),Units(44),()=>_session.CameraRig.RotateShowcase(-32));
             IconAction(root,"Orbit right","",RacingHudGraphic.Symbol.ArrowRight,_width-pad-Units(44),orbitY,Units(44),Units(44),()=>_session.CameraRig.RotateShowcase(32));
             if(!_compactWide)Label(root,"Drag to look around",pad,orbitY+12,_portrait ? 230 : 300,22,12,Muted);
             var driveHeight=_portrait ? Mathf.Max(56,Units(44)) : 56;
-            IconAction(root,"Start engine","Drive this ride",RacingHudGraphic.Symbol.ArrowRight,_portrait ? pad : _width-348,_portrait ? _height-Units(12)-driveHeight : footerY+44,_portrait ? _width-pad*2 : 300,driveHeight,_session.StartFreeDrive,true);
+            var actionsWidth = _portrait ? _width - pad * 2f : 300f;
+            var actionsX = _portrait ? pad : _width - 348f;
+            var actionsY = _portrait ? _height - Units(12) - driveHeight : footerY + 44f;
+            var customizeWidth = (actionsWidth - 8f) * .47f;
+            var customize = ActionButton(root, "Customize ride", "Customize", actionsX, actionsY, customizeWidth, driveHeight,
+                () => ShowCustomization(true), TileColor, White, 15);
+            customize.interactable = _session.Garage != null;
+            _garageDrive = IconAction(root, "Start engine", "Drive this ride", RacingHudGraphic.Symbol.ArrowRight,
+                actionsX + customizeWidth + 8f, actionsY, actionsWidth - customizeWidth - 8f, driveHeight, _session.ConfirmGarage, true).GetComponentInChildren<Text>();
+            BuildCustomization(showroom);
         }
 
         private void BuildVehicleChoices(Transform root,float pad,float y)
@@ -261,7 +383,7 @@ namespace CarCrash
 
             var scoreX = right - pauseSize - gap - scoreWidth;
             var scoreCard = Shape(root, "Impact score card", scoreX, top, scoreWidth, headerHeight, RacingHudGraphic.Shape.Panel, PanelColor);
-            Label(scoreCard.transform, "Impact score", 12, 6, scoreWidth - 24, 18, 12, Muted);
+            Label(scoreCard.transform, "Score", 12, 6, scoreWidth - 24, 18, 12, Muted);
             _score = Label(scoreCard.transform, "0", 12, 23, scoreWidth - 24, 34, 25, White);
             _score.resizeTextForBestFit = true;
             _score.resizeTextMinSize = 14;
@@ -284,9 +406,10 @@ namespace CarCrash
             var cardY = controlY - cardHeight - 12;
             var cardWidth = Mathf.Min(_portrait ? 134f : 164f, (_width - 2 * pad - 16) * .5f);
             var mapCard = Shape(root, "Navigation widget", pad, cardY, cardWidth, cardHeight, RacingHudGraphic.Shape.Panel, PanelColor);
-            _radar = Shape(mapCard.transform, "Live city minimap", 8, 8, cardWidth - 16, cardHeight - 48, RacingHudGraphic.Shape.Radar, new Color(.05f,.09f,.15f,.98f));
+            _radar = Shape(mapCard.transform, "Live city minimap", 8, 8, cardWidth - 16, cardHeight - 48, RacingHudGraphic.Shape.Radar, Ink);
             _radar.player = _session.vehicle.transform;
             _radar.navigation = _session.Navigation;
+            _radar.mission = _session.Mission;
             _radar.traffic = _traffic;
             var network = FindFirstObjectByType<CityRoadNetwork>();
             _radar.cityBuildings = network != null
@@ -302,11 +425,11 @@ namespace CarCrash
             _speed.resizeTextMinSize = 22;
             _speed.resizeTextMaxSize = _speed.fontSize;
             Label(_dial.transform, "km/h", 13, 54, 62, 18, 12, Muted);
-            var gear = Shape(_dial.transform, "Gear badge", cardWidth - 38, 14, 26, 26, RacingHudGraphic.Shape.Panel, new Color(.13f,.24f,.34f));
+            var gear = Shape(_dial.transform, "Gear badge", cardWidth - 38, 14, 26, 26, RacingHudGraphic.Shape.Panel, SelectedColor);
             _gear = Label(gear.transform, "N", 0, 0, 26, 26, 16, Accent, TextAnchor.MiddleCenter);
             _rpmFill = Meter(_dial.transform, "Engine revs", 12, 78, cardWidth - 24, 3, Accent);
             _boostLabel = Label(_dial.transform, "Nitro ready", 12, 90, cardWidth - 24, 17, 12, Muted);
-            _boostFill = Meter(_dial.transform, "Nitro charge", 12, 115, cardWidth - 24, 3, new Color(.63f,.58f,.98f));
+            _boostFill = Meter(_dial.transform, "Nitro charge", 12, 115, cardWidth - 24, 3, CoastalHudTheme.Amber);
 
             _controls = Group(root, "Touch driving controls");
             var controls = _controls.transform;
@@ -321,7 +444,7 @@ namespace CarCrash
             Glyph(_right.transform, RacingHudGraphic.Symbol.ArrowRight, (controlWidth - 28) * .5f, (controlHeight - 28) * .5f, 28, White);
             _reverse = HoldButton(controls, "Reverse pedal", "Rev", pedalX, controlY, controlWidth, controlHeight, PanelColor, 16);
             _brake = HoldButton(controls, "Brake pedal", "Brake", pedalX + controlWidth + gap, controlY, controlWidth, controlHeight, PanelColor, 16);
-            _gas = HoldButton(controls, "Accelerator pedal", "Gas", pedalX + (controlWidth + gap) * 2, controlY, controlWidth, controlHeight, new Color(.11f,.29f,.39f,.97f), 16);
+            _gas = HoldButton(controls, "Accelerator pedal", "Gas", pedalX + (controlWidth + gap) * 2, controlY, controlWidth, controlHeight, SelectedColor, 16);
             _boostButton = IconAction(controls, "Nitro boost", "Nitro", RacingHudGraphic.Symbol.Bolt, speedX, cardY - 48, cardWidth, 40, _session.ActivateBoost).targetGraphic;
             if (!_portrait && !mobile)
                 Label(controls, "W  Drive     A / D  Steer     Q  Reverse     M  Map     P  Pause", _width * .5f - 310, _height - 23, 620, 20, 12, Muted, TextAnchor.MiddleCenter);
@@ -329,7 +452,7 @@ namespace CarCrash
             var eventWidth = Mathf.Min(_width - 2 * pad, 580);
             var eventY = actionsY + actionHeight + 10;
             _eventBacking = Shape(root, "Navigation hint background", (_width - eventWidth) * .5f, eventY, eventWidth, 36, RacingHudGraphic.Shape.Panel, PanelColor).gameObject;
-            _eventLabel = Label(_eventBacking.transform, "", 12, 0, eventWidth - 24, 36, 12, White, TextAnchor.MiddleCenter);
+            _eventLabel = Label(_eventBacking.transform, "", 12, 0, eventWidth - 24, 36, 15, White, TextAnchor.MiddleCenter);
             var impactRoot = Group(root, "Impact feedback");
             _impact = impactRoot.AddComponent<CanvasGroup>();
             _impactTitle = Label(impactRoot.transform, "Impact", _width * .5f - 180, _portrait ? 300 : 190, 360, 35, 24, Accent, TextAnchor.MiddleCenter);
@@ -340,7 +463,9 @@ namespace CarCrash
         {
             Dim(root);var w=Mathf.Min(_width-40,420);var h=440f;
             var panel=Shape(root,"Pause panel",(_width-w)*.5f,(_height-h)*.5f,w,h,RacingHudGraphic.Shape.Panel,PanelColor);
-            Chip(panel.transform,"On pause",26,25,110,new Color(.08f,.16f,.24f),Accent);
+            Chip(panel.transform,"On pause",26,25,110,TileColor,Accent);
+            var settingsWidth = Mathf.Max(112, Units(112));
+            ActionButton(panel.transform,"Pause settings","Settings",w-26-settingsWidth,24,settingsWidth,42,()=>ShowSettings(true),PanelColor,White,14);
             Label(panel.transform,"Take a moment.",26,81,w-52,46,31,White);
             Label(panel.transform,"Your city will be right here.",26,135,w-52,30,15,Muted);
             IconAction(panel.transform,"Resume driving","Keep driving",RacingHudGraphic.Symbol.Play,26,192,w-52,56,_session.ResumeRun,true);
@@ -372,6 +497,81 @@ namespace CarCrash
             ActionButton(panel.transform,"Results to home","Home",38+(w-64)*.5f,442*sy,(w-64)*.5f,44,_session.ReturnHome,PanelColor,White,15);
         }
 
+        private void BuildMissionResults(Transform root)
+        {
+            Dim(root);
+            var w = Mathf.Min(_width - 28, 590);
+            var h = Mathf.Min(_height - 24, _portrait ? 575 : 481);
+            const float pad = 22f;
+            var panel = Shape(root, "Mission results card", (_width - w) * .5f, (_height - h) * .5f, w, h,
+                RacingHudGraphic.Shape.Panel, PanelColor);
+            var playGames = _session.PlayGames.Available;
+            _missionTitle = Label(panel.transform, "", pad, 17, w - (playGames ? 150 : 44), 31, 22, White);
+            if (playGames)
+                ActionButton(panel.transform, "Play Games achievements", "Awards", w - 115, 14, 93, 40,
+                    _session.ShowAchievements, PanelColor, White);
+            _missionStatus = Label(panel.transform, "", pad, 53, w - 44, 26, 15, Accent);
+            _missionScore = Label(panel.transform, "", pad, 77, w * .61f - pad, 61, 47, White);
+            _missionBest = Label(panel.transform, "", w * .62f, 87, w * .38f - pad, 46, 15, Muted, TextAnchor.MiddleRight);
+            Rule(panel.transform, pad, 150, w - pad * 2);
+            _missionSummary = Label(panel.transform, "", pad, 156, w - pad * 2, 26, 14, Muted);
+            var rowHeight = _portrait ? 37 : 26;
+            for (var i = 0; i < _targetAmounts.Length; i++)
+            {
+                var y = 193 + i * rowHeight;
+                Label(panel.transform, ImpactTargetSpec.Labels[i], pad, y, w * .45f, 23, 15, White);
+                _targetAmounts[i] = Label(panel.transform, "", w * .50f, y, w * .50f - pad, 23, 15, Muted, TextAnchor.MiddleRight);
+            }
+
+            var actionY = h - 110;
+            var half = (w - pad * 2 - 10) * .5f;
+            IconAction(panel.transform, "Retry mission", "Retry", RacingHudGraphic.Symbol.Recover, pad, actionY, half, 44, _session.RestartRun, true);
+            _nextCourse = IconAction(panel.transform, "Next mission", "Next course", RacingHudGraphic.Symbol.ArrowRight,
+                pad + half + 10, actionY, half, 44, _session.NextCourse);
+            var buttonWidth = (w - pad * 2 - (playGames ? 16 : 8)) / (playGames ? 3 : 2);
+            ActionButton(panel.transform, "Mission results garage", "Garage", pad, h - 58, buttonWidth, 42, _session.ReturnToShowroom, PanelColor, White);
+            ActionButton(panel.transform, "Mission results home", "Home", pad + buttonWidth + 8, h - 58, buttonWidth, 42, _session.ReturnHome, PanelColor, White);
+            if (playGames)
+                ActionButton(panel.transform, "Mission leaderboard", "Ranks", pad + (buttonWidth + 8) * 2, h - 58, buttonWidth, 42,
+                    _session.ShowLeaderboard, PanelColor, White);
+        }
+
+        private void RefreshMissionResults()
+        {
+            var mission = _session.Mission;
+            var medal = mission.Completed ? mission.Course.Medal(mission.Score) : "";
+            SetText(_missionTitle, mission.Course.Name);
+            _missionResultStatus = mission.Completed ? medal + (_session.NewBest ? "  /  New personal best" : "  /  Course complete")
+                : mission.TimedOut ? "Time expired  /  Finish to bank your score" : "Run ended  /  Finish to bank your score";
+            SetText(_missionStatus, _missionResultStatus);
+            _missionStatus.color = medal == "Gold" ? new Color(1f, .77f, .32f) : Accent;
+            SetText(_missionScore, $"{mission.Score:N0}");
+            SetText(_missionBest, $"Personal best\n{_session.BestScore:N0} pts");
+            var seconds = Mathf.FloorToInt(_session.ElapsedSeconds);
+            SetText(_missionSummary, $"{mission.Hits} targets  /  {mission.PassedCheckpoints}/{mission.CheckpointCount} checkpoints  /  {seconds / 60:00}:{seconds % 60:00}");
+            for (var i = 0; i < _targetAmounts.Length; i++)
+            {
+                var hits = mission.HitsOf((ImpactTargetKind)i);
+                SetText(_targetAmounts[i], $"{hits}  ×  {ImpactTargetSpec.Points[i]}  =  {hits * ImpactTargetSpec.Points[i]:N0} pts");
+            }
+            SetText(_nextCourse.GetComponentInChildren<Text>(), mission.Completed && _session.NextCourseUnlocked ? "Next course" : "Courses");
+        }
+
+        private void BuildMissionMap(Transform root)
+        {
+            Dim(root);
+            var w = Mathf.Min(_width - 32, 660);
+            var h = Mathf.Min(_height - 24, 720);
+            var panel = Shape(root, "Course route panel", (_width - w) * .5f, (_height - h) * .5f, w, h, RacingHudGraphic.Shape.Panel, PanelColor);
+            Label(panel.transform, "Course route", 21, 13, w - 42, 44, 29, White);
+            _missionRoute = Shape(panel.transform, "Course live route", 21, 65, w - 42, h - 133, RacingHudGraphic.Shape.CoursePreview,
+                Ink);
+            _missionRoute.player = _session.vehicle.transform;
+            _missionRoute.mission = _session.Mission;
+            IconAction(panel.transform, "Close mission map", "Keep driving", RacingHudGraphic.Symbol.ArrowRight, 21, h - 56, w - 42, 42,
+                _session.CloseMap, true);
+        }
+
         private void BuildCityMap(Transform root)
         {
             Dim(root);
@@ -383,7 +583,7 @@ namespace CarCrash
             var mapX=24f;var mapY=compact ? 103 : 124;
             var mapW=_portrait ? w-48 : w*.47f;
             var mapH=_portrait ? h-478 : h-mapY-96;
-            _worldMap=Shape(panel.transform,"Full city road map",mapX,mapY,mapW,mapH,RacingHudGraphic.Shape.CityMap,new Color(.045f,.08f,.13f,1));
+            _worldMap=Shape(panel.transform,"Full city road map",mapX,mapY,mapW,mapH,RacingHudGraphic.Shape.CityMap,Ink);
             _worldMap.player=_session.vehicle.transform;_worldMap.navigation=_session.Navigation;
             _worldMap.cityBuildings=_radar.cityBuildings;
             var scale=Mathf.Min((mapW-8)/(CityRoadNetwork.MaxX-CityRoadNetwork.MinX),(mapH-8)/(CityRoadNetwork.MaxZ-CityRoadNetwork.MinZ));
@@ -407,7 +607,7 @@ namespace CarCrash
             {
                 var index=i;
                 var button=ActionButton(panel.transform,"Explore destination "+i,"",choicesX+i%2*(choiceWidth+10),choicesY+i/2*(choiceHeight+10),choiceWidth,choiceHeight,
-                    ()=>_session.ExploreDestination(index),new Color(.07f,.12f,.19f,1),White,14);
+                    ()=>_session.ExploreDestination(index),TileColor,White,14);
                 _destinationCards[i]=button.targetGraphic;
                 Label(button.transform,(i+1).ToString("00"),12,compact ? 14 : 9,26,22,12,Accent).font=_mediumFont;
                 Label(button.transform,names[i],compact ? 39 : 12,compact ? 13 : 33,choiceWidth-(compact ? 48 : 24),24,PixelFont(14,16),White).font=_mediumFont;
@@ -416,7 +616,7 @@ namespace CarCrash
             if(!_portrait&&!compact)Label(panel.transform,"Choose a place to set a road route.\nGo at your own pace.",choicesX,choicesY+318,w-choicesX-24,52,13,Muted);
             var bottom=h-72;
             ActionButton(panel.transform,"Clear navigation route","Clear route",24,bottom,(w-58)*.5f,48,
-                ()=>{_session.Navigation.ClearRoute();_session.CloseMap();},new Color(.08f,.13f,.20f),White,15);
+                ()=>{_session.Navigation.ClearRoute();_session.CloseMap();},TileColor,White,15);
             IconAction(panel.transform,"Close city map","Keep driving",RacingHudGraphic.Symbol.ArrowRight,34+(w-58)*.5f,bottom,(w-58)*.5f,48,_session.CloseMap,true);
         }
 
@@ -424,17 +624,28 @@ namespace CarCrash
         {
             ReleaseControls();
             var phase = _session.Phase;
-            var menu = phase == CarCrashHudInput.RunPhase.Home || phase == CarCrashHudInput.RunPhase.Showroom;
+            if (SettingsVisible && phase is not (CarCrashHudInput.RunPhase.Home or CarCrashHudInput.RunPhase.Paused)) ShowSettings(false);
+            var menu = phase is CarCrashHudInput.RunPhase.Home or CarCrashHudInput.RunPhase.Briefing or CarCrashHudInput.RunPhase.Showroom;
             _atmosphere.showroom = menu;
             _home.SetActive(phase == CarCrashHudInput.RunPhase.Home);
+            _briefing.SetActive(phase == CarCrashHudInput.RunPhase.Briefing);
+            if (_briefing.activeSelf) RefreshBriefing();
             _showroom.SetActive(phase == CarCrashHudInput.RunPhase.Showroom);
+            if (_showroom.activeSelf)
+            {
+                SetText(_garageBack, _session.GarageForMission ? "Mission" : "Home");
+                SetText(_garageDrive, _session.GarageForMission ? "Use this car" : "Drive this ride");
+            }
             _race.SetActive(phase is CarCrashHudInput.RunPhase.Driving or CarCrashHudInput.RunPhase.Countdown);
             _controls.SetActive(phase == CarCrashHudInput.RunPhase.Driving);
             _countdown.SetActive(phase == CarCrashHudInput.RunPhase.Countdown);
             _pause.SetActive(phase == CarCrashHudInput.RunPhase.Paused&&!_session.MapVisible);
-            _map.SetActive(_session.MapVisible);
-            _results.SetActive(phase == CarCrashHudInput.RunPhase.Results);
-            if (phase == CarCrashHudInput.RunPhase.Results)
+            _map.SetActive(_session.MapVisible && !_session.IsMission);
+            _missionMap.SetActive(_session.MapVisible && _session.IsMission);
+            _results.SetActive(phase == CarCrashHudInput.RunPhase.Results && !_session.IsMission);
+            _missionResults.SetActive(phase == CarCrashHudInput.RunPhase.Results && _session.IsMission && !_session.DrivingDemoActive);
+            if (_missionResults.activeSelf) RefreshMissionResults();
+            if (_results.activeSelf)
             {
                 ResultText("Result status", _session.NewBest ? "New personal best" : "Drive complete");
                 ResultText("Final score", _session.scoring.Score.ToString("N0"));
@@ -442,6 +653,7 @@ namespace CarCrash
                 ResultText("Final chain", "x" + (_session.scoring.PeakChainDepth + 1));
                 ResultText("Final speed", _session.PeakSpeed.ToString("0"));
             }
+            RefreshDrivingDemoHud();
         }
 
         private void ResultText(string name, string value)
@@ -458,8 +670,12 @@ namespace CarCrash
                 var graphic=(RacingHudGraphic)_swatches[i];
                 graphic.borderColor=i==_session.PaintIndex ? White : new Color(1,1,1,.16f);
                 graphic.strokeWidth=i==_session.PaintIndex ? 3 : 1;
+                graphic.GetComponent<Button>().interactable = CarCrashHudInput.PaintUnlocked(i);
                 graphic.SetVerticesDirty();
             }
+            var goldLocked = !CarCrashHudInput.PaintUnlocked(_swatches.Length - 1);
+            _goldLock.SetActive(goldLocked);
+            _goldHint.SetActive(goldLocked);
         }
 
         public void RefreshVehicle()
@@ -471,9 +687,9 @@ namespace CarCrash
                 if (_vehicleCards[i]!=null)
                 {
                     var selected=_session.Garage != null && _session.Garage.SelectedIndex==i;
-                    _vehicleCards[i].color=selected ? new Color(.09f,.24f,.34f,.98f) : new Color(.05f,.09f,.15f,.98f);
+                    _vehicleCards[i].color=selected ? SelectedColor : TileColor;
                     var graphic=(RacingHudGraphic)_vehicleCards[i];
-                    graphic.borderColor=selected ? new Color(.36f,.78f,.98f,.8f) : new Color(.7f,.8f,1,.14f);
+                    graphic.borderColor=selected ? Accent : BorderColor;
                     graphic.SetVerticesDirty();
                 }
         }
@@ -482,17 +698,25 @@ namespace CarCrash
         {
             var car = _session.vehicle;
             var score = _session.scoring;
+            var course = _session.IsMission ? _session.Mission : null;
+            var total = course != null ? course.Score : score.Score;
+            var hits = course != null ? course.Hits : score.Hits;
+            if (_missionResults.activeSelf)
+            {
+                var gamesMessage = _session.PlayGames.Message;
+                SetText(_missionStatus, string.IsNullOrEmpty(gamesMessage) ? _missionResultStatus : gamesMessage);
+            }
             var dt = Time.unscaledDeltaTime;
             _displaySpeed = Mathf.Lerp(_displaySpeed, car.SpeedKmh, 1f - Mathf.Exp(-10f * dt));
-            _displayScore = Mathf.MoveTowards(_displayScore, score.Score, Mathf.Max(500f, Mathf.Abs(score.Score - _displayScore) * 12f) * dt);
+            _displayScore = Mathf.MoveTowards(_displayScore, total, Mathf.Max(500f, Mathf.Abs(total - _displayScore) * 12f) * dt);
             SetText(_score, Mathf.RoundToInt(_displayScore).ToString("N0"));
-            SetText(_hits, $"{score.Hits} hits");
-            SetText(_combo, $"x{score.LastMultiplier:0.0}");
-            var seconds = _session.IsTimed ? Mathf.Max(0, Mathf.CeilToInt(CarCrashHudInput.RunDuration - _session.ElapsedSeconds))
+            SetText(_hits, $"{hits} hits");
+            SetText(_combo, course != null ? "PTS" : $"x{score.LastMultiplier:0.0}");
+            var seconds = _session.IsTimed ? Mathf.Max(0, Mathf.CeilToInt(_session.SelectedCourse.TimeLimit - _session.ElapsedSeconds))
                 : Mathf.FloorToInt(_session.ElapsedSeconds);
             SetText(_timer, $"{seconds / 60:00}:{seconds % 60:00}");
             if (_timerCaption != null) SetText(_timerCaption, _session.IsTimed ? "Time left" : "Session");
-            SetText(_modeCaption, _session.IsTimed ? "60s challenge" : "Free roam");
+            SetText(_modeCaption, _session.DrivingDemoActive ? "Driving demo" : course != null ? "Impact Run" : "Free roam");
             _timer.color = _session.IsTimed && seconds <= 10 ? new Color(1f, 0.36f, 0.22f) : White;
             SetText(_speed, Mathf.RoundToInt(_displaySpeed).ToString("0"));
             SetText(_gear, car.Reversing ? "R" : car.SpeedKmh < 1f ? "N" : Mathf.Clamp(Mathf.FloorToInt(car.SpeedKmh / 38f) + 1, 1, 6).ToString());
@@ -508,10 +732,13 @@ namespace CarCrash
             _atmosphere.value = car.SpeedKmh / 240f;
             _atmosphere.boosting = car.BoostActive;
             _atmosphere.SetVerticesDirty();
-            _boostButton.color = car.BoostActive ? new Color(.32f,.25f,.63f,.98f) : new Color(.13f,.12f,.24f,.96f);
+            _boostButton.color = car.BoostActive ? new Color(.52f,.24f,.13f,.98f) : TileColor;
             var recoveryHint = Application.isMobilePlatform ? "Need a hand? Tap Unstuck" : "Need a hand? Unstuck / R";
-            var hint=_session.RecoverySuggested ? recoveryHint : car.BoostActive ? "Nitro active" : score.SlowMotionActive ? "Impact cam" : TitleCase(_session.Navigation.Hint);
+            var hint = _session.RecoverySuggested ? recoveryHint : _session.DrivingDemoActive ? _session.DrivingDemoHint
+                : course != null ? course.Hint(car.transform)
+                : car.BoostActive ? "Nitro active" : score.SlowMotionActive ? "Impact cam" : TitleCase(_session.Navigation.Hint);
             SetText(_eventLabel,hint);_eventBacking.SetActive(!string.IsNullOrEmpty(hint));
+            if (_missionMap.activeSelf) _missionRoute.SetVerticesDirty();
             if(_map.activeSelf)
             {
                 _worldMap.SetVerticesDirty();SetText(_mapStatus,"7 avenues / 13 streets / "+_session.Navigation.VisitedCount+" of 6 places explored");
@@ -519,18 +746,19 @@ namespace CarCrash
                     if(_destinationCards[i]!=null)
                     {
                         var graphic=(RacingHudGraphic)_destinationCards[i];var selected=_session.Navigation.Destination==i;
-                        graphic.color=selected ? new Color(.09f,.24f,.34f) : new Color(.07f,.12f,.19f);
-                        graphic.borderColor=selected ? Accent : new Color(.7f,.8f,1,.14f);
+                        graphic.color=selected ? SelectedColor : TileColor;
+                        graphic.borderColor=selected ? Accent : BorderColor;
                     }
             }
 
-            var sinceImpact = Time.realtimeSinceStartup - score.LastImpactRealtime;
-            _impact.alpha = _session.Phase == CarCrashHudInput.RunPhase.Driving && sinceImpact < 2.2f
-                ? Mathf.Clamp01((2.2f - sinceImpact) * 2f) : 0f;
+            var sinceImpact = course != null ? Time.unscaledTime - course.LastHitTime : Time.realtimeSinceStartup - score.LastImpactRealtime;
+            var feedbackDuration = course != null ? 1.35f : 2.2f;
+            _impact.alpha = _session.Phase == CarCrashHudInput.RunPhase.Driving && sinceImpact < feedbackDuration
+                ? Mathf.Clamp01((feedbackDuration - sinceImpact) * 2.8f) : 0f;
             if (_impact.alpha > 0)
             {
-                SetText(_impactTitle, score.LastChainDepth > 0 ? $"Chain reaction  x{score.LastChainDepth + 1}" : "Solid impact");
-                SetText(_impactScore, $"+{score.LastImpactScore:N0}");
+                SetText(_impactTitle, course != null ? course.LastTarget : score.LastChainDepth > 0 ? $"Chain reaction  x{score.LastChainDepth + 1}" : "Solid impact");
+                SetText(_impactScore, $"+{(course != null ? course.LastPoints : score.LastImpactScore):N0}");
                 _impact.transform.localScale = Vector3.one * (1f + Mathf.Max(0f, 0.16f - sinceImpact) * 0.8f);
             }
             if (_countdown.activeSelf)
@@ -546,15 +774,22 @@ namespace CarCrash
             _left?.Release(); _right?.Release(); _gas?.Release(); _brake?.Release(); _reverse?.Release();
         }
 
-        private void Brand(Transform root, float x, float y)
+        private void Brand(Transform root, float x, float y) =>
+            PlaceLogo(root, "Coastal Circuit garage logo", x, y, 152f);
+
+        private void PlaceLogo(Transform root, string name, float x, float y, float width)
         {
-            var badge=Shape(root,"Elysian monogram",x,y,36,36,RacingHudGraphic.Shape.Panel,new Color(.12f,.28f,.37f));
-            badge.cornerRadius=11;
-            Solid(badge.transform,"Mark 1",10,10,17,3,Accent);
-            Solid(badge.transform,"Mark 2",10,17,12,3,Accent);
-            Solid(badge.transform,"Mark 3",10,24,17,3,Accent);
-            Label(root,"ELYSIAN",x+48,y-3,200,30,22,White).font=_displayFont;
-            Label(root,"Drive your city",x+49,y+29,240,20,12,new Color(.8f,.86f,.94f));
+            var height = width / LogoAspect;
+            if (_coastalLogo == null)
+            {
+                Label(root, "Crash Car · Elysian", x, y, width, height, width > 200 ? 34 : 16, White);
+                return;
+            }
+            var logo = Rect(root, name, x, y, width, height).gameObject.AddComponent<RawImage>();
+            logo.texture = _coastalLogo;
+            logo.uvRect = LogoRegion;
+            logo.color = Color.white;
+            logo.raycastTarget = false;
         }
 
         private void Chip(Transform parent,string label,float x,float y,float width,Color background,Color foreground)
@@ -574,7 +809,7 @@ namespace CarCrash
         {
             height=Mathf.Max(height,Units(40));
             var foreground=primary ? Ink : White;
-            var button=ActionButton(parent,name,label,x,y,width,height,action,primary ? Accent : PanelColor,foreground,height>=80 ? 22 : 16);
+            var button=ActionButton(parent,name,label,x,y,width,height,action,primary ? Primary : TileColor,foreground,height>=80 ? 22 : 16);
             var text=button.GetComponentInChildren<Text>();
             var iconOnly=string.IsNullOrEmpty(label);var showIcon=iconOnly||width>=text.preferredWidth+50;
             if(showIcon)
@@ -622,6 +857,8 @@ namespace CarCrash
             var graphic = Rect(parent, name, x, y, width, height).gameObject.AddComponent<RacingHudGraphic>();
             graphic.shape = shape;
             graphic.color = tint;
+            graphic.accent = Accent;
+            graphic.borderColor = BorderColor;
             graphic.raycastTarget = false;
             return graphic;
         }
@@ -638,7 +875,7 @@ namespace CarCrash
             graphic.cornerRadius=14;
             var colors = button.colors;
             colors.highlightedColor = new Color(1.18f, 1.18f, 1.18f);
-            colors.pressedColor = new Color(.68f,.80f,.92f);
+            colors.pressedColor = new Color(.78f,.84f,.79f);
             colors.fadeDuration = .12f;
             button.colors = colors;
             button.gameObject.AddComponent<HudButtonMotion>();
@@ -662,7 +899,7 @@ namespace CarCrash
 
         private RectTransform Meter(Transform parent, string name, float x, float y, float width, float height, Color tint)
         {
-            var track = Solid(parent, name, x, y, width, height, new Color(0.7f, 0.85f, 0.9f, 0.18f));
+            var track = Solid(parent, name, x, y, width, height, new Color(0.75f, 0.92f, 0.83f, 0.22f));
             var fill = Solid(track, "Fill", 0, 0, width, height, tint);
             fill.anchorMin = Vector2.zero;
             fill.anchorMax = Vector2.one;
@@ -672,7 +909,7 @@ namespace CarCrash
 
         private static void SetFill(RectTransform rect, float amount) => rect.anchorMax = new Vector2(Mathf.Clamp01(amount), 1f);
         private static void SetText(Text text, string value) { if (text.text != value) text.text = value; }
-        private void Rule(Transform parent, float x, float y, float width) => Solid(parent, "Divider", x, y, width, 1, new Color(0.8f, 0.9f, 1f, 0.15f));
+        private void Rule(Transform parent, float x, float y, float width) => Solid(parent, "Divider", x, y, width, 1, BorderColor);
         private RectTransform Solid(Transform parent, string name, float x, float y, float width, float height, Color tint)
         {
             var rect = Rect(parent, name, x, y, width, height);
@@ -683,7 +920,7 @@ namespace CarCrash
         }
         private void Dim(Transform parent)
         {
-            Solid(parent, "Modal backdrop", 0, 0, _width, _height, new Color(0f, 0.012f, 0.019f, 0.72f)).GetComponent<Image>().raycastTarget = true;
+            Solid(parent, "Modal backdrop", 0, 0, _width, _height, new Color(.008f, .031f, .032f, .70f)).GetComponent<Image>().raycastTarget = true;
         }
         private static GameObject Group(Transform parent, string name)
         {

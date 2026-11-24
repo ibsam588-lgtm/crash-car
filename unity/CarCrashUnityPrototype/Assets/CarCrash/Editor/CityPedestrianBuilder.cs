@@ -108,6 +108,7 @@ namespace CarCrashEditor
             }
             var root = new GameObject("City pedestrians").transform;
             var index = 0;
+            var performers = 0;
             foreach (var avenue in CityRoadNetwork.AvenueX)
             for (var block = 1; block < CityRoadNetwork.CrossStreetZ.Length; block++)
             foreach (var side in new[] { -1f, 1f })
@@ -119,17 +120,29 @@ namespace CarCrashEditor
                 var a = new Vector3(x, 0.16f, CityRoadNetwork.CrossStreetZ[block - 1] + 12f);
                 var b = new Vector3(x, 0.16f, CityRoadNetwork.CrossStreetZ[block] - 12f);
                 var person = (GameObject)PrefabUtility.InstantiatePrefab(templates[type], root);
-                person.name = "Pedestrian " + (index + 1) + " / " + names[type];
+                var jogger = index % 6 == 3;
+                var dogWalker = index % 8 == 1;
+                var role = jogger ? "Jogger" : dogWalker ? "Dog walker" : "Pedestrian";
+                person.name = role + " " + (index + 1) + " / " + names[type];
                 person.transform.SetPositionAndRotation(Vector3.Lerp(a, b, lane == 0 ? 0.38f : 0.73f), Quaternion.Euler(0, lane == 0 ? 0 : 180, 0));
                 var walker = person.GetComponent<CityPedestrian>();
                 walker.pointA = a; walker.pointB = b;
                 walker.walkSpeed = (type == 2 ? 1.7f : 1.3f) * (0.92f + lane * 0.1f);
+                if (jogger) walker.walkSpeed *= 1.86f;
+                else if (dogWalker) walker.walkSpeed *= .89f;
                 walker.sourceWalkSpeed = type == 2 ? 1.7f : 1.3f;
                 walker.player = player;
                 walker.avenueCenterX = avenue;
                 PrefabUtility.RecordPrefabInstancePropertyModifications(person);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(person.transform);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(walker);
+                if (dogWalker) AddLeashedDog(person.transform,index);
+                if (Mathf.Abs(avenue) <= 54f && (block + (side > 0f ? 1 : 0)) % 3 == 0)
+                {
+                    var center = Vector3.Lerp(a,b,.67f);
+                    AddStreetPerformer(templates[(type+1)%templates.Length],root,player,center,side);
+                    performers++;
+                }
                 index++;
             }
             Debug.Log("Created " + index + " animated city pedestrians on bounded sidewalk routes.");
@@ -137,16 +150,114 @@ namespace CarCrashEditor
             foreach(var shop in Object.FindObjectsByType<CityBuildingProfile>(FindObjectsSortMode.None))
             {
                 if(!shop.hasInterior||shop.plot%2!=1)continue;
-                var person=(GameObject)PrefabUtility.InstantiatePrefab(templates[attendants%templates.Length],root);
-                person.name="Shop attendant / "+shop.shop;
-                var walker=person.GetComponent<CityPedestrian>();var clip=walker.walkClip;
-                Object.DestroyImmediate(walker);Object.DestroyImmediate(person.GetComponent<Collider>());Object.DestroyImmediate(person.GetComponent<Rigidbody>());
+                var actor=CreateStreetActor(templates[attendants%templates.Length],root,player,"Shop attendant / "+shop.shop);
+                var person=actor.gameObject;
                 person.transform.position=shop.transform.TransformPoint(shop.attendantLocalPosition);
                 person.transform.rotation=Quaternion.LookRotation(Vector3.left*shop.side);
-                var actor=person.AddComponent<CityStreetActor>();actor.poseClip=clip;actor.player=player;
+                actor.shop=shop;
+                actor.escapePoint=shop.transform.TransformPoint(shop.egressLocalPosition+new Vector3(-shop.side*.55f,0f,6.1f));
                 attendants++;
             }
-            Debug.Log("Created "+attendants+" shop attendants with idle poses and local visibility.");
+            Debug.Log("Created "+attendants+" shop attendants with clear exit routes and "+performers+" street performers.");
+        }
+
+        private static CityStreetActor CreateStreetActor(GameObject template,Transform root,Transform player,string name)
+        {
+            var actorObject=(GameObject)PrefabUtility.InstantiatePrefab(template,root);
+            actorObject.name=name;
+            var walker=actorObject.GetComponent<CityPedestrian>();
+            var clip=walker.walkClip;
+            Object.DestroyImmediate(walker);
+            Object.DestroyImmediate(actorObject.GetComponent<Collider>());
+            Object.DestroyImmediate(actorObject.GetComponent<Rigidbody>());
+            var actor=actorObject.AddComponent<CityStreetActor>();
+            actor.poseClip=clip;
+            actor.player=player;
+            return actor;
+        }
+
+        private static void AddStreetPerformer(GameObject template,Transform root,Transform player,Vector3 center,float side)
+        {
+            var actor=CreateStreetActor(template,root,player,"Street performer / juggler");
+            actor.transform.SetPositionAndRotation(center+Vector3.left*(side*.20f),Quaternion.LookRotation(Vector3.left*side));
+            actor.escapePoint=center+Vector3.back*6f;
+            actor.performanceProps=new Transform[3];
+            var palette=new[] {new Color(.88f,.24f,.12f),new Color(.11f,.69f,.79f),new Color(.92f,.66f,.13f)};
+            for(var i=0;i<actor.performanceProps.Length;i++)
+            {
+                var material=RealismMaterialLibrary.Standard("M_Street_Juggling_Ball_"+i,palette[i],0f,.47f);
+                actor.performanceProps[i]=ActorPrimitive("Juggling ball " + (i+1),PrimitiveType.Sphere,actor.transform, new Vector3(i*.18f-.18f,1.4f,.46f),Vector3.one*.13f,material);
+            }
+            var fabric=RealismMaterialLibrary.Standard("M_Street_Performer_Mat",new Color(.08f,.27f,.29f),0f,.24f);
+            ActorPrimitive("Street performance mat",PrimitiveType.Cube,root,center+Vector3.up*.004f,new Vector3(.87f,.014f,1.75f),fabric).position=center+Vector3.up*.004f;
+        }
+
+        private static void AddLeashedDog(Transform owner,int index)
+        {
+            var colors=new[] {new Color(.38f,.22f,.12f),new Color(.64f,.47f,.28f),new Color(.23f,.17f,.13f)};
+            var variant=(index/8)%colors.Length;
+            var coat=RealismMaterialLibrary.Standard("M_Dog_Coat_"+variant,colors[variant],0f,.34f);
+            var cream=RealismMaterialLibrary.Standard("M_Dog_Chest",new Color(.77f,.69f,.55f),0f,.37f);
+            var dark=RealismMaterialLibrary.Standard("M_Dog_Nose",new Color(.06f,.043f,.034f),0f,.61f);
+            var collar=RealismMaterialLibrary.Standard("M_Dog_Collar",new Color(.075f,.45f,.56f),0f,.4f);
+            var dog=new GameObject("Leashed sidewalk dog").transform;
+            dog.SetParent(owner,false);
+            dog.localPosition=new Vector3(.53f,0f,.50f);
+            var companion=dog.gameObject.AddComponent<CityLeashedDog>();
+            companion.owner=owner.GetComponent<Rigidbody>();
+
+            void Shape(string name,Transform parent,Vector3 point,Vector3 size,Material material) =>
+                ActorPrimitive(name,PrimitiveType.Sphere,parent,point,size,material);
+
+            Shape("Body",dog,new Vector3(0f,.40f,-.015f),new Vector3(.32f,.30f,.68f),coat);
+            Shape("Chest",dog,new Vector3(0f,.39f,.19f),new Vector3(.28f,.32f,.28f),cream);
+            Shape("Rump",dog,new Vector3(0f,.38f,-.26f),new Vector3(.31f,.29f,.28f),coat);
+            Shape("Neck",dog,new Vector3(0f,.50f,.25f),new Vector3(.205f,.235f,.22f),coat);
+            Shape("Head",dog,new Vector3(0f,.59f,.34f),new Vector3(.25f,.245f,.25f),coat);
+            Shape("Muzzle",dog,new Vector3(0f,.539f,.475f),new Vector3(.155f,.115f,.218f),cream);
+            Shape("Nose",dog,new Vector3(0f,.564f,.573f),new Vector3(.099f,.073f,.061f),dark);
+            Shape("Collar",dog,new Vector3(0f,.493f,.272f),new Vector3(.225f,.065f,.241f),collar);
+            foreach(var side in new[] {-1f,1f})
+            {
+                Shape("Eye",dog,new Vector3(side*.091f,.625f,.423f),Vector3.one*.039f,dark);
+                Shape("Ear",dog,new Vector3(side*.101f,.635f,.296f),new Vector3(.080f,.22f,.105f),coat);
+            }
+            companion.legs=new Transform[4];
+            for(var leg=0;leg<companion.legs.Length;leg++)
+            {
+                var pivot=new GameObject("Leg pivot "+leg).transform;
+                pivot.SetParent(dog,false);
+                pivot.localPosition=new Vector3(leg%2==0?-.108f:.108f,.33f,leg<2?.206f:-.234f);
+                companion.legs[leg]=pivot;
+                Shape("Upper leg",pivot,new Vector3(0f,-.067f,0f),new Vector3(.105f,.194f,.112f),coat);
+                Shape("Lower leg",pivot,new Vector3(0f,-.202f,0f),new Vector3(.072f,.159f,.078f),coat);
+                Shape("Paw",pivot,new Vector3(0f,-.299f,.019f),new Vector3(.102f,.064f,.118f),cream);
+            }
+            companion.tail=new GameObject("Tail pivot").transform;
+            companion.tail.SetParent(dog,false);
+            companion.tail.localPosition = new Vector3(0f,.44f,-.33f);
+            var tail=ActorPrimitive("Tail",PrimitiveType.Sphere,companion.tail,new Vector3(0f,.085f,-.126f),new Vector3(.072f,.087f,.34f),coat);
+            tail.localRotation=Quaternion.Euler(31f,0f,0f);
+
+            var leash=new GameObject("Leash",typeof(LineRenderer));
+            leash.transform.SetParent(dog,false);
+            companion.leash=leash.GetComponent<LineRenderer>();
+            companion.leash.sharedMaterial=dark;
+            companion.leash.positionCount=3;
+            companion.leash.widthMultiplier=.013f;
+            companion.leash.shadowCastingMode=ShadowCastingMode.Off;
+        }
+
+        private static Transform ActorPrimitive(string name,PrimitiveType type,Transform parent,Vector3 point,Vector3 size,Material material)
+        {
+            var obj=GameObject.CreatePrimitive(type);
+            obj.name=name;
+            obj.transform.SetParent(parent,false);
+            obj.transform.localPosition=point;
+            obj.transform.localScale=size;
+            obj.GetComponent<MeshRenderer>().sharedMaterial=material;
+            Object.DestroyImmediate(obj.GetComponent<Collider>());
+            return obj.transform;
         }
 
         private static GameObject CreateBody(GameObject source, AnimationClip clip, Dictionary<string, Material> materials, PhysicsMaterial contact, int type)

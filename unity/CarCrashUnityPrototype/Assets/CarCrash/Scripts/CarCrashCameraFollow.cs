@@ -35,9 +35,10 @@ namespace CarCrash
 
         private readonly List<(Collider collider,Renderer[] renderers)> _trafficBodies=new();
         private readonly List<(Renderer renderer,bool forced)> _nearCameraHidden=new();
-        private void Awake()
+        private void Awake() => _camera=GetComponent<Camera>();
+
+        private void Start()
         {
-            _camera=GetComponent<Camera>();
             foreach(var traffic in FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
                 _trafficBodies.Add((traffic.GetComponent<Collider>(),traffic.GetComponentsInChildren<Renderer>(true)));
         }
@@ -113,7 +114,9 @@ namespace CarCrash
             var size = VehicleSize;
             if (size.y > 1.6f || size.z > 5f)
             {
-                localOffset.y += Mathf.Max(0,size.y-1.3f)*.65f;
+                var extraHeight = Mathf.Max(0, size.y - 1.3f);
+                localOffset.y += extraHeight * (View == DrivingView.Chase ? 1.09f : .65f);
+                if (View == DrivingView.Chase) localOffset.z -= extraHeight * .32f;
                 if (View != DrivingView.Bonnet) localOffset.z -= Mathf.Max(0,size.z-4.65f)*1.2f;
                 else localOffset.z = size.z*.32f;
             }
@@ -124,8 +127,9 @@ namespace CarCrash
                 localOffset.y *= 1.25f;
             }
             var desired = ClearCameraPosition(target.TransformPoint(localOffset));
-            transform.position = ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend));
-            LookAt(target.position + target.forward * lookAhead + Vector3.up * 1.1f, blend);
+            var relocated = (transform.position - desired).sqrMagnitude > 55f * 55f;
+            transform.position = relocated ? desired : ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend));
+            LookAt(target.position + target.forward * lookAhead + Vector3.up * 1.1f, relocated ? 1f : blend);
             var speed = _vehicle != null ? Mathf.Clamp01(_vehicle.SpeedKmh / 200f) : 0f;
             var boost = _vehicle != null && _vehicle.BoostActive ? 6f : 0f;
             _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView, 54f + speed * 12f + boost, blend * 0.6f);

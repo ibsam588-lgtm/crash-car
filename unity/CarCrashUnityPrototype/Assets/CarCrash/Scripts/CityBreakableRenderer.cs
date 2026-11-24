@@ -16,11 +16,13 @@ namespace CarCrash
         }
         public Batch[] batches=Array.Empty<Batch>();
         private Transform _player;
+        private CityTrafficSignals _signals;
         private Matrix4x4[] _matrices=new Matrix4x4[1023];
         public int InstanceCount { get; private set; }
         private void Start()
         {
             var vehicle=FindFirstObjectByType<ArcadeVehicleController>();if(vehicle!=null)_player=vehicle.transform;
+            _signals=GetComponent<CityTrafficSignals>();
             var unique=new HashSet<BreakableCityProp>();
             foreach(var batch in batches)foreach(var prop in batch.props)
             {
@@ -32,10 +34,12 @@ namespace CarCrash
         private void LateUpdate()
         {
             if(!SystemInfo.supportsInstancing)return;
+            if(_signals==null)_signals=GetComponent<CityTrafficSignals>();
             var observer=_player!=null ? _player.position : Vector3.zero;
             foreach(var batch in batches)
             {
                 if(batch.mesh==null||batch.material==null)continue;
+                if(_signals!=null&&_signals.HasSignalHeads&&CityTrafficSignals.IsLegacyLens(batch.material))continue;
                 var distance=(batch.bounds.ClosestPoint(observer)-observer).sqrMagnitude;if(distance>360*360)continue;
                 var count=0;
                 foreach(var prop in batch.props)

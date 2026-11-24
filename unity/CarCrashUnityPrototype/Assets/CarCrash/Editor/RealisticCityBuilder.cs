@@ -136,7 +136,7 @@ namespace CarCrashEditor
             PrepareBreakableMeshes();
             CombineStaticGeometry();
             BakeStreetReflection();
-            CreateFoliageInstances();
+            KeepInstancedFoliageShader();
         }
 
         private static void BakeStreetReflection()
@@ -214,7 +214,7 @@ namespace CarCrashEditor
             Plane("District ground",new Vector3(-140,-.07f,centerZ),width+280,length+300,grass,true);
             foreach(var avenue in CityRoadNetwork.AvenueX)
             {
-                Plane("Connected avenue",new Vector3(avenue,0,centerZ),18,length,_asphalt,true);
+                Plane("Connected avenue",new Vector3(avenue,0,centerZ),CityRoadNetwork.AvenueHalfWidth*2,length,_asphalt,true);
                 var previous=CityRoadNetwork.MinZ+1;
                 foreach(var crossing in CrossStreets)
                 {
@@ -232,7 +232,7 @@ namespace CarCrashEditor
             segments.Add(new Vector2(left,CityRoadNetwork.MaxX));
             foreach(var z in CrossStreets)
             {
-                Plane("Connected cross street",new Vector3(0,.006f,z),width,14,_asphalt,true);
+                Plane("Connected cross street",new Vector3(0,.006f,z),width,CityRoadNetwork.CrossStreetHalfWidth*2,_asphalt,true);
                 foreach(var segment in segments)
                 {
                     var x=(segment.x+segment.y)*.5f;var span=segment.y-segment.x;
@@ -344,9 +344,10 @@ namespace CarCrashEditor
                     profile.architecture=ArchitectureNames[family];profile.shop=ShopNames[shopKind];profile.size=new Vector3(width,height,depth);
                     profile.hasInterior=Mathf.Abs(avenue)<=54&&z>-120&&z<320;
                     profile.attendantLocalPosition=new Vector3(facade+side*2.9f,.16f,z+1.15f);
+                    profile.egressLocalPosition=new Vector3(facade-side*.28f,.16f,z+3.18f);
                     var wall=ArchitectureWall(family,i/8%2);
                     BuildArchitecturalCore(side,centerX,facade,z,width,depth,height,wall,profile.hasInterior);
-                    RecessedFacade(side,facade,z,depth,height,wall,windows,spacing,opening,floorStep);
+                    RecessedFacade(side,facade,z,depth,height,wall,windows,spacing,opening,floorStep,profile.hasInterior);
                     Box("Roof parapet", new Vector3(centerX, height + 0.28f, z), new Vector3(width + 0.28f, 0.56f, depth + 0.28f), _trim);
                     Box("Upper cornice", new Vector3(facade - side * 0.15f, height - 0.65f, z), new Vector3(0.52f, 0.20f, depth + 0.35f), _trim);
                     for (var y = 4.9f; y < height - 1; y += floorStep)
@@ -369,8 +370,10 @@ namespace CarCrashEditor
                         var shopZ=z+column*4.3f;
                         if(!(profile.hasInterior&&shopKind==5&&column==0))
                         {
-                            var pane=Box("Shop glazing",new Vector3(facade+side*.28f,1.55f,shopZ),new Vector3(.035f,2.45f,3.6f),profile.hasInterior ? RetailGlass() : _shopGlass);
-                            if(profile.hasInterior)pane.GetComponent<MeshRenderer>().shadowCastingMode=ShadowCastingMode.Off;
+                            if(profile.hasInterior)
+                                AddStorefrontPane(profile,facade,shopZ,column==1);
+                            else
+                                Box("Shop glazing",new Vector3(facade+side*.28f,1.55f,shopZ),new Vector3(.035f,2.45f,3.6f),_shopGlass);
                         }
                         Box("Shop window frame",new Vector3(facade+side*.20f,1.6f,shopZ+1.72f),new Vector3(.14f,2.75f,.08f),_metal);
                         Box("Shop window transom",new Vector3(facade+side*.18f,2.44f,shopZ),new Vector3(.14f,.06f,3.55f),_metal);
@@ -379,6 +382,11 @@ namespace CarCrashEditor
                             Box("Entrance door mullion",new Vector3(facade+side*.18f,1.45f,shopZ-.85f),new Vector3(.14f,2.6f,.065f),_metal);
                             Box("Shop door pull",new Vector3(facade+side*.08f,1.3f,shopZ-.64f),new Vector3(.10f,.46f,.035f),_trim);
                             Box("Recessed entrance threshold",new Vector3(facade+side*.1f,.18f,shopZ-1.25f),new Vector3(.75f,.055f,1.22f),_stone);
+                        }
+                        if(profile.hasInterior&&column==1)
+                        {
+                            Box("Open pedestrian doorway",new Vector3(facade+side*.18f,1.43f,shopZ-.46f),new Vector3(.14f,2.55f,.095f),_metal);
+                            Box("Exit threshold",profile.egressLocalPosition+Vector3.up*.015f,new Vector3(.65f,.035f,1.2f),_trim);
                         }
                     }
                     var awning=ShopAccent(shopKind);
@@ -402,19 +410,19 @@ namespace CarCrashEditor
             }
         }
 
-        private static void RecessedFacade(int side,float facade,float z,float depth,float height,Material wall,int windows,float spacing,float opening,float floorStep)
+        private static void RecessedFacade(int side,float facade,float z,float depth,float height,Material wall,int windows,float spacing,float opening,float floorStep,bool enterable)
         {
             var x=facade+side*.16f;
-            Box("Ground floor stone plinth",new Vector3(x,.30f,z),new Vector3(.60f,.35f,depth),_stone);
-            Box("Shopfront stone header",new Vector3(x,3.26f,z),new Vector3(.60f,.82f,depth),_stone);
+            if(!enterable)Box("Ground floor stone plinth",new Vector3(x,.30f,z),new Vector3(.60f,.35f,depth),_stone);
+            Box("Shopfront stone header",new Vector3(x,3.26f,z),new Vector3(.60f,.82f,depth),_stone,enterable);
             var previous=-depth*.5f;
             for(var column=-1;column<=1;column++)
             {
                 var left=column*4.3f-1.8f;
-                Box("Shopfront masonry pier",new Vector3(x,1.65f,z+(previous+left)*.5f),new Vector3(.60f,2.75f,left-previous),_stone);
+                Box("Shopfront masonry pier",new Vector3(x,1.51f,z+(previous+left)*.5f),new Vector3(.60f,2.98f,left-previous),_stone,enterable);
                 previous=column*4.3f+1.8f;
             }
-            Box("Shopfront masonry pier",new Vector3(x,1.65f,z+(previous+depth*.5f)*.5f),new Vector3(.60f,2.75f,depth*.5f-previous),_stone);
+            Box("Shopfront masonry pier",new Vector3(x,1.51f,z+(previous+depth*.5f)*.5f),new Vector3(.60f,2.98f,depth*.5f-previous),_stone,enterable);
             var below=3.67f;
             x=facade+side*.02f;
             for(var y=4.9f;y<height-1;y+=floorStep)
@@ -489,14 +497,18 @@ namespace CarCrashEditor
             {
                 var z = -355f + i * 22.5f;
                 if (NearCrossStreet(z, 10f)) continue;
+                var lampZ = z + 6f;
+                if (NearCrossStreet(lampZ, CityRoadNetwork.CrossStreetHalfWidth + 3f)) lampZ = z - 6f;
                 foreach (var side in new[] { -1f, 1f })
                 {
                     var x = side * 10.7f;
                     Palm(new Vector3(x, 0.15f, z), i % 3);
-                    var lampZ = z + 6;
-                    var lampAssembly=BeginBreakable(side<0 ? "Breakaway streetlight west" : "Breakaway streetlight east",new Vector3(side*9.9f,.15f,lampZ),65);
-                    Tube("Streetlight column", new Vector3(side * 9.9f, 0.15f, lampZ), new Vector3(side * 9.9f, 6.8f, lampZ), 0.075f, _metal, true);
-                    Tube("Streetlight outreach", new Vector3(side * 9.9f, 6.8f, lampZ), new Vector3(side * 7.8f, 6.6f, lampZ), 0.07f, _metal);
+                    var lampX = side * CityRoadNetwork.CurbsideLightOffset;
+                    var lampFoot = new Vector3(lampX, .15f, lampZ);
+                    var lampTop = new Vector3(lampX, 6.8f, lampZ);
+                    var lampAssembly = BeginBreakable(side < 0 ? "Breakaway streetlight west" : "Breakaway streetlight east", lampFoot, 65);
+                    Tube("Streetlight column", lampFoot, lampTop, 0.075f, _metal, true);
+                    Tube("Streetlight outreach", lampTop, new Vector3(side * 7.8f, 6.6f, lampZ), 0.07f, _metal);
                     Box("Streetlight housing", new Vector3(side * 7.75f, 6.55f, lampZ), new Vector3(0.65f, 0.14f, 0.35f), _metal);
                     Box("Streetlight lens", new Vector3(side * 7.75f, 6.45f, lampZ), new Vector3(0.5f, 0.025f, 0.25f), _light);
                     EndBreakable(lampAssembly);
@@ -515,14 +527,18 @@ namespace CarCrashEditor
             {
                 foreach (var side in new[] { -1f, 1f })
                 {
-                    var assembly=BeginBreakable(side<0 ? "Breakaway traffic signal west" : "Breakaway traffic signal east",new Vector3(side*9.6f,.2f,z-side*6.5f),115);
+                    var signalZ = z - side * (CityRoadNetwork.CrossStreetHalfWidth + 2.5f);
+                    var signalFoot = new Vector3(side * 9.6f, .15f, signalZ);
+                    var signalTop = signalFoot + Vector3.up * 5.6f;
+                    var armEnd = new Vector3(side * 4.8f, signalTop.y, signalZ);
+                    var assembly = BeginBreakable(side < 0 ? "Breakaway traffic signal west" : "Breakaway traffic signal east", signalFoot, 115);
                     _city.GetComponent<BreakableCityProp>().breakSpeedKmh=25f;
-                    Tube("Traffic signal pole", new Vector3(side * 9.6f, 0.2f, z - side * 6.5f), new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), 0.10f, _metal, true);
-                    Tube("Traffic signal arm", new Vector3(side * 9.6f, 5.8f, z - side * 6.5f), new Vector3(side * 4.8f, 5.8f, z - side * 6.5f), 0.075f, _metal);
-                    var signal = Box("Three lens traffic signal", new Vector3(side * 4.8f, 5.25f, z - side * 6.5f), new Vector3(0.40f, 1.0f, 0.28f), _metal);
+                    Tube("Traffic signal pole", signalFoot, signalTop, 0.10f, _metal, true);
+                    Tube("Traffic signal arm", signalTop, armEnd, 0.075f, _metal);
+                    var signal = Box("Three lens traffic signal", armEnd + Vector3.down * .55f, new Vector3(0.40f, 1.0f, 0.28f), _metal);
                     var green = RealismMaterialLibrary.Standard("M_Signal_Green", new Color(0.12f, 0.63f, 0.29f), 0, 0.6f, 1.4f);
                     Box("Signal green lens", signal.transform.position + new Vector3(0, -0.26f, -0.17f), new Vector3(0.21f, 0.21f, 0.04f), green);
-                    var signPosition = new Vector3(side * 9.6f, 4.1f, z - side * 6.5f);
+                    var signPosition = signalFoot + Vector3.up * 3.9f;
                     var streetPlate=RealismMaterialLibrary.Standard("M_Street_Sign_Green",new Color(.035f,.16f,.095f),.15f,.25f);
                     Box("Street name plate", signPosition, new Vector3(2.1f, 0.38f, 0.06f), streetPlate);
                     Sign(streetName, signPosition + Vector3.back * 0.05f, Quaternion.identity, 0.065f, Color.white,1.85f,.22f);
@@ -799,6 +815,13 @@ namespace CarCrashEditor
         {
             var height = 7.7f + variant * 0.9f;
             Box("Palm planter", position + Vector3.up * 0.10f, new Vector3(1.45f, 0.2f, 1.45f), _trim, true);
+            Cylinder("Palm stump",position+Vector3.up*.20f,.18f,.31f,_palmBark);
+            position+=Vector3.up*.28f;
+            var assembly=BeginBreakable("Breakaway palm tree "+variant,position,145);
+            var prop=_city.GetComponent<BreakableCityProp>();
+            prop.breakSpeedKmh=27f;
+            prop.minimumBreakImpulse=1500f;
+            _city.gameObject.AddComponent<VehicleImpactMaterial>().surface=VehicleImpactSurface.Wood;
             var key="CurvedPalmTrunk_"+variant;
             Vector3 Center(float t)=>new(Mathf.Sin(t*1.4f+variant)*t*.45f,t*height,.08f*t);
             if(!Meshes.TryGetValue(key,out var trunkMesh))
@@ -823,7 +846,7 @@ namespace CarCrashEditor
             trunk.GetComponent<MeshFilter>().sharedMesh=trunkMesh;trunk.GetComponent<MeshRenderer>().sharedMaterial=_palmBark;
             var last=position+Center(1);
             // One tapered-trunk approximation avoids seams between eight capsules.
-            SolidCapsule("Palm trunk collision", position, last, 0.19f);
+            SolidCapsule("Palm trunk collision", position-Vector3.up*.24f, last, 0.19f);
             var leafMesh = PalmLeaf();
             for (var i = 0; i < 21; i++)
             {
@@ -835,6 +858,7 @@ namespace CarCrashEditor
                 obj.GetComponent<MeshFilter>().sharedMesh = leafMesh;
                 obj.GetComponent<MeshRenderer>().sharedMaterial = _leaf;
             }
+            EndBreakable(assembly);
         }
 
         private static Mesh PalmLeaf()
@@ -1049,28 +1073,8 @@ namespace CarCrashEditor
             Debug.Log($"Built textured city with {groups.Count} static material batches.");
         }
 
-        private static void CreateFoliageInstances()
+        private static void KeepInstancedFoliageShader()
         {
-            var groups=new Dictionary<(int,int),List<CityFoliageRenderer.Frond>>();var originals=new List<GameObject>();
-            foreach(var filter in _city.GetComponentsInChildren<MeshFilter>())
-            {
-                var renderer=filter.GetComponent<MeshRenderer>();if(renderer==null||renderer.sharedMaterial!=_leaf)continue;
-                var t=filter.transform;var key=(Mathf.FloorToInt(t.position.x/80),Mathf.FloorToInt(t.position.z/80));
-                if(!groups.TryGetValue(key,out var list)){list=new List<CityFoliageRenderer.Frond>();groups[key]=list;}
-                list.Add(new CityFoliageRenderer.Frond{position=t.position,rotation=t.rotation,scale=t.lossyScale.x});originals.Add(filter.gameObject);
-            }
-            var batches=new List<CityFoliageRenderer.Batch>();
-            foreach(var group in groups)
-            for(var first=0;first<group.Value.Count;first+=500)
-            {
-                var count=Mathf.Min(500,group.Value.Count-first);var fronds=group.Value.GetRange(first,count).ToArray();
-                var bounds=new Bounds(fronds[0].position,Vector3.one*9);
-                foreach(var frond in fronds)bounds.Encapsulate(new Bounds(frond.position,Vector3.one*9));
-                batches.Add(new CityFoliageRenderer.Batch{bounds=bounds,fronds=fronds});
-            }
-            var foliage=_city.gameObject.AddComponent<CityFoliageRenderer>();foliage.mesh=Meshes["PalmFrond"];
-            foliage.material=_leaf;foliage.batches=batches.ToArray();
-            foreach(var obj in originals)Object.DestroyImmediate(obj);
             // Explicitly drawn foliage needs instancing variants. Keep that
             // variant family while allowing unused lighting/fog variants to be
             // stripped normally; Always Included would retain tens of thousands.
@@ -1080,7 +1084,6 @@ namespace CarCrashEditor
                 if(shaders.GetArrayElementAtIndex(i).objectReferenceValue==_leaf.shader)
                 {shaders.GetArrayElementAtIndex(i).objectReferenceValue=null;shaders.DeleteArrayElementAtIndex(i);}
             settings.FindProperty("m_InstancingStripping").intValue=2;settings.ApplyModifiedPropertiesWithoutUndo();
-            Debug.Log($"Instanced {foliage.InstanceCount} palm fronds in {batches.Count} spatial groups.");
         }
     }
 }

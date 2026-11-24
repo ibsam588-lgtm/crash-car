@@ -27,19 +27,37 @@ namespace CarCrashEditor
         }
         private static void BuildArchitecturalCore(int side,float center,float facade,float z,float width,float depth,float height,Material wall,bool interior)
         {
-            var hull=Box("Masonry building",new Vector3(center,height*.5f,z),new Vector3(width,height,depth),wall,true);
-            Object.DestroyImmediate(hull.GetComponent<MeshFilter>());Object.DestroyImmediate(hull.GetComponent<MeshRenderer>());
-            var recess=interior ? 4.9f : .48f;
-            Box("Building ground floor core",new Vector3(facade+side*(recess+(width-recess)*.5f),1.85f,z),new Vector3(width-recess,3.7f,depth),wall);
-            Box("Building upper storeys",new Vector3(center+side*.11f,(height+3.7f)*.5f,z),new Vector3(width-.22f,height-3.7f,depth),wall);
+            if(!interior)
+            {
+                var hull=Box("Masonry building",new Vector3(center,height*.5f,z),new Vector3(width,height,depth),wall,true);
+                Object.DestroyImmediate(hull.GetComponent<MeshFilter>());Object.DestroyImmediate(hull.GetComponent<MeshRenderer>());
+            }
+            var recess=interior ? 7.15f : .48f;
+            Box("Building ground floor core",new Vector3(facade+side*(recess+(width-recess)*.5f),1.85f,z),new Vector3(width-recess,3.7f,depth),wall,interior);
+            Box("Building upper storeys",new Vector3(center+side*.11f,(height+3.7f)*.5f,z),new Vector3(width-.22f,height-3.7f,depth),wall,interior);
             if(!interior)return;
             foreach(var end in new[]{-1f,1f})
-                Box("Interior side wall",new Vector3(facade+side*2.45f,1.85f,z+end*(depth*.5f-.08f)),new Vector3(4.9f,3.7f,.16f),_stone);
-            Plane("Shop interior floor",new Vector3(facade+side*2.55f,.155f,z),4.7f,depth-.3f,_bark);
-            Box("Retail ceiling",new Vector3(facade+side*2.5f,3.18f,z),new Vector3(4.7f,.10f,depth-.3f),_trim);
+                Box("Interior side wall",new Vector3(facade+side*recess*.5f,1.85f,z+end*(depth*.5f-.08f)),new Vector3(recess,3.7f,.16f),_stone,true);
+            Box("Shop interior floor",new Vector3(facade+side*(recess-.5f)*.5f,.112f,z),new Vector3(recess+.5f,.09f,depth-.3f),_bark,true);
+            Box("Retail ceiling",new Vector3(facade+side*recess*.5f,3.18f,z),new Vector3(recess,.10f,depth-.3f),_trim);
             var strip=RealismMaterialLibrary.Standard("M_Retail_Ceiling_Light",new Color(.90f,.78f,.58f),0,.45f,.7f);
             foreach(var offset in new[]{-4.3f,0,4.3f})
                 Box("Shop ceiling light",new Vector3(facade+side*2.2f,3.10f,z+offset),new Vector3(1.4f,.035f,.22f),strip);
+        }
+
+        private static void AddStorefrontPane(CityBuildingProfile shop,float facade,float bayZ,bool besideExit)
+        {
+            var z=bayZ+(besideExit?.67f:0f);
+            var center=new Vector3(facade+shop.side*.28f,1.51f,z);
+            var assembly=BeginBreakable("Shatterable storefront glass",center,8f);
+            var prop=_city.GetComponent<BreakableCityProp>();
+            prop.breakSpeedKmh=12f;
+            prop.shatterGlass=true;
+            prop.shop=shop;
+            _city.gameObject.AddComponent<VehicleImpactMaterial>().surface=VehicleImpactSurface.Glass;
+            var pane=Box("Shop glazing",center,new Vector3(.07f,2.68f,besideExit?2.25f:3.60f),RetailGlass(),true);
+            pane.GetComponent<MeshRenderer>().shadowCastingMode=ShadowCastingMode.Off;
+            EndBreakable(assembly);
         }
         private static void DecorateArchitecture(int family,int side,float facade,float center,float z,float width,float depth,float height,Material wall,Material accent)
         {
@@ -119,19 +137,19 @@ namespace CarCrashEditor
             var point=new Vector3(facade-side*.18f,1.35f,z-2.2f);
             Sign(kind is 0 or 1 or 6 ? "COFFEE  /  FRESH DAILY" : kind==5 ? "SERVICE  /  TIRES  /  REPAIR" : "OPEN  /  WELCOME",point,Quaternion.Euler(0,side*90,0),.075f,new Color(.90f,.86f,.73f),3.0f,.34f);
             if(!interior)return;
-            var counterX=facade+side*1.8f;
+            var counterX=facade+side*5.65f;
             if(kind!=5)
             {
-                Box("Shop service counter",new Vector3(counterX,.67f,z),new Vector3(.72f,1.0f,3.0f),kind==6 ? red : _bark);
+                Box("Shop service counter",new Vector3(counterX,.67f,z),new Vector3(.72f,1.0f,3.0f),kind==6 ? red : _bark,true);
                 Box("Counter worktop",new Vector3(counterX,1.20f,z),new Vector3(.86f,.08f,3.18f),cream);
                 Box("Point of sale terminal",new Vector3(counterX-side*.08f,1.39f,z+.95f),new Vector3(.18f,.29f,.27f),_metal);
             }
             for(var shelf=0;shelf<3;shelf++)
             {
                 var y=.58f+shelf*.56f;
-                Box("Retail back wall shelf",new Vector3(facade+side*4.25f,y,z),new Vector3(.5f,.06f,7.5f),_bark);
+                Box("Retail back wall shelf",new Vector3(facade+side*6.83f,y,z),new Vector3(.5f,.06f,7.5f),_bark);
                 for(var item=0;item<10;item++)
-                    Box("Stocked retail shelving",new Vector3(facade+side*4.2f,y+.16f,z-3.4f+item*.74f),new Vector3(.29f,.25f,.28f+(item%3)*.055f),item%3==0 ? accent : item%3==1 ? cream : red);
+                    Box("Stocked retail shelving",new Vector3(facade+side*6.78f,y+.16f,z-3.4f+item*.74f),new Vector3(.29f,.25f,.28f+(item%3)*.055f),item%3==0 ? accent : item%3==1 ? cream : red);
             }
             if(kind is 0 or 1)
             {

@@ -14,6 +14,8 @@ namespace CarCrash
     public sealed class CityRoadNetwork : MonoBehaviour
     {
         public const float MinX=-310,MaxX=310,MinZ=-410,MaxZ=650;
+        public const float AvenueHalfWidth = 9f, CrossStreetHalfWidth = 7f;
+        public const float CurbsideLightOffset = AvenueHalfWidth + .9f;
         public static readonly float[] CrossStreetZ={-380,-280,-180,-110,-58,35,108,187,266,315,410,510,610};
         public static readonly float[] AvenueX={-270,-162,-54,0,54,162,270};
         private static readonly float[] NavigationRoadX={-270,-162,-54,0,54,162,270,296};

@@ -18,16 +18,14 @@ namespace CarCrash
         private Quaternion _shellBaseRotation;
         private Quaternion[] _wheelBaseRotations = System.Array.Empty<Quaternion>();
         private float _wheelSpin;
+        private VehicleDetailKit _detailKit;
 
-        public void BindShell(Transform shell)
+        internal void BindShell(Transform shell, VehicleDetailKit details)
         {
             visibleShell = shell;
+            _detailKit = details;
             _shellBasePosition = shell.localPosition;
             _shellBaseRotation = shell.localRotation;
-            var lamps = new System.Collections.Generic.List<Renderer>();
-            foreach (var renderer in shell.GetComponentsInChildren<Renderer>())
-                if (renderer.name.Contains("Taillight") || renderer.name.Contains("TailLamp")) lamps.Add(renderer);
-            tailLightRenderers = lamps.ToArray();
             spinningWheels = System.Array.Empty<Transform>();
         }
 
@@ -75,24 +73,14 @@ namespace CarCrash
                 visibleShell.localRotation = _shellBaseRotation * Quaternion.Euler(0f, 0f, -vehicle.CurrentSteer * shellLeanDegrees);
             }
 
-            var brakeOrBoost = Mathf.Clamp01(vehicle.CurrentBrake + (vehicle.BoostActive ? 0.45f : 0f));
-            var pulse = 0.78f + Mathf.Sin(Time.unscaledTime * 28f) * 0.10f;
-            var lightAmount = Mathf.Lerp(0.45f, pulse, brakeOrBoost);
-            var color = Color.Lerp(new Color(1f, 0.04f, 0.02f, 0.48f), new Color(1f, 0.08f, 0.025f, 0.92f), lightAmount);
-
-            foreach (var renderer in tailLightRenderers)
-            {
-                if (renderer != null)
-                {
-                    renderer.material.color = color;
-                }
-            }
+            var braking = vehicle.CurrentBrake > .12f;
+            _detailKit?.SetSignals(braking, vehicle.Reversing);
 
             foreach (var glow in tailLightGlows)
             {
                 if (glow != null)
                 {
-                    glow.intensity = Mathf.Lerp(0.08f, 0.65f, lightAmount);
+                    glow.intensity = braking ? .72f : .16f;
                 }
             }
         }

@@ -47,7 +47,12 @@ namespace CarCrashEditor
         public static void BuildWebGl()
         {
             BuildScene();
+            BuildWebGlFromScene();
+        }
 
+        [MenuItem("Car Crash/Build WebGL From Existing Scene")]
+        public static void BuildWebGlFromScene()
+        {
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(ScenePath, true)
@@ -957,7 +962,8 @@ namespace CarCrashEditor
             html = html.Replace("canvas.style.height = \"600px\";", "canvas.style.height = \"100vh\";");
             html = html.Replace("<title>Unity Web Player | Car Crash</title>", "<title>Elysian | Drive the City</title>");
             html = html.Replace("createUnityInstance(canvas, config,", "createUnityInstance(canvas, { ...config, autoSyncPersistentDataPath: true },");
-            html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas tabindex=\"0\" aria-label=\"Elysian. Enter for Free Drive, G for the six-vehicle garage. W accelerates, A and D steer. Q or REV reverses; S brakes then reverses. Space brakes, B nitro, C camera, M city map and road routes, R recover, P pause.\" id=\"unity-canvas\"");
+            html = html.Replace("tabindex=\"-1\"", "tabindex=\"0\"");
+            html = html.Replace("<canvas id=\"unity-canvas\"", "<canvas aria-label=\"Crash Car Elysian. Enter opens Impact Run and starts the selected course. G opens the garage. W accelerates, A and D steer, Q reverses, Space brakes, B boosts, C changes view, M opens the map, R recovers, and P pauses.\" id=\"unity-canvas\"");
             var buildVersion = File.GetLastWriteTimeUtc(Path.Combine(WebGlBuildPath, "Build", "WebGL.data")).Ticks.ToString("x");
             File.Copy("Assets/CarCrash/Resources/Fonts/Inter-Regular.ttf",Path.Combine(WebGlBuildPath,"TemplateData","Inter-Regular.ttf"),true);
             File.Copy("Assets/CarCrash/Resources/Fonts/Inter-OFL.txt",Path.Combine(WebGlBuildPath,"TemplateData","Inter-OFL.txt"),true);

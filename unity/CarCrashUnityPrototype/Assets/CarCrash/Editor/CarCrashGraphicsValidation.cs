@@ -62,18 +62,31 @@ namespace CarCrashEditor
                     }
                     var reflection=RenderSettings.customReflectionTexture as Cubemap;
                     Check(reflection!=null&&reflection.width>=256&&reflection.format==TextureFormat.RGBA32,"Street reflections retain browser-safe byte cubemaps with detailed faces");
-                    var foliage=Object.FindFirstObjectByType<CityFoliageRenderer>();
-                    Check(foliage!=null&&foliage.InstanceCount>4000&&foliage.mesh.vertexCount<1000,"Detailed palms share a small mesh instead of duplicating millions of stored vertices");
-                    var vertices=0;var city=Object.FindFirstObjectByType<CityRoadNetwork>();
-                    foreach(var mesh in city.GetComponentsInChildren<MeshFilter>())if(mesh.sharedMesh!=null)vertices+=mesh.sharedMesh.vertexCount;
+                    var city=Object.FindFirstObjectByType<CityRoadNetwork>();
+                    var breakableRenderer=Object.FindFirstObjectByType<CityBreakableRenderer>();
+                    var crowns=new HashSet<Mesh>();
+                    Check(CountPalmFronds(breakableRenderer,crowns)>4000&&crowns.Count is >0 and <=3,
+                        "Detailed palms share three instanced, movable crown meshes");
+                    var vertices=CountStoredVertices(city);
                     Check(vertices<2400000,"Recessed architecture and city detail remain within the browser vertex budget ("+vertices+")");
                     var families=new HashSet<int>();var businesses=new HashSet<string>();var interiors=0;var tallest=0f;var shortest=100f;
                     foreach(var building in Object.FindObjectsByType<CityBuildingProfile>(FindObjectsSortMode.None))
                     {families.Add(building.family);businesses.Add(building.shop);if(building.hasInterior)interiors++;tallest=Mathf.Max(tallest,building.size.y);shortest=Mathf.Min(shortest,building.size.y);}
                     Check(families.Count==8&&tallest-shortest>15,"Eight architectural families produce distinct heights and street silhouettes");
                     Check(businesses.Count>=8&&interiors>=20,"Distinct businesses have real furnished shop interiors in the central districts");
-                    Check(Object.FindObjectsByType<CityStreetActor>(FindObjectsSortMode.None).Length>=10,"Shops contain textured, posed attendants with local visibility");
-                    var breakableRenderer=Object.FindFirstObjectByType<CityBreakableRenderer>();
+                    var actors=Object.FindObjectsByType<CityStreetActor>(FindObjectsSortMode.None);
+                    var attendants=0;var performers=0;
+                    foreach(var actor in actors)
+                    {
+                        if(actor.shop!=null&&actor.shop.hasInterior)attendants++;
+                        if(actor.performanceProps!=null&&actor.performanceProps.Length>0)performers++;
+                    }
+                    Check(attendants>=10&&performers>0,"Shops have occupants with exit routes and main sidewalks have animated performers");
+                    Check(Object.FindObjectsByType<CityLeashedDog>(FindObjectsSortMode.None).Length>0,"Dog walkers use animated, leashed companions");
+                    var panes=0;
+                    foreach(var prop in Object.FindObjectsByType<BreakableCityProp>(FindObjectsSortMode.None))
+                        if(prop.shatterGlass&&prop.shop!=null&&prop.GetComponentInChildren<BoxCollider>()!=null)panes++;
+                    Check(panes>interiors,"Multiple shatterable glass bays protect the shop interiors");
                     Check(breakableRenderer!=null&&breakableRenderer.InstanceCount>200,"Breakaway street fixtures use shared render meshes and spatial instance batches");
                     var roadCar=AssetDatabase.LoadAssetAtPath<GameObject>(DetailedRoadCarLibrary.ModelRoot+"bmw-m3-e30.fbx");
                     var roadster=AssetDatabase.LoadAssetAtPath<GameObject>(DetailedRoadCarLibrary.ModelRoot+"lotus-elise.fbx");
@@ -190,14 +203,37 @@ namespace CarCrashEditor
             Check(frame.magentaFraction<.001f,"Rendered frame has no missing-shader pixels: "+frame.name);
         }
         private static void Check(bool value,string message){(value?Checks:Failures).Add(message);Debug.Log("[Graphics QA] "+(value ? "PASS " : "FAIL ")+message);}
+
+        private static int CountPalmFronds(CityBreakableRenderer renderer,HashSet<Mesh> crowns=null)
+        {
+            if(renderer==null)return 0;
+            var count=0;
+            foreach(var batch in renderer.batches)
+            {
+                if(batch.material==null||batch.material.name!="M_Palm_Leaf")continue;
+                count+=batch.props.Length*21;
+                if(batch.mesh!=null)crowns?.Add(batch.mesh);
+            }
+            return count;
+        }
+
+        private static int CountStoredVertices(CityRoadNetwork city)
+        {
+            if(city==null)return 0;
+            var meshes=new HashSet<Mesh>();
+            var count=0;
+            foreach(var filter in city.GetComponentsInChildren<MeshFilter>())
+                if(filter.sharedMesh!=null&&meshes.Add(filter.sharedMesh))count+=filter.sharedMesh.vertexCount;
+            return count;
+        }
+
         private static void Complete()
         {
             EditorApplication.update-=Tick;Application.logMessageReceived-=OnLog;SessionState.SetBool(Key,false);
             foreach(var pref in Prefs){if(HadPrefs.Contains(pref.Key))PlayerPrefs.SetInt(pref.Key,pref.Value);else PlayerPrefs.DeleteKey(pref.Key);}PlayerPrefs.Save();
-            var foliage=Object.FindFirstObjectByType<CityFoliageRenderer>();var vertices=0;var city=Object.FindFirstObjectByType<CityRoadNetwork>();
-            if(city!=null)foreach(var mesh in city.GetComponentsInChildren<MeshFilter>())if(mesh.sharedMesh!=null)vertices+=mesh.sharedMesh.vertexCount;
+            var vertices=CountStoredVertices(Object.FindFirstObjectByType<CityRoadNetwork>());
             var models=new HashSet<Mesh>();foreach(var car in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))foreach(var filter in car.GetComponentsInChildren<MeshFilter>()){if(filter.sharedMesh!=null){models.Add(filter.sharedMesh);break;}}
-            var report=new Report{passed=Failures.Count==0,device=SystemInfo.graphicsDeviceName,foliageInstances=foliage!=null ? foliage.InstanceCount : 0,staticVertices=vertices,trafficModels=models.Count,checks=Checks.ToArray(),failures=Failures.ToArray(),frames=Frames.ToArray()};
+            var report=new Report{passed=Failures.Count==0,device=SystemInfo.graphicsDeviceName,foliageInstances=CountPalmFronds(Object.FindFirstObjectByType<CityBreakableRenderer>()),staticVertices=vertices,trafficModels=models.Count,checks=Checks.ToArray(),failures=Failures.ToArray(),frames=Frames.ToArray()};
             Directory.CreateDirectory("Builds/Validation");File.WriteAllText("Builds/Validation/graphics-qa.json",JsonUtility.ToJson(report,true));
             Debug.Log("GRAPHICS_QA_"+(report.passed ? "PASS" : "FAIL")+" checks="+Checks.Count+" failures="+Failures.Count);
             if(Application.isBatchMode)EditorApplication.Exit(report.passed ? 0 : 1);else EditorApplication.isPlaying=false;
