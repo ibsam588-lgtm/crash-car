@@ -20,10 +20,10 @@ namespace CarCrash
         private Rigidbody _body;
         private Animation _animation;
         private Renderer[] _renderers;
-        private ArcadeVehicleController _vehicle;
+        private Rigidbody _carBody;
         private PedestrianRagdoll _ragdoll;
-        private Vector3 _destination, _previous;
-        private float _stumbleUntil, _limpUntil, _nextVisibility;
+        private Vector3 _destination, _previous, _escape;
+        private float _stumbleUntil, _limpUntil, _nextVisibility, _runUntil;
         private readonly RaycastHit[] _obstacles = new RaycastHit[12];
 
         private void Start()
@@ -31,7 +31,7 @@ namespace CarCrash
             _body = GetComponent<Rigidbody>();
             _animation = GetComponentInChildren<Animation>();
             _renderers = GetComponentsInChildren<Renderer>();
-            if (player != null) _vehicle = player.GetComponent<ArcadeVehicleController>();
+            if (player != null) _carBody = player.GetComponent<Rigidbody>();
             _destination = Vector3.Dot(transform.forward, pointB - pointA) > 0 ? pointB : pointA;
             _previous = transform.position;
             if (_animation != null && walkClip != null)
@@ -59,42 +59,80 @@ namespace CarCrash
                 delta = _destination - position;
                 delta.y = 0;
             }
-            Yielding = false;
-            if (player != null)
+            if (VehicleApproaching(_carBody,position))
             {
-                var toCar = player.position - position;
-                toCar.y = 0;
-                var carRoadX = player.position.x - avenueCenterX;
-                if (toCar.sqrMagnitude < 36f && Mathf.Abs(carRoadX) > 8f && _vehicle != null && _vehicle.SpeedKmh > 5f)
+                if (Time.time >= _runUntil || (_escape-position).sqrMagnitude < .65f)
+                    _escape = EscapePoint(position,_carBody.position);
+                _runUntil = Time.time + 2.1f;
+            }
+            Yielding = Time.time < _runUntil;
+            if(Yielding)
+            {
+                delta = _escape-position;
+                delta.y = 0;
+            }
+            LastObstacle = "";
+            var blocked = Blocked(position,delta);
+            if(blocked&&Yielding)
+            {
+                var safer = new Vector3(avenueCenterX+Mathf.Sign(pointA.x-avenueCenterX)*11.78f,position.y,_escape.z);
+                var inside = safer-position;
+                if(!Blocked(position,inside))
                 {
-                    // Step aside within the sidewalk, rather than walking into traffic.
-                    var side = Mathf.Sign(pointA.x-avenueCenterX);
-                    var safeX = avenueCenterX + (Mathf.Abs(carRoadX) < 10.7f ? side * 11.8f : side * 9.5f);
-                    delta = new Vector3(safeX - position.x, 0, Mathf.Clamp(position.z - player.position.z, -1f, 1f));
-                    Yielding = true;
+                    _escape = safer;
+                    delta = inside;
+                    blocked = false;
                 }
             }
-            var desired = delta.normalized * (Yielding ? 2.2f : walkSpeed) * (IsLimping ? .46f : 1f);
-            LastObstacle = "";
+            var desired = blocked || delta.sqrMagnitude<.06f ? Vector3.zero : delta.normalized*(Yielding?4.2f:walkSpeed)*(IsLimping?.46f:1f);
+            var velocity = _body.linearVelocity;
+            var planar = Vector3.MoveTowards(new Vector3(velocity.x, 0, velocity.z), desired, (Yielding?10f:4f)*Time.fixedDeltaTime);
+            _body.linearVelocity = new Vector3(planar.x, velocity.y, planar.z);
+            if (planar.sqrMagnitude > 0.05f)
+                _body.MoveRotation(Quaternion.Slerp(_body.rotation, Quaternion.LookRotation(planar), Time.fixedDeltaTime * 7f));
+            if (_animation != null && _animation["Walk"] != null)
+                _animation["Walk"].speed = planar.magnitude / Mathf.Max(.1f,sourceWalkSpeed);
+        }
+
+        private Vector3 EscapePoint(Vector3 position,Vector3 car)
+        {
+            var start = Mathf.Min(pointA.z,pointB.z);
+            var end = Mathf.Max(pointA.z,pointB.z);
+            var z = Mathf.Clamp(position.z+Mathf.Sign(position.z-car.z)*10f,start,end);
+            if(Mathf.Abs(z-position.z)<.65f)z=Mathf.Abs(position.z-start)>Mathf.Abs(position.z-end)?start:end;
+            var sidewalkSide = Mathf.Sign(pointA.x-avenueCenterX);
+            var x = avenueCenterX+sidewalkSide*(Mathf.Abs(car.x-avenueCenterX)<11.05f?11.8f:9.6f);
+            return new Vector3(x,position.y,z);
+        }
+
+        internal static bool VehicleApproaching(Rigidbody car,Vector3 position)
+        {
+            if(car==null)return false;
+            var delta=Vector3.ProjectOnPlane(position-car.position,Vector3.up);
+            var movement=Vector3.ProjectOnPlane(car.linearVelocity,Vector3.up);
+            var speed=movement.magnitude;
+            if(speed<1.6f)return false;
+            var radius=Mathf.Min(22f,6.5f+speed*.40f);
+            if(delta.sqrMagnitude>radius*radius||Vector3.Dot(delta,movement)<-.1f)return false;
+            var reach=Mathf.Clamp(Vector3.Dot(delta,movement)/movement.sqrMagnitude,0f,1.25f);
+            return (delta-movement*reach).sqrMagnitude<28f;
+        }
+
+        private bool Blocked(Vector3 position,Vector3 delta)
+        {
+            if(delta.sqrMagnitude<.06f)return false;
             var count = Physics.SphereCastNonAlloc(position + Vector3.up * 0.85f, 0.23f, delta.normalized,
-                _obstacles, 0.65f, ~0, QueryTriggerInteraction.Ignore);
+                _obstacles, Yielding?.95f:.65f, ~0, QueryTriggerInteraction.Ignore);
             for (var i = 0; i < count; i++)
             {
                 var collider = _obstacles[i].collider;
                 if (collider.attachedRigidbody == _body || collider.transform.IsChildOf(transform)) continue;
                 if (collider.bounds.max.y < position.y + 0.4f) continue;
-                desired = Vector3.zero;
                 LastObstacle = collider.name;
-                if (collider.attachedRigidbody == null) _destination = _destination == pointA ? pointB : pointA;
-                break;
+                if (!Yielding && collider.attachedRigidbody == null) _destination = _destination == pointA ? pointB : pointA;
+                return true;
             }
-            var velocity = _body.linearVelocity;
-            var planar = Vector3.MoveTowards(new Vector3(velocity.x, 0, velocity.z), desired, 4f * Time.fixedDeltaTime);
-            _body.linearVelocity = new Vector3(planar.x, velocity.y, planar.z);
-            if (planar.sqrMagnitude > 0.05f)
-                _body.MoveRotation(Quaternion.Slerp(_body.rotation, Quaternion.LookRotation(planar), Time.fixedDeltaTime * 7f));
-            if (_animation != null && _animation["Walk"] != null)
-                _animation["Walk"].speed = planar.magnitude / sourceWalkSpeed;
+            return false;
         }
 
         private void LateUpdate()

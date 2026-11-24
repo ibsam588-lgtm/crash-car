@@ -13,8 +13,7 @@ namespace CarCrash
         private ParticleSystem _sparks, _dust, _glass, _smoke;
         private ArcadeVehicleController _vehicle;
         private CrashScoring _scoring;
-        private AudioSource _impactAudio;
-        private AudioClip _clang;
+        private VehicleAudio _audio;
         private float _nextSmoke;
 #if UNITY_ANDROID && !UNITY_EDITOR
         private float _nextHaptic;
@@ -35,11 +34,8 @@ namespace CarCrash
             _dust = CreateEmitter("Impact dust splash", 240, 1.45f, true);
             _glass = CreateEmitter("Impact glass spray", 180, 0.95f, false);
             _smoke = CreateEmitter("Tyre and engine smoke", 110, 1.15f, true);
-            _impactAudio = gameObject.AddComponent<AudioSource>();
-            _impactAudio.playOnAwake = false;
-            _impactAudio.spatialBlend = .24f;
-            _impactAudio.maxDistance = 33f;
-            _clang = BakeImpactAudio();
+            _audio = GetComponent<VehicleAudio>();
+            if (_audio == null) _audio = gameObject.AddComponent<VehicleAudio>();
             var sparksRenderer = _sparks.GetComponent<ParticleSystemRenderer>();
             sparksRenderer.renderMode = ParticleSystemRenderMode.Stretch;
             sparksRenderer.lengthScale = 2.2f;
@@ -89,15 +85,48 @@ namespace CarCrash
         {
             if (collision.contactCount == 0 || collision.collider.GetComponentInParent<CityPedestrian>() != null) return;
             var speed = collision.relativeVelocity.magnitude * 3.6f;
-            if (speed < 12f) return;
+            if (speed < 4f) return;
             var contact = collision.GetContact(0);
+            var closingSpeed = Mathf.Abs(Vector3.Dot(contact.normal, collision.relativeVelocity)) * 3.6f;
             var other = collision.rigidbody;
+            var surface = ContactSurface(collision, closingSpeed);
+            if (speed < 12f)
+            {
+                if (closingSpeed >= 4f) _audio.PlayImpact(surface, speed);
+                return;
+            }
             if (other == null || (other.mass >= 36f && other.GetComponent<TrafficImpactTarget>() == null))
-                _scoring?.RegisterSceneryDamage(contact.point, Mathf.Abs(Vector3.Dot(contact.normal, collision.relativeVelocity)) * 3.6f);
-            EmitImpact(contact.point, contact.normal, collision.relativeVelocity, speed);
+                _scoring?.RegisterSceneryDamage(contact.point, closingSpeed);
+            EmitImpact(contact.point, contact.normal, collision.relativeVelocity, speed, surface);
         }
 
-        public void EmitImpact(Vector3 point, Vector3 normal, Vector3 velocity, float speedKmh)
+        private static VehicleImpactSurface ContactSurface(Collision collision, float closingSpeed)
+        {
+            var material = collision.collider.GetComponentInParent<VehicleImpactMaterial>();
+            if (material != null)
+            {
+                var prop = material.GetComponent<BreakableCityProp>();
+                if (prop != null && (prop.Broken || !prop.MeetsBreakThreshold(closingSpeed, collision.impulse.magnitude)))
+                    return VehicleImpactSurface.Stone;
+                return material.surface;
+            }
+
+            var target = collision.collider.GetComponentInParent<ImpactCourseTarget>();
+            if (target != null) return target.Surface;
+            return collision.rigidbody == null ? VehicleImpactSurface.Stone : VehicleImpactSurface.Metal;
+        }
+
+        private void OnCollisionStay(Collision collision)
+        {
+            if (collision.contactCount == 0 || collision.relativeVelocity.sqrMagnitude < 16f ||
+                collision.collider.GetComponentInParent<CityPedestrian>() != null) return;
+            var normal = collision.GetContact(0).normal;
+            if (Mathf.Abs(normal.y) > .64f) return;
+            var speedKmh = Vector3.ProjectOnPlane(collision.relativeVelocity, normal).magnitude * 3.6f;
+            if (speedKmh >= 14f) _audio.Scrape(speedKmh);
+        }
+
+        public void EmitImpact(Vector3 point, Vector3 normal, Vector3 velocity, float speedKmh, VehicleImpactSurface surface = VehicleImpactSurface.Default)
         {
             if (speedKmh < 12f || (Time.unscaledTime - LastImpactRealtime < 0.17f && Vector3.Distance(point, _lastPoint) < 4f)) return;
             TotalBursts++;
@@ -105,8 +134,7 @@ namespace CarCrash
             LastImpactKmh = speedKmh;
             _lastPoint = point;
             var strength = Mathf.InverseLerp(12f, 135f, speedKmh);
-            _impactAudio.pitch = Mathf.Lerp(1.31f, .81f, strength);
-            _impactAudio.PlayOneShot(_clang, Mathf.Lerp(.16f, .74f, strength));
+            _audio.PlayImpact(surface, speedKmh);
             if (speedKmh >= 52f) ImpactHaptic(strength);
             var origin = point + normal * 0.12f + Vector3.up * 0.12f;
             var direction = normal.normalized + Vector3.up * 0.6f;
@@ -114,7 +142,7 @@ namespace CarCrash
                 Mathf.Lerp(6, 19, strength), new Color(1f, 0.68f, 0.18f, 1f), 0.55f);
             Emit(_dust, origin, direction, Mathf.RoundToInt(Mathf.Lerp(12, 62, strength)), 0.35f, 0.95f,
                 Mathf.Lerp(1.3f, 4.8f, strength), new Color(0.57f, 0.53f, 0.44f, 0.40f), 1.5f);
-            if (speedKmh > 40f)
+            if (surface == VehicleImpactSurface.Glass || speedKmh > 40f)
                 Emit(_glass, origin, direction, Mathf.RoundToInt(Mathf.Lerp(8, 65, strength)), 0.025f, 0.10f,
                     Mathf.Lerp(4, 13, strength), new Color(0.66f, 0.87f, 0.97f, 0.9f), 0.9f);
             var slot = TotalBursts % _rings.Length;
@@ -178,27 +206,6 @@ namespace CarCrash
                 new Color(.72f,.73f,.71f,.28f), 1.15f);
         }
 
-        private static AudioClip BakeImpactAudio()
-        {
-            const int rate = 24000;
-            var samples = new float[rate * 43 / 100];
-            var random = new System.Random(238);
-            var filtered = 0f;
-            for (var i = 0; i < samples.Length; i++)
-            {
-                var t = i / (float)rate;
-                var noise = (float)random.NextDouble() * 2f - 1f;
-                filtered = Mathf.Lerp(filtered, noise, .11f);
-                var pulse = Mathf.Min(1, t * 850f) * Mathf.Exp(-t * 26f);
-                var thud = Mathf.Sin(390 * t + 4f * (1 - Mathf.Exp(-t * 22))) * Mathf.Exp(-t * 20f);
-                var resonance = (Mathf.Sin(1412 * t) * .11f + Mathf.Sin(2157 * t) * .13f + Mathf.Sin(2891 * t) * .07f) * Mathf.Exp(-t * 12f);
-                samples[i] = (noise * .24f + filtered * .52f) * pulse + (thud * .53f + resonance) * Mathf.Min(1, t * 680f);
-            }
-            var clip = AudioClip.Create("Metal and body impact", samples.Length, 1, rate, false);
-            clip.SetData(samples, 0);
-            return clip;
-        }
-
         private void ImpactHaptic(float strength)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -216,11 +223,6 @@ namespace CarCrash
             }
             catch (AndroidJavaException) { }
 #endif
-        }
-
-        private void OnDestroy()
-        {
-            if (_clang != null) Destroy(_clang);
         }
     }
 }

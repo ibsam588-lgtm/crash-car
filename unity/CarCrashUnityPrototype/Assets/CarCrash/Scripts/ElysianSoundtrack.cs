@@ -5,6 +5,7 @@ namespace CarCrash
     public sealed class ElysianSoundtrack : MonoBehaviour
     {
         public const string PreferenceKey = "CarCrash.MusicEnabled";
+        public const string EffectsPreferenceKey = "CarCrash.EffectsEnabled";
 
         private static ElysianSoundtrack _instance;
         private AudioSource _source;
@@ -12,6 +13,8 @@ namespace CarCrash
         private bool _appPaused;
 
         public bool MusicEnabled { get; private set; }
+        public bool EffectsEnabled { get; private set; }
+        internal bool GameplayEffectsAllowed => EffectsEnabled && !_appPaused && Time.timeScale > 0f;
 
         public static ElysianSoundtrack GetOrCreate()
         {
@@ -24,12 +27,13 @@ namespace CarCrash
         {
             DontDestroyOnLoad(gameObject);
             MusicEnabled = PlayerPrefs.GetInt(PreferenceKey, 1) == 1;
+            EffectsEnabled = PlayerPrefs.GetInt(EffectsPreferenceKey, 1) == 1;
             _source = gameObject.AddComponent<AudioSource>();
-            _source.clip = Resources.Load<AudioClip>("Audio/CityAfterlight");
+            _source.clip = Resources.Load<AudioClip>("Audio/ArcadeRush");
             _source.playOnAwake = false;
             _source.spatialBlend = 0f;
             _source.loop = true;
-            _source.volume = .56f;
+            _source.volume = .43f;
             RefreshPlayback();
         }
 
@@ -40,6 +44,14 @@ namespace CarCrash
             PlayerPrefs.SetInt(PreferenceKey, enabled ? 1 : 0);
             PlayerPrefs.Save();
             RefreshPlayback();
+        }
+
+        public void SetEffectsEnabled(bool enabled)
+        {
+            if (EffectsEnabled == enabled) return;
+            EffectsEnabled = enabled;
+            PlayerPrefs.SetInt(EffectsPreferenceKey, enabled ? 1 : 0);
+            PlayerPrefs.Save();
         }
 
         private void OnApplicationPause(bool paused)

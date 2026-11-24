@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace CarCrash
 {
-    public sealed class RacingHudView : MonoBehaviour
+    public sealed partial class RacingHudView : MonoBehaviour
     {
         private static readonly Color Accent = new(.36f,.78f,.98f);
         private static readonly Color White = new(.95f,.97f,1f);
@@ -30,7 +30,6 @@ namespace CarCrash
         private float _displayScore;
         private GameObject _home, _help, _briefing, _showroom, _race, _controls, _pause, _results, _missionResults, _countdown, _map, _missionMap;
         private Text _timerCaption, _modeCaption;
-        private Text _homeMusic, _pauseMusic;
         private Text _score, _hits, _combo, _timer, _speed, _gear, _boostLabel, _integrity, _cameraLabel, _eventLabel;
         private Text _paintLabel, _countdownText, _impactTitle, _impactScore;
         private Text _vehicleName, _vehicleSpecs;
@@ -85,11 +84,13 @@ namespace CarCrash
         {
             if (_canvas != null && (_lastSize.x != Screen.width || _lastSize.y != Screen.height || _lastSafeArea != Screen.safeArea))
                 RebuildLayout();
+            if (SettingsVisible) RefreshSettings();
         }
 
         private void RebuildLayout()
         {
             var helpWasVisible = HelpVisible;
+            var settingsWasVisible = SettingsVisible;
             ReleaseControls();
             if (_safe != null)
             {
@@ -136,6 +137,10 @@ namespace CarCrash
             _help = Group(_safe, "Driving guide");
             BuildHelp(_help.transform);
             _help.SetActive(helpWasVisible);
+            _settings = Group(_safe, "Driving settings");
+            BuildSettings(_settings.transform);
+            ShowSettings(settingsWasVisible);
+            BuildDrivingDemoHud();
             RefreshPaint();
             RefreshVehicle();
             RefreshPhase();
@@ -146,7 +151,7 @@ namespace CarCrash
             var pad=_portrait ? 24f : 48f;
             Brand(root,pad,28);
             var guideWidth=Mathf.Max(112,Units(112));
-            _homeMusic = MusicButton(root, "Home music", _width - pad - guideWidth, 31, guideWidth);
+            ActionButton(root,"Home settings","Settings",_width-pad-guideWidth,31,guideWidth,42,()=>ShowSettings(true),PanelColor,White,14);
             ActionButton(root,"Home driving guide","Controls",_width-pad-guideWidth,84,guideWidth,42,()=>ShowHelp(true),PanelColor,White,14);
             var y=_compactWide ? 116f : _portrait ? 126f : 158f;
             Label(root,"City stunt driving",pad,y,_portrait ? _width-pad*2 : 780,72,_portrait || _compactWide ? 39 : 60,White);
@@ -250,7 +255,7 @@ namespace CarCrash
             Chip(panel.transform,"Quick start",26,24,122,new Color(.08f,.18f,.25f),Accent);
             Label(panel.transform,"Take the wheel.",26,76,w-52,48,32,White);
             var controls = Application.isMobilePlatform
-                ? "Hold Gas and a steering arrow to turn.\nUse Brake to stop or Rev to back up.\nTap Nitro to boost.\nTap Map to choose a destination.\nTap Unstuck if you can't move."
+                ? "Hold Gas and use the steering arrows.\nSwitch to tilt steering in Settings.\nUse Brake to stop or Rev to back up.\nTap Nitro to boost or Map to explore.\nTap Unstuck to get back on the road."
                 : _compactWide
                     ? "W  Drive     A / D  Steer     Q  Reverse\nSpace  Brake     B  Nitro     C  Camera\nM  City map     R  Unstuck     P  Pause"
                     : "W / arrows     Accelerate\nA / D                Steer\nQ / Rev             Reverse\nSpace / Brake   Stop\nB                        Nitro\nC                        Camera\nM                       City map\nR                        Unstuck";
@@ -424,8 +429,8 @@ namespace CarCrash
             Dim(root);var w=Mathf.Min(_width-40,420);var h=440f;
             var panel=Shape(root,"Pause panel",(_width-w)*.5f,(_height-h)*.5f,w,h,RacingHudGraphic.Shape.Panel,PanelColor);
             Chip(panel.transform,"On pause",26,25,110,new Color(.08f,.16f,.24f),Accent);
-            var musicWidth = Mathf.Max(112, Units(112));
-            _pauseMusic = MusicButton(panel.transform, "Pause music", w - 26 - musicWidth, 24, musicWidth);
+            var settingsWidth = Mathf.Max(112, Units(112));
+            ActionButton(panel.transform,"Pause settings","Settings",w-26-settingsWidth,24,settingsWidth,42,()=>ShowSettings(true),PanelColor,White,14);
             Label(panel.transform,"Take a moment.",26,81,w-52,46,31,White);
             Label(panel.transform,"Your city will be right here.",26,135,w-52,30,15,Muted);
             IconAction(panel.transform,"Resume driving","Keep driving",RacingHudGraphic.Symbol.Play,26,192,w-52,56,_session.ResumeRun,true);
@@ -435,21 +440,6 @@ namespace CarCrash
             ActionButton(panel.transform,"End driving session","End drive",38+(w-64)*.5f,324,(w-64)*.5f,46,_session.EndSession,PanelColor,Muted,15);
             if (!Application.isMobilePlatform)
                 Label(panel.transform,"P / Esc to resume",26,397,w-52,20,12,Muted,TextAnchor.MiddleCenter);
-        }
-
-        private string MusicLabel => _session.Soundtrack.MusicEnabled ? "Music on" : "Music off";
-
-        private Text MusicButton(Transform parent, string name, float x, float y, float width)
-        {
-            return ActionButton(parent, name, MusicLabel, x, y, width, 42, ToggleMusic, PanelColor, White, 14)
-                .GetComponentInChildren<Text>();
-        }
-
-        private void ToggleMusic()
-        {
-            _session.Soundtrack.SetMusicEnabled(!_session.Soundtrack.MusicEnabled);
-            SetText(_homeMusic, MusicLabel);
-            SetText(_pauseMusic, MusicLabel);
         }
 
         private void BuildResults(Transform root)
@@ -599,6 +589,7 @@ namespace CarCrash
         {
             ReleaseControls();
             var phase = _session.Phase;
+            if (SettingsVisible && phase is not (CarCrashHudInput.RunPhase.Home or CarCrashHudInput.RunPhase.Paused)) ShowSettings(false);
             var menu = phase is CarCrashHudInput.RunPhase.Home or CarCrashHudInput.RunPhase.Briefing or CarCrashHudInput.RunPhase.Showroom;
             _atmosphere.showroom = menu;
             _home.SetActive(phase == CarCrashHudInput.RunPhase.Home);
@@ -617,7 +608,7 @@ namespace CarCrash
             _map.SetActive(_session.MapVisible && !_session.IsMission);
             _missionMap.SetActive(_session.MapVisible && _session.IsMission);
             _results.SetActive(phase == CarCrashHudInput.RunPhase.Results && !_session.IsMission);
-            _missionResults.SetActive(phase == CarCrashHudInput.RunPhase.Results && _session.IsMission);
+            _missionResults.SetActive(phase == CarCrashHudInput.RunPhase.Results && _session.IsMission && !_session.DrivingDemoActive);
             if (_missionResults.activeSelf) RefreshMissionResults();
             if (_results.activeSelf)
             {
@@ -627,6 +618,7 @@ namespace CarCrash
                 ResultText("Final chain", "x" + (_session.scoring.PeakChainDepth + 1));
                 ResultText("Final speed", _session.PeakSpeed.ToString("0"));
             }
+            RefreshDrivingDemoHud();
         }
 
         private void ResultText(string name, string value)
@@ -689,7 +681,7 @@ namespace CarCrash
                 : Mathf.FloorToInt(_session.ElapsedSeconds);
             SetText(_timer, $"{seconds / 60:00}:{seconds % 60:00}");
             if (_timerCaption != null) SetText(_timerCaption, _session.IsTimed ? "Time left" : "Session");
-            SetText(_modeCaption, course != null ? "Impact Run" : "Free roam");
+            SetText(_modeCaption, _session.DrivingDemoActive ? "Driving demo" : course != null ? "Impact Run" : "Free roam");
             _timer.color = _session.IsTimed && seconds <= 10 ? new Color(1f, 0.36f, 0.22f) : White;
             SetText(_speed, Mathf.RoundToInt(_displaySpeed).ToString("0"));
             SetText(_gear, car.Reversing ? "R" : car.SpeedKmh < 1f ? "N" : Mathf.Clamp(Mathf.FloorToInt(car.SpeedKmh / 38f) + 1, 1, 6).ToString());
@@ -707,7 +699,8 @@ namespace CarCrash
             _atmosphere.SetVerticesDirty();
             _boostButton.color = car.BoostActive ? new Color(.32f,.25f,.63f,.98f) : new Color(.13f,.12f,.24f,.96f);
             var recoveryHint = Application.isMobilePlatform ? "Need a hand? Tap Unstuck" : "Need a hand? Unstuck / R";
-            var hint = _session.RecoverySuggested ? recoveryHint : course != null ? course.Hint(car.transform)
+            var hint = _session.RecoverySuggested ? recoveryHint : _session.DrivingDemoActive ? _session.DrivingDemoHint
+                : course != null ? course.Hint(car.transform)
                 : car.BoostActive ? "Nitro active" : score.SlowMotionActive ? "Impact cam" : TitleCase(_session.Navigation.Hint);
             SetText(_eventLabel,hint);_eventBacking.SetActive(!string.IsNullOrEmpty(hint));
             if (_missionMap.activeSelf) _missionRoute.SetVerticesDirty();

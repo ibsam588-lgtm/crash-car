@@ -152,6 +152,14 @@ namespace CarCrash
         private float _minimumSpeed;
         private bool _credited;
 
+        public VehicleImpactSurface Surface => _kind switch
+        {
+            ImpactTargetKind.Cone => VehicleImpactSurface.Plastic,
+            ImpactTargetKind.Crate => VehicleImpactSurface.Wood,
+            ImpactTargetKind.Barrier => VehicleImpactSurface.Plastic,
+            _ => VehicleImpactSurface.Metal
+        };
+
         public void Configure(ImpactMission mission, ImpactTargetKind kind, GameObject marker, float minimumSpeed)
         {
             _mission = mission;
@@ -184,8 +192,10 @@ namespace CarCrash
                 _body.angularVelocity = Vector3.Cross(Vector3.up, direction) * 2.6f;
             }
 
-            if (_kind != ImpactTargetKind.Cone)
-                _mission.VehicleBody.GetComponent<VehicleImpactEffects>()?.EmitImpact(contact, Vector3.up, collision.relativeVelocity, speed);
+            if (_kind != ImpactTargetKind.Cone && speed >= 12f)
+                _mission.VehicleBody.GetComponent<VehicleImpactEffects>()?.EmitImpact(contact, Vector3.up, collision.relativeVelocity, speed, Surface);
+            else if (!direct)
+                _mission.VehicleBody.GetComponent<VehicleAudio>()?.PlayImpact(Surface, speed);
         }
     }
 }

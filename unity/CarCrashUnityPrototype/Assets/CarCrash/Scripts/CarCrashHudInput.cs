@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 
 namespace CarCrash
 {
-    public sealed class CarCrashHudInput : MonoBehaviour
+    public sealed partial class CarCrashHudInput : MonoBehaviour
     {
         public enum RunPhase { Home, Briefing, Showroom, Countdown, Driving, Paused, Results }
         public enum DriveMode { FreeDrive, ImpactRun }
@@ -23,8 +23,8 @@ namespace CarCrash
         public ImpactMission Mission { get; private set; }
         public ElysianPlayGames PlayGames { get; private set; }
         public ElysianSoundtrack Soundtrack { get; private set; }
-        public ImpactCourse SelectedCourse => ImpactCourse.Catalog[_selectedCourse];
-        public bool CourseUnlocked => ImpactCareer.Unlocked(_selectedCourse);
+        public ImpactCourse SelectedCourse => DrivingDemoActive ? DemoCourse : ImpactCourse.Catalog[_selectedCourse];
+        public bool CourseUnlocked => DrivingDemoActive || ImpactCareer.Unlocked(_selectedCourse);
         public bool NextCourseUnlocked => ImpactCareer.Unlocked(_selectedCourse + 1);
         public float ElapsedSeconds { get; private set; }
         public float PeakSpeed { get; private set; }
@@ -48,6 +48,10 @@ namespace CarCrash
         private bool _focused = true;
         private ImpactRunLoopDirector _recovery;
         private float _reverseHoldSeconds;
+        private MotionSteering _motionSteering;
+        public bool MotionSteeringAvailable => _motionSteering?.Available == true;
+        public bool MotionSteeringEnabled => _motionSteering?.Enabled == true;
+        public bool MotionSteeringCalibrating => _motionSteering?.Calibrating == true;
 
         private void Awake()
         {
@@ -79,11 +83,13 @@ namespace CarCrash
             Mission = gameObject.AddComponent<ImpactMission>();
             PlayGames = gameObject.AddComponent<ElysianPlayGames>();
             Soundtrack = ElysianSoundtrack.GetOrCreate();
+            _motionSteering = new MotionSteering();
             ApplyPaint(PaintIndex);
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
             CameraRig.HomeScreen = Phase == RunPhase.Home;
             Hud = gameObject.AddComponent<RacingHudView>();
+            BuildDrivingDemo();
             Hud.Initialize(this);
             if (_retryImmediately)
             {
@@ -96,6 +102,13 @@ namespace CarCrash
         private void Update()
         {
             if (Hud == null) return;
+            if (HandleDrivingDemoShortcuts()) return;
+            _motionSteering.Step(Time.unscaledDeltaTime);
+            if (Hud.SettingsVisible)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P)) Hud.ShowSettings(false);
+                return;
+            }
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P))
             {
                 if(MapVisible)CloseMap();
@@ -149,7 +162,8 @@ namespace CarCrash
                 var reverse = !gas && ((_reverseHoldSeconds >= 0.35f) || (explicitReverse && vehicle.ForwardSpeedKmh < 1.8f));
                 var brake = hardBrake || ((brakeReverse || explicitReverse) && !reverse) || (gas && vehicle.ForwardSpeedKmh < -2f);
                 var throttle = brake ? 0f : reverse ? -1f : gas ? 1f : 0f;
-                vehicle.SetMobileInput((right ? 1f : 0f) - (left ? 1f : 0f), throttle, brake ? 1f : 0f);
+                var steering = left || right ? (right ? 1f : 0f) - (left ? 1f : 0f) : _motionSteering.Value;
+                vehicle.SetMobileInput(steering, throttle, brake ? 1f : 0f);
                 if (IsMission)
                 {
                     Mission.Step(ElapsedSeconds);
@@ -158,6 +172,9 @@ namespace CarCrash
             }
             Hud.RefreshTelemetry();
         }
+
+        public void SetMotionSteeringEnabled(bool enabled) => _motionSteering?.SetEnabled(enabled);
+        public void CenterMotionSteering() => _motionSteering?.Center();
 
         public void BeginRun()
         {
@@ -306,7 +323,7 @@ namespace CarCrash
             if (IsMission)
             {
                 Mission.Stop();
-                if (Mission.Completed)
+                if (Mission.Completed && !DrivingDemoActive)
                 {
                     NewBest = ImpactCareer.Record(SelectedCourse, Mission.Score, Mission.Hits);
                     PlayGames.RecordCompletion();

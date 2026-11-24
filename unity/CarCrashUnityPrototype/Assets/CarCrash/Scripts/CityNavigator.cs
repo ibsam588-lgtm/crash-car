@@ -8,14 +8,23 @@ namespace CarCrash
         public Transform player;
         public int Destination { get; private set; }=-1;
         public readonly List<Vector3> Route=new();
+        private readonly List<Vector3> _turnPath = new();
+        public IReadOnlyList<Vector3> TurnPath => _turnPath;
         public int VisitedMask { get; private set; }
         public string Discovery { get; private set; }
         private float _discoveryUntil;
         private void Awake()=>VisitedMask=PlayerPrefs.GetInt("CarCrash.ExploredPlaces",0);
         public int VisitedCount { get {var count=0;for(var i=0;i<CityRoadNetwork.Places.Length;i++)if((VisitedMask&(1<<i))!=0)count++;return count;} }
         public void NavigateTo(int destination)
-        { Destination=Mathf.Clamp(destination,0,CityRoadNetwork.Places.Length-1);Route.Clear();Route.AddRange(CityRoadNetwork.RouteTo(player.position,Destination)); }
-        public void ClearRoute(){Destination=-1;Route.Clear();}
+        {
+            Destination = Mathf.Clamp(destination, 0, CityRoadNetwork.Places.Length - 1);
+            _turnPath.Clear();
+            foreach (var point in CityRoadNetwork.RouteTo(player.position, Destination))
+                if (_turnPath.Count == 0 || (point - _turnPath[^1]).sqrMagnitude > 1f) _turnPath.Add(point);
+            Route.Clear();
+            Route.AddRange(_turnPath);
+        }
+        public void ClearRoute(){Destination=-1;Route.Clear();_turnPath.Clear();}
         private void Update()
         {
             if(player==null||Time.timeScale<=0)return;

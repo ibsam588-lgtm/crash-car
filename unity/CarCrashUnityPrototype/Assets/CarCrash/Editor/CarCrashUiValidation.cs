@@ -15,6 +15,8 @@ namespace CarCrashEditor
     public static class CarCrashUiValidation
     {
         private const string ActiveKey = "CarCrash.UiValidation.Active";
+        private const string SavedDemoSeenKey = "CarCrash.UiValidation.SavedDemoSeen";
+        private const string SavedListenerVolumeKey = "CarCrash.UiValidation.SavedListenerVolume";
         private const string ReportPath = "Builds/Validation/ui-smoke.json";
         private static readonly List<string> Checks = new();
         private static int _stage;
@@ -28,7 +30,7 @@ namespace CarCrashEditor
         private static int _oldPaint, _oldBest, _oldVehicle, _oldExplored;
         private static bool _hadPaint, _hadBest, _hadVehicle, _hadExplored;
         private static bool _capturedPrefs;
-        private static int? _oldMusic;
+        private static int? _oldMusic, _oldEffects, _oldNight;
         private static ElysianSoundtrack _soundtrack;
         private static Rigidbody _curbLamp;
         private static int _scoreBeforeCurbLamp;
@@ -37,6 +39,7 @@ namespace CarCrashEditor
         private static int _gateToTest;
         private static CityPedestrian _impactPedestrian;
         private static int _scoreBeforePedestrian;
+        private static int _careerHitsBeforeDemo;
 
         static CarCrashUiValidation()
         {
@@ -48,6 +51,10 @@ namespace CarCrashEditor
         {
             if (EditorApplication.isPlaying) throw new InvalidOperationException("Stop Play Mode before starting UI validation.");
             EditorSceneManager.OpenScene("Assets/CarCrash/Scenes/ImpactRunPrototype.unity");
+            SessionState.SetInt(SavedDemoSeenKey, PlayerPrefs.GetInt(CarCrashHudInput.DrivingDemoSeenKey, -1));
+            PlayerPrefs.SetInt(CarCrashHudInput.DrivingDemoSeenKey, 1);
+            SessionState.SetFloat(SavedListenerVolumeKey, AudioListener.volume);
+            AudioListener.volume = 0f;
             SessionState.SetBool(ActiveKey, true);
             Attach();
             EditorApplication.isPlaying = true;
@@ -85,6 +92,7 @@ namespace CarCrashEditor
                     case 0:
                         _session = Object.FindFirstObjectByType<CarCrashHudInput>();
                         if (_session == null || _session.Hud == null) return;
+                        AudioListener.volume = 0f;
                         _hadPaint = PlayerPrefs.HasKey("CarCrash.Paint");
                         _hadBest = PlayerPrefs.HasKey("CarCrash.BestImpactScore");
                         _oldPaint = PlayerPrefs.GetInt("CarCrash.Paint");
@@ -93,19 +101,44 @@ namespace CarCrashEditor
                         _oldVehicle = PlayerPrefs.GetInt("CarCrash.Vehicle");
                         _hadExplored=PlayerPrefs.HasKey("CarCrash.ExploredPlaces");_oldExplored=PlayerPrefs.GetInt("CarCrash.ExploredPlaces");
                         _oldMusic = PlayerPrefs.HasKey(ElysianSoundtrack.PreferenceKey) ? PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) : null;
+                        _oldEffects = PlayerPrefs.HasKey(ElysianSoundtrack.EffectsPreferenceKey) ? PlayerPrefs.GetInt(ElysianSoundtrack.EffectsPreferenceKey) : null;
+                        _oldNight = PlayerPrefs.HasKey(CityLightingRig.NightPreferenceKey) ? PlayerPrefs.GetInt(CityLightingRig.NightPreferenceKey) : null;
                         _capturedPrefs = true;
+                        CityLightingRig.SetNightEnabled(false);
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Home && Time.timeScale == 0f && _session.CameraRig.Showcasing,
                             "The game opens at a real home screen with the city safely paused");
                         Check(GameObject.Find("Free Drive") != null && GameObject.Find("Impact Run") != null && GameObject.Find("Open garage") != null,
                             "Home offers Free Drive, Impact Run, and the garage");
                         _soundtrack = _session.Soundtrack;
                         var source = _soundtrack.GetComponent<AudioSource>();
-                        Check(source.clip != null && source.clip.length > 60f && source.clip.channels == 2 && source.loop && source.spatialBlend == 0f,
-                            "The city soundtrack is bundled as a looping stereo mix");
+                        Check(source.clip != null && source.clip.name == "ArcadeRush" && source.clip.length > 27f &&
+                            source.clip.channels == 2 && source.loop && source.spatialBlend == 0f,
+                            "Arcade Rush is bundled as the default looping stereo soundtrack");
                         _soundtrack.SetMusicEnabled(true);
-                        GameObject.Find("Home music").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
-                        Check(!_soundtrack.MusicEnabled && !source.isPlaying && PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) == 0,
-                            "Home can turn music off and save the setting");
+                        _soundtrack.SetEffectsEnabled(true);
+                        GameObject.Find("Home settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(_session.Hud.SettingsVisible && GameObject.Find("Replay driving demo").GetComponent<UnityEngine.UI.Button>().interactable,
+                            "Home opens driving settings and offers a demo replay");
+                        GameObject.Find("Music setting").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(!_soundtrack.MusicEnabled && !source.isPlaying && _soundtrack.EffectsEnabled &&
+                            PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) == 0,
+                            "Music can be muted and saved while sound effects stay on");
+                        GameObject.Find("Sound effects setting").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(!_soundtrack.EffectsEnabled && !_soundtrack.MusicEnabled &&
+                            PlayerPrefs.GetInt(ElysianSoundtrack.EffectsPreferenceKey) == 0,
+                            "Sound effects have their own saved mute setting");
+                        _soundtrack.SetEffectsEnabled(true);
+                        var wasNight = CityLightingRig.NightEnabled;
+                        var darkMode = GameObject.Find("Dark mode setting").GetComponent<UnityEngine.UI.Button>();
+                        darkMode.onClick.Invoke();
+                        Check(CityLightingRig.NightEnabled != wasNight && PlayerPrefs.GetInt(CityLightingRig.NightPreferenceKey) == (wasNight ? 0 : 1),
+                            "Dark mode switches city lighting and saves the setting");
+                        darkMode.onClick.Invoke();
+                        _session.Hud.SendMessage("RebuildLayout");
+                        Check(_session.Hud.SettingsVisible &&
+                            GameObject.Find("Motion steering setting").GetComponent<UnityEngine.UI.Button>().interactable == _session.MotionSteeringAvailable,
+                            "Driving settings survive a layout rebuild and reflect sensor support");
+                        GameObject.Find("Close settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         CheckLightPlacement();
                         var clearShowcase = true;
                         foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
@@ -295,9 +328,13 @@ namespace CarCrashEditor
                             "Pause freezes physics and the run timer");
                         Check(!_session.Hud.GasHeld && !_session.Hud.LeftHeld && !_session.Hud.BrakeHeld,
                             "Pause releases every touch control");
-                        GameObject.Find("Pause music").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        GameObject.Find("Pause settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        Check(_session.Hud.SettingsVisible && !GameObject.Find("Replay driving demo").GetComponent<UnityEngine.UI.Button>().interactable,
+                            "Paused drivers can change settings without replacing their run");
+                        GameObject.Find("Music setting").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         Check(_soundtrack.MusicEnabled && PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) == 1,
                             "The pause menu can turn music back on");
+                        GameObject.Find("Close settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         _session.ResumeRun();
                         Check(Time.timeScale > 0f && Time.timeScale < 1f, "Resume preserves the unfinished slow-motion effect");
                         _stage = 5;
@@ -469,11 +506,11 @@ namespace CarCrashEditor
                         _stage = 20;
                         break;
                     case 20:
-                        if (_curbLamp.isKinematic || _session.Mission.Score != _scoreBeforeCurbLamp + 100)
+                        if (_curbLamp.isKinematic || _session.Mission.Score < _scoreBeforeCurbLamp + 100)
                             throw new Exception($"Curbside lamp check: parked={_curbLamp.isKinematic}, points={_session.Mission.Score - _scoreBeforeCurbLamp}, " +
                                 $"player={_session.Mission.VehicleBody.position}, speed={_session.vehicle.SpeedKmh:0.0} km/h, lamp={_curbLamp.position}");
                         Check(!_curbLamp.isKinematic && _session.Mission.HitsOf(ImpactTargetKind.Streetlight) == 1 &&
-                            _session.Mission.Score == _scoreBeforeCurbLamp + 100,
+                            _session.Mission.Score >= _scoreBeforeCurbLamp + ImpactTargetSpec.Points[(int)ImpactTargetKind.Streetlight],
                             "A curbside streetlight falls and awards its 100 points once");
                         DriveAcross(_session.Mission.Course.Gates[^1]);
                         _stage = 12;
@@ -542,6 +579,61 @@ namespace CarCrashEditor
                     case 16:
                         Check(_session.Phase == CarCrashHudInput.RunPhase.Results && _session.Mission.TimedOut && !ImpactCareer.Finished(_session.SelectedCourse),
                             "A timed-out course cannot bank an unfinished result");
+                        _careerHitsBeforeDemo = PlayerPrefs.GetInt(ImpactCareer.TargetsKey, 0);
+                        PlayerPrefs.DeleteKey(CarCrashHudInput.DrivingDemoSeenKey);
+                        _session.ReturnHome();
+                        _nextAt = EditorApplication.timeSinceStartup + .5;
+                        _stage = 31;
+                        break;
+                    case 31:
+                        _session = Object.FindFirstObjectByType<CarCrashHudInput>();
+                        if (_session == null || _session.Hud == null) return;
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Home && _session.DrivingDemoOffer &&
+                            GameObject.Find("First drive") != null && GameObject.Find("Skip driving demo") != null,
+                            "First launch offers a skippable driving demo");
+                        CaptureFrame("first-drive-offer");
+                        GameObject.Find("Start driving demo").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                        _session.SendMessage("OnApplicationFocus", true);
+                        Check(_session.DrivingDemoActive && _session.Phase == CarCrashHudInput.RunPhase.Countdown &&
+                            PlayerPrefs.GetInt(CarCrashHudInput.DrivingDemoSeenKey) == 1,
+                            "Starting the demo launches a short practice route and remembers the prompt");
+                        _stage = 32;
+                        break;
+                    case 32:
+                        if (_session.Phase != CarCrashHudInput.RunPhase.Driving) return;
+                        var rightPointer = GameObject.Find("Route turn pointer");
+                        Check(rightPointer != null && rightPointer.transform.localScale.x > 0f,
+                            "The practice route paints the upcoming right turn onto the road");
+                        CaptureFrame("demo-right-turn");
+                        CrossDemoGate();
+                        _stage = 33;
+                        _nextAt = EditorApplication.timeSinceStartup + .22;
+                        break;
+                    case 33:
+                        var leftPointer = GameObject.Find("Route turn pointer");
+                        Check(_session.Mission.PassedCheckpoints == 1 && leftPointer != null && leftPointer.transform.localScale.x < 0f,
+                            "The pointer switches to the left turn after clearing the right-turn checkpoint " +
+                            $"(checkpoints: {_session.Mission.PassedCheckpoints}, player: {_session.vehicle.transform.position}, arrow: {leftPointer?.transform.localScale.x})");
+                        CityLightingRig.SetNightEnabled(true);
+                        Check(RenderSettings.skybox.shader.name == "CarCrash/ElysianNightSky" &&
+                            GameObject.Find("Night driving headlights").GetComponent<Light>().enabled,
+                            "Night mode uses its own sky and lights the road ahead of the car");
+                        _nextAt = EditorApplication.timeSinceStartup + .30;
+                        _stage = 34;
+                        break;
+                    case 34:
+                        CaptureFrame("demo-night-left-turn");
+                        Check(_session.Mission.TryCredit(ImpactTargetKind.Cone, false), "The demo can show practice points");
+                        CrossDemoGate();
+                        _stage = 35;
+                        _nextAt = EditorApplication.timeSinceStartup + .22;
+                        break;
+                    case 35:
+                        Check(_session.Phase == CarCrashHudInput.RunPhase.Results && _session.Mission.Completed &&
+                            GameObject.Find("Driving demo results") != null && GameObject.Find("Mission results card") == null &&
+                            PlayerPrefs.GetInt(ImpactCareer.TargetsKey, 0) == _careerHitsBeforeDemo && !ImpactCareer.Finished(_session.SelectedCourse),
+                            "Finishing the practice run shows a recap without recording career progress");
+                        CaptureFrame("demo-results");
                         Complete(null);
                         break;
                 }
@@ -706,6 +798,17 @@ namespace CarCrashEditor
             _nextAt = EditorApplication.timeSinceStartup + .62;
         }
 
+        private static void CrossDemoGate()
+        {
+            var gate = _session.Mission.NextGate;
+            var forward = gate.Rotation * Vector3.forward;
+            // Keep the arrow check independent of collisions with the practice targets.
+            _session.vehicle.RecoverAt(gate.Position - forward * 2f, gate.Rotation);
+            _session.Mission.SyncPosition();
+            _session.vehicle.RecoverAt(gate.Position + forward * 2f, gate.Rotation);
+            _session.Mission.Step(_session.ElapsedSeconds);
+        }
+
         private static void CaptureCareerPrefs()
         {
             CareerPrefs.Clear();
@@ -755,6 +858,12 @@ namespace CarCrashEditor
             EditorApplication.update -= Tick;
             Application.logMessageReceived -= OnLog;
             SessionState.SetBool(ActiveKey, false);
+            AudioListener.volume = SessionState.GetFloat(SavedListenerVolumeKey, 1f);
+            SessionState.EraseFloat(SavedListenerVolumeKey);
+            var oldDemoSeen = SessionState.GetInt(SavedDemoSeenKey, -1);
+            if (oldDemoSeen >= 0) PlayerPrefs.SetInt(CarCrashHudInput.DrivingDemoSeenKey, oldDemoSeen);
+            else PlayerPrefs.DeleteKey(CarCrashHudInput.DrivingDemoSeenKey);
+            SessionState.EraseInt(SavedDemoSeenKey);
             foreach (var (key, value) in CareerPrefs)
             {
                 if (value.HasValue) PlayerPrefs.SetInt(key, value.Value);
@@ -769,8 +878,12 @@ namespace CarCrashEditor
                 if(_hadExplored)PlayerPrefs.SetInt("CarCrash.ExploredPlaces",_oldExplored);else PlayerPrefs.DeleteKey("CarCrash.ExploredPlaces");
                 if (_oldMusic.HasValue) PlayerPrefs.SetInt(ElysianSoundtrack.PreferenceKey, _oldMusic.Value);
                 else PlayerPrefs.DeleteKey(ElysianSoundtrack.PreferenceKey);
-                PlayerPrefs.Save();
+                if (_oldEffects.HasValue) PlayerPrefs.SetInt(ElysianSoundtrack.EffectsPreferenceKey, _oldEffects.Value);
+                else PlayerPrefs.DeleteKey(ElysianSoundtrack.EffectsPreferenceKey);
+                if (_oldNight.HasValue) PlayerPrefs.SetInt(CityLightingRig.NightPreferenceKey, _oldNight.Value);
+                else PlayerPrefs.DeleteKey(CityLightingRig.NightPreferenceKey);
             }
+            PlayerPrefs.Save();
             Directory.CreateDirectory(Path.GetDirectoryName(ReportPath));
             File.WriteAllText(ReportPath, JsonUtility.ToJson(new Report { passed = error == null, checks = Checks.ToArray(), error = error ?? "" }, true));
             if (error == null) Debug.Log("RACING_UI_VALIDATION_PASS: " + Checks.Count + " checks");

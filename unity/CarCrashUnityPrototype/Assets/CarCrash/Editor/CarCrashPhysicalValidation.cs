@@ -25,6 +25,12 @@ namespace CarCrashEditor
         private static int _contactIndex;
         private static int _routeIndex;
         private static PhysicalQaContactProbe _probe;
+        private static Collider _palmTrunk;
+        private static BoxCollider _shopPane;
+        private static BreakableCityProp _glass;
+        private static CityStreetActor _occupant;
+        private static Vector3 _glassPosition;
+        private static float _evacuationDeadline;
         private static CityPedestrian[] _people;
         private static readonly string[] SolidNames = { "Palm trunk", "Streetlight column", "Sidewalk bench seat", "Litter bin", "Fire hydrant", "Traffic signal pole" };
         private static readonly List<string> Passed = new();
@@ -166,10 +172,21 @@ namespace CarCrashEditor
                         foreach (var collider in _cityColliders) collider.enabled = false;
                         _probe = _session.vehicle.gameObject.AddComponent<PhysicalQaContactProbe>();
                         _contactIndex = 0;
+                        _palmTrunk = _contactTargets.Find(collider => collider.GetComponentInParent<BreakableCityProp>()?.minimumBreakImpulse > 0f);
+                        if (_palmTrunk == null) throw new Exception("No impulse-qualified palm trunk for the weak collision check.");
+                        StartContactProbe(_palmTrunk,12f,3.5f);
+                        _nextAt = EditorApplication.timeSinceStartup + 1.1;
+                        _stage = 15;
+                        break;
+                    case 15:
+                        var palm = _palmTrunk.GetComponentInParent<BreakableCityProp>();
+                        Check(_probe.Contacted && !palm.Broken && palm.GetComponent<Rigidbody>().isKinematic,
+                            "A real 12 km/h bump contacts the palm and leaves its trunk rooted");
+                        _palmTrunk.enabled = false;
                         _stage = 8;
                         break;
                     case 8:
-                        if (_contactIndex >= _contactTargets.Count) { _stage = 10; break; }
+                        if (_contactIndex >= _contactTargets.Count) { _stage = 16; break; }
                         StartContactProbe(_contactTargets[_contactIndex]);
                         _nextAt = EditorApplication.timeSinceStartup + 0.9;
                         _stage = 9;
@@ -191,8 +208,30 @@ namespace CarCrashEditor
                         _contactIndex++;
                         _stage = 8;
                         break;
+                    case 16:
+                        PrepareStorefrontProbe();
+                        _evacuationDeadline=Time.time+5f;
+                        _nextAt=EditorApplication.timeSinceStartup+1.0;
+                        _stage=17;
+                        break;
+                    case 17:
+                        var travelIntoStore=(_session.vehicle.GetComponent<Rigidbody>().position.x-_glassPosition.x)*_occupant.shop.side;
+                        Check(_probe.Contacted && _glass.Broken && !_shopPane.enabled && Array.TrueForAll(_glass.visibleParts, part => !part.enabled),
+                            "A real 35 km/h strike shatters the storefront and removes the pane collision and rendering");
+                        Check(travelIntoStore>.25f,"The car crosses the former pane plane into the store; travel="+travelIntoStore.ToString("F2"));
+                        Check(_occupant.shop.Evacuating && (_occupant.IsFleeing||_occupant.HasEvacuated),
+                            "The storefront impact starts the occupant's evacuation");
+                        _stage=18;
+                        break;
+                    case 18:
+                        if (!_occupant.HasEvacuated && Time.time<_evacuationDeadline) return;
+                        var door=_occupant.shop.transform.TransformPoint(_occupant.shop.egressLocalPosition);
+                        Check(_occupant.HasEvacuated && (_occupant.transform.position.x-door.x)*_occupant.shop.side<-.25f,
+                            "The occupant runs through the separate exit and reaches the sidewalk");
+                        _stage=10;
+                        break;
                     case 10:
-                        foreach (var collider in _cityColliders) collider.enabled = true;
+                        foreach (var collider in _cityColliders) if(collider!=_shopPane)collider.enabled = true;
                         var city = Object.FindFirstObjectByType<CityRoadNetwork>();
                         foreach (var box in city.GetComponentsInChildren<BoxCollider>())
                             if (box.bounds.size.y > 5 && box.bounds.center.x > 0 && Mathf.Abs(box.bounds.center.z) < 40) { _wall = box; break; }
@@ -268,7 +307,7 @@ namespace CarCrashEditor
             {
                 var buildings = 0;
                 foreach (var collider in colliders)
-                    if (collider.name == "Masonry building" && Mathf.Abs(collider.bounds.center.x-avenue) < 25f) buildings++;
+                    if ((collider.name == "Masonry building"||collider.name == "Building ground floor core") && Mathf.Abs(collider.bounds.center.x-avenue) < 25f) buildings++;
                 Check(buildings >= 12,"Detailed solid shopfront blocks line both sides of avenue "+avenue);
             }
             foreach (var z in new[] {-58f,35f,108f,187f,266f})
@@ -280,11 +319,35 @@ namespace CarCrashEditor
             }
         }
 
-        private static void StartContactProbe(Collider target)
+        private static void PrepareStorefrontProbe()
+        {
+            foreach(var actor in Object.FindObjectsByType<CityStreetActor>(FindObjectsSortMode.None))
+            {
+                if(actor.shop==null||actor.shop.Evacuating)continue;
+                foreach(var pane in actor.shop.GetComponentsInChildren<BreakableCityProp>())
+                {
+                    // A full-width outer bay gives the sedan room to pass and leaves
+                    // the shop's separate doorway available for its occupant.
+                    var box=pane.GetComponentInChildren<BoxCollider>();
+                    if(!pane.shatterGlass||box==null||box.transform.lossyScale.z<3.5f||pane.transform.position.z>=actor.transform.position.z-2f)continue;
+                    _occupant=actor;_glass=pane;_shopPane=box;
+                    break;
+                }
+                if(_shopPane!=null)break;
+            }
+            if(_shopPane==null)throw new Exception("No storefront with an occupant, a glass bay and a separate exit was found.");
+            foreach(var collider in _occupant.shop.GetComponentsInChildren<Collider>())
+                if(collider.attachedRigidbody==null)collider.enabled=true;
+            _glassPosition=_glass.transform.position;
+            StartContactProbe(_shopPane,35f,3.7f,_occupant.shop.side);
+        }
+
+        private static void StartContactProbe(Collider target,float speedKmh=80f,float distance=8f,float side=1f)
         {
             target.enabled = true;
-            var position = new Vector3(target.bounds.center.x - 8f, 0.16f, target.bounds.center.z);
-            var rotation = Quaternion.LookRotation(Vector3.right);
+            var direction = Vector3.right*side;
+            var position = new Vector3(target.bounds.center.x - distance*side, 0.16f, target.bounds.center.z);
+            var rotation = Quaternion.LookRotation(direction);
             var body = _session.vehicle.GetComponent<Rigidbody>();
             body.interpolation = RigidbodyInterpolation.None;
             body.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
@@ -293,7 +356,7 @@ namespace CarCrashEditor
             Physics.SyncTransforms();
             _probe.Target = target;
             _probe.Contacted = false;
-            body.linearVelocity = Vector3.right * (80f / 3.6f);
+            body.linearVelocity = direction * (speedKmh / 3.6f);
         }
 
         private static void Hold(string name, bool down, int id)

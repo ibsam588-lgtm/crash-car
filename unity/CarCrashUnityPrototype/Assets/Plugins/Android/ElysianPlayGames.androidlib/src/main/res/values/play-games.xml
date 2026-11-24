@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="elysian_play_games_id" translatable="false"></string>
-    <string name="elysian_board_freight_yard" translatable="false"></string>
-    <string name="elysian_board_old_town" translatable="false"></string>
-    <string name="elysian_board_sunset_marina" translatable="false"></string>
-    <string name="elysian_board_apex_motor_park" translatable="false"></string>
-    <string name="elysian_achievement_first_finish" translatable="false"></string>
-    <string name="elysian_achievement_break_25" translatable="false"></string>
-    <string name="elysian_achievement_earn_gold" translatable="false"></string>
+    <string name="elysian_play_games_id" translatable="false">1027856904500</string>
+    <string name="elysian_board_freight_yard" translatable="false">CgkItOKuiPUdEAIQAA</string>
+    <string name="elysian_board_old_town" translatable="false">CgkItOKuiPUdEAIQAQ</string>
+    <string name="elysian_board_sunset_marina" translatable="false">CgkItOKuiPUdEAIQAg</string>
+    <string name="elysian_board_apex_motor_park" translatable="false">CgkItOKuiPUdEAIQAw</string>
+    <string name="elysian_achievement_first_finish" translatable="false">CgkItOKuiPUdEAIQBA</string>
+    <string name="elysian_achievement_break_25" translatable="false">CgkItOKuiPUdEAIQBQ</string>
+    <string name="elysian_achievement_earn_gold" translatable="false">CgkItOKuiPUdEAIQBg</string>
 </resources>
