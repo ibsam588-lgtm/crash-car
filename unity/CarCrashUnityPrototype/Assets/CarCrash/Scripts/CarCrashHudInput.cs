@@ -45,6 +45,7 @@ namespace CarCrash
         private static int _selectedCourse;
         private int _freeDriveBest;
         private bool _garageForMission;
+        private GarageShowroom _garageShowroom;
         private MaterialPropertyBlock _paintBlock;
         private bool _focused = true;
         private ImpactRunLoopDirector _recovery;
@@ -88,6 +89,7 @@ namespace CarCrash
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
             CameraRig.HomeScreen = Phase == RunPhase.Home;
+            if (Phase == RunPhase.Showroom) EnterGarageShowroom();
             Hud = gameObject.AddComponent<RacingHudView>();
             BuildDrivingDemo();
             Hud.Initialize(this);
@@ -185,6 +187,7 @@ namespace CarCrash
         public void BeginRun()
         {
             if (IsMission ? Phase != RunPhase.Briefing || !CourseUnlocked : Phase is not (RunPhase.Showroom or RunPhase.Home)) return;
+            LeaveGarageShowroom();
             RestoreUsableRide();
             _selectedMode = Mode;
             scoring.AwardCityPropPoints = !IsMission;
@@ -215,6 +218,7 @@ namespace CarCrash
 
         private void ShowBriefing()
         {
+            LeaveGarageShowroom();
             Phase = RunPhase.Briefing;
             _openedBriefingThisFrame = true;
             _garageForMission = false;
@@ -257,8 +261,23 @@ namespace CarCrash
             if (!_garageForMission) Mode = DriveMode.FreeDrive;
             Phase = RunPhase.Showroom;
             CameraRig.HomeScreen = false;
+            EnterGarageShowroom();
             Hud.ShowHelp(false);
             Hud.RefreshPhase();
+        }
+
+        private void EnterGarageShowroom()
+        {
+            if (_garageShowroom == null) _garageShowroom = GarageShowroom.Create();
+            _garageShowroom.Enter(vehicle.GetComponent<Rigidbody>(), Garage?.Current);
+            CameraRig.SetGarageShowroom(true);
+        }
+
+        private void LeaveGarageShowroom()
+        {
+            if (_garageShowroom == null || !_garageShowroom.isActiveAndEnabled) return;
+            _garageShowroom.Leave();
+            CameraRig.SetGarageShowroom(false);
         }
 
         public void ConfirmGarage()
@@ -276,6 +295,7 @@ namespace CarCrash
         public void ReturnFromGarage()
         {
             if (Phase != RunPhase.Showroom) return;
+            LeaveGarageShowroom();
             RestoreUsableRide();
             if (_garageForMission) ShowBriefing();
             else ReturnHome();
@@ -415,6 +435,7 @@ namespace CarCrash
             ReleaseInput();
             Garage.Select(index);
             RestoreVehiclePaint();
+            _garageShowroom?.PlaceVehicle(Garage.Current);
             CameraRig.SetShowcase(true);
             if (!SelectedRideLocked) RememberRide();
             Hud.RefreshPaint();
@@ -494,6 +515,7 @@ namespace CarCrash
             _selectedMode = DriveMode.FreeDrive;
             if (Phase is RunPhase.Briefing or RunPhase.Showroom)
             {
+                LeaveGarageShowroom();
                 Mode = DriveMode.FreeDrive;
                 Phase = RunPhase.Home;
                 CameraRig.HomeScreen = true;
@@ -505,6 +527,7 @@ namespace CarCrash
         }
         private void ReloadScene()
         {
+            LeaveGarageShowroom();
             if (!IsMission) SaveBestScore();
             ReleaseInput();
             scoring.SetSimulationPaused(false);

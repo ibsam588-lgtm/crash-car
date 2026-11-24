@@ -40,7 +40,7 @@ namespace CarCrash
         private Text _timerCaption, _modeCaption, _scoreCaption;
         private Text _score, _hits, _combo, _timer, _speed, _gear, _boostLabel, _integrity, _cameraLabel, _eventLabel;
         private Text _paintLabel, _countdownText, _impactTitle, _impactScore;
-        private Text _vehicleName, _vehicleSpecs;
+        private Text _vehicleName;
         private Text _courseName, _courseIndex, _courseBrief, _courseMedals, _courseRide, _courseStatus;
         private Text _missionTitle, _missionScore, _missionStatus, _missionBest, _missionSummary, _garageBack, _garageDrive;
         private string _missionResultStatus;
@@ -48,7 +48,6 @@ namespace CarCrash
         private GameObject _goldLock, _goldHint;
         private readonly Text[] _targetAmounts = new Text[ImpactTargetSpec.Points.Length];
         private RacingHudGraphic _coursePreview, _missionRoute;
-        private Graphic[] _vehicleCards;
         private readonly Graphic[] _destinationCards = new Graphic[6];
         private CanvasGroup _impact;
         private RacingHudGraphic _dial, _radar, _atmosphere, _worldMap;
@@ -95,6 +94,7 @@ namespace CarCrash
                 RebuildLayout();
             if (SettingsVisible) RefreshSettings();
             StepPremiumVideo();
+            TickGarageRental();
         }
 
         private void RebuildLayout()
@@ -312,76 +312,9 @@ namespace CarCrash
 
         private void BuildShowroom(Transform root)
         {
-            var pad=_portrait ? 24f : 48f;
-            Brand(root,pad,28);
-            var showroom = root;
-            _garageStockView = Group(showroom, "Garage vehicle picker");
-            root = _garageStockView.transform;
-            _garageBack = IconAction(root,"Garage to home","Home",RacingHudGraphic.Symbol.ArrowLeft,_width-pad-130,28,130,44,
-                _session.ReturnFromGarage).GetComponentInChildren<Text>();
-            Label(root,"Garage",pad,_compactWide ? 102 : 122,_width-pad*2,50,_portrait||_compactWide ? 30 : 45,White);
-            var footerY=_height-(_portrait ? Mathf.Max(456,Units(350)) : 164);
-            var footer=Shape(root,"Garage selection sheet",_portrait ? 12 : 24,footerY,_width-(_portrait ? 24 : 48),_height-footerY+18,RacingHudGraphic.Shape.Panel,new Color(.025f,.045f,.08f,.97f));
-            _vehicleSlot = Label(root,"Selected ride",pad,footerY+16,_portrait ? _width-pad*2-150 : 260,23,12,Muted);
-            _vehicleName=Label(root,"",pad,footerY+39,_portrait ? _width-pad*2 : 370,36,_portrait ? 25 : 29,White);
-            _vehicleSpecs=Label(root,"",pad,footerY+76,_portrait ? _width-pad*2 : 375,37,13,Muted);
-            BuildVehicleChoices(root,pad,_portrait ? footerY+117 : _compactWide ? 169 : 276);
-            var paintX=_portrait ? pad : _width*.43f;
-            var paintY=footerY+(_portrait ? 286 : 29);
-            _paintLabel=Label(root,"",paintX,paintY,290,22,12,Muted);
-            for(var i=0;i<_swatches.Length;i++)
-            {
-                var index=i;
-                var button=ActionButton(root,"Paint "+CarCrashHudInput.PaintNames[i],"",paintX+i*Units(48),paintY+30,Units(40),Units(40),()=>_session.SelectPaint(index),CarCrashHudInput.PaintColors[i],White);
-                var graphic=(RacingHudGraphic)button.targetGraphic;graphic.shape=RacingHudGraphic.Shape.Circle;
-                graphic.cornerRadius=30;_swatches[i]=graphic;
-                if (i == _swatches.Length - 1)
-                {
-                    var lockPicture = Shape(button.transform, "Track Gold locked", Units(9), Units(9), Units(22), Units(22), RacingHudGraphic.Shape.Icon, White);
-                    lockPicture.symbol = RacingHudGraphic.Symbol.Lock;
-                    _goldLock = lockPicture.gameObject;
-                }
-            }
-            _goldHint = Label(root,"Earn a Gold medal to unlock Track Gold",paintX,paintY+35+Units(40),
-                _portrait ? _width-pad*2 : 265,20,12,Muted).gameObject;
-            var orbitY=footerY-64;
-            IconAction(root,"Orbit left","",RacingHudGraphic.Symbol.ArrowLeft,_width-pad-Units(96),orbitY,Units(44),Units(44),()=>_session.CameraRig.RotateShowcase(-32));
-            IconAction(root,"Orbit right","",RacingHudGraphic.Symbol.ArrowRight,_width-pad-Units(44),orbitY,Units(44),Units(44),()=>_session.CameraRig.RotateShowcase(32));
-            if(!_compactWide)Label(root,"Drag to look around",pad,orbitY+12,_portrait ? 230 : 300,22,12,Muted);
-            var driveHeight=_portrait ? Mathf.Max(56,Units(44)) : 56;
-            var actionsWidth = _portrait ? _width - pad * 2f : 300f;
-            var actionsX = _portrait ? pad : _width - 348f;
-            var actionsY = _portrait ? _height - Units(12) - driveHeight : footerY + 44f;
-            var customizeWidth = (actionsWidth - 8f) * .47f;
-            _customizeRide = ActionButton(root, "Customize ride", "Customize", actionsX, actionsY, customizeWidth, driveHeight,
-                () => ShowCustomization(true), TileColor, White, 15);
-            _garageDrive = IconAction(root, "Start engine", "Drive this ride", RacingHudGraphic.Symbol.ArrowRight,
-                actionsX + customizeWidth + 8f, actionsY, actionsWidth - customizeWidth - 8f, driveHeight, _session.ConfirmGarage, true).GetComponentInChildren<Text>();
-            BuildCustomization(showroom);
-        }
-
-        private void BuildVehicleChoices(Transform root,float pad,float y)
-        {
-            var vehicles = _session.Garage?.vehicles;
-            _vehicleCards = new Graphic[vehicles?.Length ?? 0];
-            if (vehicles == null || vehicles.Length == 0) return;
-            var columns=_portrait||_compactWide ? 3 : 2;
-            var width=_portrait ? (_width-pad*2-16)/3 : _compactWide ? 164 : 180;
-            var height=_portrait ? 72 : _compactWide ? 54 : 72;
-            var shortNames=new[]{"Roadbreaker","Apex GT","Summit","Ridgeback","Atlas","Ironclaw","Interceptor","Velocity RS","Bulwark XR"};
-            if(_portrait&&_width<470){shortNames[0]="Road GT";shortNames[3]="Ridge";}
-            var types=new[]{"Coupe","Sport","SUV","Pickup","Truck","Monster","Police","Premium","Premium"};
-            for(var i=0;i<vehicles.Length;i++)
-            {
-                var index=i;var spec=vehicles[i];
-                var slot = i % VehiclePageSize;
-                var button=ActionButton(root,"Select vehicle "+spec.id,"",pad+slot%columns*(width+8),y+slot/columns*(height+8),width,height,()=>_session.SelectVehicle(index),PanelColor,White);
-                _vehicleCards[i]=button.targetGraphic;
-                Label(button.transform,i < shortNames.Length ? shortNames[i] : TitleCase(spec.displayName),
-                    10,13,width-20,24,PixelFont(15,16),White).font=_mediumFont;
-                if(!_compactWide)Label(button.transform,i < types.Length ? types[i] : TitleCase(spec.category),10,44,width-20,20,12,Muted);
-            }
-            BuildVehiclePager(root, pad, y);
+            _garageStockView = Group(root, "Garage vehicle picker");
+            BuildGarageCatalog(_garageStockView.transform);
+            BuildCustomization(root);
         }
 
         private void BuildRace(Transform root)
@@ -661,7 +594,6 @@ namespace CarCrash
             if (_showroom.activeSelf)
             {
                 SetText(_garageBack, _session.GarageForMission ? (_session.IsTrial ? "Race" : "Mission") : "Home");
-                ShowSelectedVehiclePage();
                 RefreshVehicle();
             }
             _race.SetActive(phase is CarCrashHudInput.RunPhase.Driving or CarCrashHudInput.RunPhase.Countdown);
@@ -694,7 +626,7 @@ namespace CarCrash
 
         public void RefreshPaint()
         {
-            _paintLabel.text = "Finish / " + TitleCase(CarCrashHudInput.PaintNames[_session.PaintIndex]);
+            _paintLabel.text = TitleCase(CarCrashHudInput.PaintNames[_session.PaintIndex]);
             for (var i = 0; i < _swatches.Length; i++)
             {
                 var graphic=(RacingHudGraphic)_swatches[i];
@@ -710,18 +642,7 @@ namespace CarCrash
 
         public void RefreshVehicle()
         {
-            var spec=_session.Garage != null ? _session.Garage.Current : null;
-            SetText(_vehicleName,spec != null ? TitleCase(spec.displayName) : "Roadbreaker GT");
-            RefreshVehicleDetails(spec);
-            for (var i=0;i<_vehicleCards.Length;i++)
-                if (_vehicleCards[i]!=null)
-                {
-                    var selected=_session.Garage != null && _session.Garage.SelectedIndex==i;
-                    _vehicleCards[i].color=selected ? SelectedColor : TileColor;
-                    var graphic=(RacingHudGraphic)_vehicleCards[i];
-                    graphic.borderColor=selected ? Accent : BorderColor;
-                    graphic.SetVerticesDirty();
-                }
+            RefreshGarageCatalog();
         }
 
         public void RefreshTelemetry()
@@ -811,9 +732,6 @@ namespace CarCrash
             _left?.Release(); _right?.Release(); _gas?.Release(); _brake?.Release(); _reverse?.Release();
         }
 
-        private void Brand(Transform root, float x, float y) =>
-            PlaceLogo(root, "Coastal Circuit garage logo", x, y, 152f);
-
         private void PlaceLogo(Transform root, string name, float x, float y, float width)
         {
             var height = width / LogoAspect;
@@ -891,7 +809,9 @@ namespace CarCrash
         private RacingHudGraphic Shape(Transform parent, string name, float x, float y, float width, float height,
             RacingHudGraphic.Shape shape, Color tint)
         {
-            var graphic = Rect(parent, name, x, y, width, height).gameObject.AddComponent<RacingHudGraphic>();
+            var node = Rect(parent, name, x, y, width, height).gameObject;
+            node.AddComponent<CanvasRenderer>();
+            var graphic = node.AddComponent<RacingHudGraphic>();
             graphic.shape = shape;
             graphic.color = tint;
             graphic.accent = Accent;

@@ -24,7 +24,7 @@ namespace CarCrash
         private void BuildCustomization(Transform showroom)
         {
             _garageCustomizationView = Group(showroom, "Garage customization");
-            var width = Mathf.Min(_width - 24f, _portrait ? 486f : 442f);
+            var width = _portrait ? Mathf.Min(_width - 24f, 486f) : Mathf.Min(392f, _width * .49f - 12f);
             const float pad = 16f, gap = 6f;
             var arrow = Mathf.Max(42f, Units(38f));
             var rowHeight = arrow + 21f;
@@ -32,11 +32,12 @@ namespace CarCrash
             var actionHeight = Mathf.Max(44f, Units(40f));
             var header = _compactWide ? 60f : 73f;
             var height = header + tabsHeight + rowHeight * 3f + actionHeight + 29f;
-            var x = _portrait ? (_width - width) * .5f : 24f;
+            var x = _portrait ? (_width - width) * .5f : _compactWide ? 16f : 24f;
             var y = _portrait ? Mathf.Max(112f, _height - height - 15f) : Mathf.Max(114f, (_height - height) * .76f);
             y = Mathf.Max(0f, Mathf.Min(y, _height - height - 8f));
             var panel = Shape(_garageCustomizationView.transform, "Garage upgrade panel", x,y,width,height,
-                RacingHudGraphic.Shape.Panel, PanelColor);
+                RacingHudGraphic.Shape.Panel, GarageDeck);
+            panel.cornerRadius = 21f;
             Text title = Label(panel.transform, "Customize", pad, 10, width - pad * 2f, 33f, _compactWide ? 22 : 27, White);
             title.font = _displayFont;
             _customizationVehicle = Label(panel.transform, "", pad, _compactWide ? 39f : 45f, width - pad * 2f, 23f, 13, Muted);
@@ -47,7 +48,7 @@ namespace CarCrash
                 var tab = i;
                 _upgradeTabs[i] = ActionButton(panel.transform, "Customize " + UpgradeTabs[i], UpgradeTabs[i],
                     pad + i * (tabWidth + gap), header, tabWidth, tabsHeight,
-                    () => { _upgradeTab = tab; RefreshCustomization(); }, TileColor, White, 14).targetGraphic;
+                    () => { _upgradeTab = tab; RefreshCustomization(); }, GarageTile, White, 14).targetGraphic;
             }
 
             var rowWidth = width - 2f * pad;
@@ -97,9 +98,9 @@ namespace CarCrash
             var garage = _session.Garage;
             if (!CustomizationVisible || _garageCustomizationView == null || garage?.Current == null) return;
             var vehicle = garage.Current;
-            SetText(_customizationVehicle, TitleCase(vehicle.displayName));
+            SetText(_customizationVehicle, GarageName(vehicle.displayName));
             for (var i = 0; i < _upgradeTabs.Length; i++)
-                _upgradeTabs[i].color = i == _upgradeTab ? SelectedColor : TileColor;
+                TintGarageTab(_upgradeTabs[i].GetComponent<Button>(), i == _upgradeTab, CoastalHudTheme.Seafoam);
             var group = UpgradeGroups[_upgradeTab];
             for (var i = 0; i < _upgradeRows.Length; i++)
             {

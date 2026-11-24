@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace CarCrash
 {
-    internal sealed class VehicleDetailKit : MonoBehaviour
+    internal sealed partial class VehicleDetailKit : MonoBehaviour
     {
         private readonly List<Material> _materials = new();
         private readonly List<(Renderer renderer, int slot, Color baseGlow)> _brakes = new();
@@ -20,6 +20,7 @@ namespace CarCrash
         {
             _lampBlock = new MaterialPropertyBlock();
             _chassis = chassis;
+            var modernAtlas = spec.id == "hauler" && FitModernAtlas();
             var rear = -spec.size.z * .5f;
             Bounds? lampBounds = null;
             foreach (var filter in GetComponentsInChildren<MeshFilter>())
@@ -55,6 +56,12 @@ namespace CarCrash
                 if (changedMaterials) renderer.sharedMaterials = materials;
             }
 
+            if (modernAtlas)
+            {
+                SetSignals(false, false);
+                return;
+            }
+
             var tail = lampBounds ?? new Bounds(new Vector3(0, spec.id == "monster" ? 1.85f : spec.size.y * .43f, rear),
                 new Vector3(spec.size.x * .76f, .23f, .04f));
             var black = Paint("Textured lamp gasket", new Color(.038f,.044f,.048f), .25f, .31f);
@@ -84,8 +91,6 @@ namespace CarCrash
             if (spec.id == "hauler") FitHauler(spec, rear, metal, black);
             if (spec.id == "monster") FitMonster(spec, metal, black);
             if (spec.id == "police") FitPolice(spec, black);
-            if (spec.id == "velocity") FitVelocity(spec, black, metal);
-            if (spec.id == "bulwark") FitBulwark(spec, black, metal);
             SetSignals(false, false);
         }
 
@@ -189,40 +194,6 @@ namespace CarCrash
             }
         }
 
-        private void FitVelocity(GarageVehicle spec, Material carbon, Material metal)
-        {
-            var edge = Paint("Velocity bronze anodized trim", new Color(.63f,.285f,.075f), .72f, .62f);
-            var deck = -spec.size.z * .405f;
-            var wing = spec.size.y * .866f;
-            Part("Velocity RS carbon aerofoil", new Vector3(0,wing,deck), new Vector3(spec.size.x * .89f,.039f,.225f), carbon);
-            Part("Velocity aerofoil trailing edge", new Vector3(0,wing,-spec.size.z * .434f), new Vector3(spec.size.x * .80f,.017f,.019f), edge);
-            foreach (var side in new[] { -1f, 1f })
-            {
-                Part("Velocity swan-neck wing bracket", new Vector3(side * .49f,wing - .13f,deck + .029f), new Vector3(.037f,.24f,.083f), metal);
-                Part("Velocity carbon wing endplate", new Vector3(side * spec.size.x * .432f,wing,.012f + deck), new Vector3(.028f,.087f,.25f), carbon);
-                Part("Velocity bronze diffuser edge", new Vector3(side * .37f,.38f,-spec.size.z * .49f), new Vector3(.27f,.027f,.107f), edge);
-            }
-            Letter("VELOCITY RS", new Vector3(0,.693f,-spec.size.z * .499f), .085f, new Color(.84f,.61f,.28f), .44f);
-        }
-
-        private void FitBulwark(GarageVehicle spec, Material black, Material metal)
-        {
-            var amber = Paint("Bulwark amber marker lenses", new Color(.74f,.31f,.032f), .24f, .66f, new Color(.39f,.15f,.013f));
-            var guardDepth = spec.size.z * .49f;
-            Part("Bulwark upper brush guard", new Vector3(0,1.18f,guardDepth), new Vector3(spec.size.x * .67f,.079f,.126f), black);
-            Part("Bulwark brush guard face", new Vector3(0,1.18f,guardDepth + .063f), new Vector3(spec.size.x * .56f,.045f,.013f), metal);
-            foreach (var side in new[] { -1f, 1f })
-            {
-                Part("Bulwark guard upright", new Vector3(side * .54f,1.08f,guardDepth - .038f), new Vector3(.11f,.31f,.17f), black);
-                Part("Bulwark bed rack stanchion", new Vector3(side * .77f,1.60f,-1.00f), new Vector3(.089f,.68f,.112f), black);
-                Part("Bulwark bed rack rail", new Vector3(side * .77f,1.935f,-1.32f), new Vector3(.074f,.079f,.78f), black);
-                Part("Bulwark chevron side protection", new Vector3(side * 1.021f,.69f,.11f), new Vector3(.109f,.088f,2.02f), black);
-            }
-            Part("Bulwark bed rack crossbar", new Vector3(0,1.935f,-1.01f), new Vector3(1.61f,.092f,.115f), black);
-            for (var i = -2; i <= 2; i++)
-                Part("Bulwark bed rack marker", new Vector3(i * .20f,1.951f,-1.071f), new Vector3(.12f,.045f,.025f), amber);
-        }
-
         private Bounds ChassisBounds(Transform source, Bounds bounds)
         {
             var result = new Bounds(_chassis.InverseTransformPoint(source.TransformPoint(bounds.center)), Vector3.zero);
@@ -288,6 +259,7 @@ namespace CarCrash
         private void OnDestroy()
         {
             foreach (var material in _materials) Destroy(material);
+            foreach (var mesh in _atlasMeshes) Destroy(mesh);
         }
     }
 }

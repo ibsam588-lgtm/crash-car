@@ -30,6 +30,10 @@ namespace CarCrash
         private float _transitionUntil;
         private float _orbitDirection = 1f;
         private bool _autoOrbit = true;
+        private bool _garageShowroom;
+        private bool _returningFromGarage;
+        private float _garageDisplayAngle;
+        private (float orbit, float direction, bool automatic, float fieldOfView) _roadShowcase;
         private readonly RaycastHit[] _obstructions = new RaycastHit[64];
         private readonly List<Renderer> _showcaseHiddenTraffic = new();
 
@@ -47,6 +51,7 @@ namespace CarCrash
         {
             RestoreNearCameraTraffic();
             LastOccludedVehicleCount=0;
+            if (_garageShowroom) return;
             foreach(var traffic in _trafficBodies)
             {
                 if(traffic.collider==null||!traffic.collider.gameObject.activeInHierarchy||traffic.collider.bounds.SqrDistance(transform.position)>1.2f*1.2f)continue;
@@ -84,7 +89,11 @@ namespace CarCrash
                 }
             }
             Showcasing = enabled;
-            if (!enabled) HomeScreen = false;
+            if (!enabled)
+            {
+                HomeScreen = false;
+                _returningFromGarage = false;
+            }
             _orbitDragging = false;
             _transitionUntil = Time.unscaledTime + 2f;
             if (target != null) _vehicle = target.GetComponent<ArcadeVehicleController>();
@@ -95,6 +104,24 @@ namespace CarCrash
         {
             _autoOrbit = false;
             _orbit += degrees;
+        }
+
+        internal void SetGarageShowroom(bool enabled)
+        {
+            if (_garageShowroom == enabled) return;
+            _garageShowroom = enabled;
+            _orbitDragging = false;
+            if (enabled)
+            {
+                _roadShowcase = (_orbit, _orbitDirection, _autoOrbit, _camera.fieldOfView);
+                _orbit = _garageDisplayAngle = 38f;
+                _orbitDirection = 1f;
+                _autoOrbit = true;
+                return;
+            }
+            (_orbit, _orbitDirection, _autoOrbit, _camera.fieldOfView) = _roadShowcase;
+            _camera.ResetProjectionMatrix();
+            _returningFromGarage = true;
         }
         public void CycleView() => View = (DrivingView)(((int)View + 1) % 3);
 
@@ -146,13 +173,16 @@ namespace CarCrash
 
         private void UpdateShowcase(float dt, float blend)
         {
+            var portrait = _camera.aspect < 1.4f;
+            var garagePreview = _garageShowroom ? GaragePreview(portrait) : default;
             if (Input.GetMouseButtonDown(0))
             {
                 var overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
                 if (Input.touchCount > 0 && EventSystem.current != null)
                     overUi |= EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId);
-                _orbitDragging = !overUi;
                 _pointer = Input.mousePosition;
+                var withinPreview = !_garageShowroom || garagePreview.Contains(new Vector2(_pointer.x / Screen.width, _pointer.y / Screen.height));
+                _orbitDragging = !overUi && withinPreview;
             }
             if (!Input.GetMouseButton(0)) _orbitDragging = false;
             if (_orbitDragging)
@@ -168,7 +198,11 @@ namespace CarCrash
                 _orbit += dt * 1.5f * _orbitDirection;
             }
 
-            var portrait = _camera.aspect < 1.4f;
+            if (_garageShowroom)
+            {
+                FrameGarageVehicle(garagePreview, portrait, blend);
+                return;
+            }
             var angle = _orbit * Mathf.Deg2Rad;
             // Keep the whole body in the much narrower horizontal field of view on phones.
             var radius = portrait ? Mathf.Clamp(6.6f / _camera.aspect, 8.5f, 20f) : HomeScreen ? 8.6f : 7.4f;
@@ -179,7 +213,8 @@ namespace CarCrash
             if (portrait) radius = Mathf.Min(radius,12f);
             var radial = new Vector3(Mathf.Sin(angle) * radius, (portrait ? 2.5f : 1.95f)+Mathf.Max(0,size.y-1.3f)*.6f, Mathf.Cos(angle) * radius);
             var desired = ClearCameraPosition(target.position + radial);
-            transform.position = ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend * 0.45f));
+            transform.position = _returningFromGarage ? desired : ClearCameraPosition(Vector3.Lerp(transform.position, desired, blend * 0.45f));
+            _returningFromGarage = false;
             var focusHeight = portrait ? HomeScreen ? -.1f : -1.45f : HomeScreen ? .35f : .1f;
             focusHeight += Mathf.Max(0,size.y-1.3f)*(!HomeScreen ? .1f : .45f);
             var focus = target.position + Vector3.up * focusHeight;
@@ -200,6 +235,62 @@ namespace CarCrash
             if (portrait && !HomeScreen)
                 framingFov = Mathf.Max(framingFov,2f*Mathf.Atan((size.y+size.z*.25f)/(2f*Mathf.Max(3f,clearDistance)*.23f))*Mathf.Rad2Deg);
             _camera.fieldOfView = Mathf.Lerp(_camera.fieldOfView, Mathf.Clamp(framingFov, baseFov, portrait ? 95f : 75f), blend);
+        }
+
+        private static Rect GaragePreview(bool portrait)
+        {
+            var safe = Screen.safeArea;
+            var width = Mathf.Max(1f, Screen.width);
+            var height = Mathf.Max(1f, Screen.height);
+            // The garage sheet is sized in canvas units and anchored inside the safe area.
+            if (portrait)
+            {
+                var sheet = Mathf.Min(440f * height / 900f, safe.height * .59f);
+                return Rect.MinMaxRect(safe.xMin / width, (safe.yMin + sheet) / height,
+                    safe.xMax / width, safe.yMax / height);
+            }
+
+            var scale = height / (height < 540f ? 480f : 720f);
+            var panel = Mathf.Min(392f * scale, .49f * safe.width - 12f * scale);
+            return Rect.MinMaxRect((safe.xMin + panel + 22f * scale) / width, safe.yMin / height,
+                safe.xMax / width, safe.yMax / height);
+        }
+
+        private void FrameGarageVehicle(Rect preview, bool portrait, float blend)
+        {
+            _garageDisplayAngle = Mathf.LerpAngle(_garageDisplayAngle, _orbit, blend);
+            var angle = _garageDisplayAngle * Mathf.Deg2Rad;
+            var pitch = (portrait ? 10f : 13f) * Mathf.Deg2Rad;
+            var radial = new Vector3(Mathf.Sin(angle) * Mathf.Cos(pitch), Mathf.Sin(pitch), Mathf.Cos(angle) * Mathf.Cos(pitch));
+            var right = Vector3.Cross(Vector3.up, -radial).normalized;
+            var up = Vector3.Cross(-radial, right);
+            var size = VehicleSize;
+            // Preserve a usable horizontal angle on tall phones so the Atlas can
+            // orbit inside the workshop without moving the camera through its walls.
+            var previewAspect = Mathf.Max(.26f, _camera.aspect * preview.width);
+            var fov = portrait ? Mathf.Max(45f, 2f * Mathf.Atan(.226f / previewAspect) * Mathf.Rad2Deg) : 40f;
+            var slope = Mathf.Tan(fov * Mathf.Deg2Rad * .5f);
+            var horizontal = slope * _camera.aspect * Mathf.Max(.12f, preview.width * .88f);
+            var vertical = slope * Mathf.Max(.12f, preview.height * (portrait ? .68f : .64f));
+            var extents = size * .5f + new Vector3(.16f, .16f, .22f);
+
+            // Fit all eight corners, including the near bumper, across a complete orbit.
+            var distance = 4.8f;
+            for (var corner = 0; corner < 8; corner++)
+            {
+                var point = new Vector3((corner & 1) == 0 ? -extents.x : extents.x,
+                    (corner & 2) == 0 ? -extents.y : extents.y, (corner & 4) == 0 ? -extents.z : extents.z);
+                var fit = Mathf.Max(Mathf.Abs(Vector3.Dot(right, point)) / horizontal, Mathf.Abs(Vector3.Dot(up, point)) / vertical);
+                distance = Mathf.Max(distance, Vector3.Dot(radial, point) + fit);
+            }
+            var focus = GarageShowroom.FloorPosition + Vector3.up * (size.y * .5f + .04f);
+            transform.SetPositionAndRotation(focus + radial * distance, Quaternion.LookRotation(-radial, Vector3.up));
+            _camera.fieldOfView = fov;
+            _camera.ResetProjectionMatrix();
+            var lens = _camera.projectionMatrix;
+            lens[0, 2] = 1f - preview.center.x * 2f;
+            lens[1, 2] = 1f - preview.center.y * 2f;
+            _camera.projectionMatrix = lens;
         }
 
         private Vector3 ClearCameraPosition(Vector3 desired)

@@ -19,7 +19,7 @@ namespace CarCrash
 
         public void ShowPremiumVideo(string vehicleId)
         {
-            if (_premiumOverlay != null || !CarCrashHudInput.RideLocked(vehicleId)) return;
+            if (_premiumOverlay != null || !_session.SelectedRideLocked || _session.Garage?.Current?.id != vehicleId) return;
             var clip = Resources.Load<VideoClip>("GarageShowcase");
             _premiumVehicle = vehicleId;
             _premiumComplete = false;
