@@ -125,6 +125,8 @@ namespace CarCrashEditor
                         GameObject.Find("Home settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         Check(_session.Hud.SettingsVisible && GameObject.Find("Replay driving demo").GetComponent<UnityEngine.UI.Button>().interactable,
                             "Home opens driving settings and offers a demo replay");
+                        Check(GameObject.Find("Privacy policy setting")?.GetComponent<UnityEngine.UI.Button>() is { interactable: true },
+                            "Home settings offer a privacy policy button");
                         GameObject.Find("Music setting").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         Check(!_soundtrack.MusicEnabled && !source.isPlaying && _soundtrack.EffectsEnabled &&
                             PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) == 0,
@@ -337,6 +339,8 @@ namespace CarCrashEditor
                         GameObject.Find("Pause settings").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         Check(_session.Hud.SettingsVisible && !GameObject.Find("Replay driving demo").GetComponent<UnityEngine.UI.Button>().interactable,
                             "Paused drivers can change settings without replacing their run");
+                        Check(GameObject.Find("Privacy policy setting")?.GetComponent<UnityEngine.UI.Button>() is { interactable: true },
+                            "Pause settings offer a privacy policy button");
                         GameObject.Find("Music setting").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                         Check(_soundtrack.MusicEnabled && PlayerPrefs.GetInt(ElysianSoundtrack.PreferenceKey) == 1,
                             "The pause menu can turn music back on");

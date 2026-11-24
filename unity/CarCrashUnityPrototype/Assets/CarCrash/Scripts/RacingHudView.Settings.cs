@@ -102,8 +102,12 @@ namespace CarCrash
             var contentBottom = height - footer;
             _settingsHint = Label(panel.transform,"",pad,contentBottom+6f,width-2f*pad,footer-56f,14,Muted);
             var doneHeight = Mathf.Max(42f, Units(40f));
-            ActionButton(panel.transform,"Close settings","Done",pad,height-doneHeight-12f,width-2f*pad,doneHeight,
-                ()=>ShowSettings(false),Primary,Ink);
+            var footerButtonY = height - doneHeight - 12f;
+            var footerButtonWidth = (width - 2f * pad - gap) * .5f;
+            ActionButton(panel.transform, "Privacy policy setting", "Privacy policy", pad, footerButtonY, footerButtonWidth, doneHeight,
+                () => Application.OpenURL("https://corsairlabs.com/crash-car-elysian-privacy-policy"), TileColor, White);
+            ActionButton(panel.transform, "Close settings", "Done", pad + footerButtonWidth + gap, footerButtonY, footerButtonWidth, doneHeight,
+                () => ShowSettings(false), Primary, Ink);
         }
 
         private Button SettingsOption(Transform parent, string name, string title, float x, float y, float width, float height,
