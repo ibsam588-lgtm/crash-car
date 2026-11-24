@@ -9,6 +9,8 @@ namespace CarCrash
     {
         public const string NightPreferenceKey = "CarCrash.NightMode";
         public static bool NightEnabled => PlayerPrefs.GetInt(NightPreferenceKey, 0) != 0;
+        private const int StreetLightCount = 3;
+        private const float StreetLightReach = 54f;
 
         private static CityLightingRig _active;
         private readonly List<(Light light, Color color, float intensity)> _dayLights = new();
@@ -18,7 +20,12 @@ namespace CarCrash
         private SphericalHarmonicsL2 _dayAmbient, _nightAmbient;
         private ArcadeVehicleController _vehicle;
         private VehicleGarage _garage;
-        private Light _headlight;
+        private readonly Light[] _headlights = new Light[2];
+        private readonly Light[] _streetLights = new Light[StreetLightCount];
+        private readonly BreakableCityProp[] _nearbyLamps = new BreakableCityProp[StreetLightCount];
+        private readonly float[] _lampDistances = new float[StreetLightCount];
+        private readonly List<BreakableCityProp> _streetFixtures = new();
+        private float _nextStreetLightUpdate;
 
         public static void SetNightEnabled(bool enabled)
         {
@@ -45,15 +52,15 @@ namespace CarCrash
             _dayAmbient.AddAmbientLight(new Color(.29f, .33f, .40f));
             _dayAmbient.AddDirectionalLight(Vector3.up, new Color(.51f, .60f, .73f), .32f);
             _nightAmbient = new SphericalHarmonicsL2();
-            _nightAmbient.AddAmbientLight(new Color(.12f, .15f, .23f));
-            _nightAmbient.AddDirectionalLight(Vector3.up, new Color(.38f, .47f, .71f), .22f);
+            _nightAmbient.AddAmbientLight(new Color(.235f, .255f, .32f));
+            _nightAmbient.AddDirectionalLight(Vector3.up, new Color(.55f, .63f, .82f), .38f);
             var shader = Resources.Load<Shader>("ElysianNightSky");
-            if (shader != null && shader.isSupported)
+            if (_nightSky == null && shader != null && shader.isSupported)
                 _nightSky = new Material(shader) { name = "Elysian night sky" };
-            else if (_daySky != null && _daySky.HasProperty("_Exposure"))
+            else if (_nightSky == null && _daySky != null && _daySky.HasProperty("_Exposure"))
             {
                 _nightSky = new Material(_daySky) { name = "Elysian night sky fallback" };
-                _nightSky.SetFloat("_Exposure", _daySky.GetFloat("_Exposure") * .16f);
+                _nightSky.SetFloat("_Exposure", _daySky.GetFloat("_Exposure") * .24f);
             }
             Apply(NightEnabled);
         }
@@ -61,28 +68,117 @@ namespace CarCrash
         private void Start()
         {
             _vehicle = FindFirstObjectByType<CarCrashHudInput>()?.vehicle;
+            var signals = GetComponent<CityTrafficSignals>() ?? gameObject.AddComponent<CityTrafficSignals>();
+            signals.Initialize(_vehicle != null ? _vehicle.transform : null);
             if (_vehicle == null) return;
             _garage = _vehicle.GetComponent<VehicleGarage>();
-            var lamp = new GameObject("Night driving headlights");
-            lamp.transform.SetParent(_vehicle.transform, false);
-            lamp.transform.localRotation = Quaternion.Euler(7f, 0f, 0f);
-            _headlight = lamp.AddComponent<Light>();
-            _headlight.type = LightType.Spot;
-            _headlight.range = 48f;
-            _headlight.spotAngle = 56f;
-            _headlight.color = new Color(.87f, .94f, 1f);
-            _headlight.intensity = 4.6f;
-            _headlight.shadows = LightShadows.None;
-            _headlight.enabled = NightEnabled;
+            _headlights[0] = CreateSpot("Night driving headlights", _vehicle.transform, LightRenderMode.ForcePixel);
+            _headlights[1] = CreateSpot("Passenger-side night headlight", _vehicle.transform, LightRenderMode.ForcePixel);
+            foreach (var prop in GetComponentsInChildren<BreakableCityProp>())
+                if (prop.name.StartsWith("Breakaway streetlight", System.StringComparison.Ordinal)) _streetFixtures.Add(prop);
+            for (var index = 0; index < _streetLights.Length; index++)
+            {
+                var light = CreateSpot($"Night road lighting {index + 1}", transform, LightRenderMode.Auto);
+                light.color = new Color(1f, .83f, .67f);
+                light.range = 18f;
+                light.spotAngle = 108f;
+                light.innerSpotAngle = 51f;
+                light.intensity = 2.3f;
+                _streetLights[index] = light;
+            }
+            SetNightLights(NightEnabled);
+        }
+
+        private static Light CreateSpot(string name, Transform parent, LightRenderMode mode)
+        {
+            var light = new GameObject(name).AddComponent<Light>();
+            light.transform.SetParent(parent, false);
+            light.type = LightType.Spot;
+            light.shadows = LightShadows.None;
+            light.renderMode = mode;
+            light.enabled = false;
+            return light;
         }
 
         private void LateUpdate()
         {
-            if (_headlight == null || !_headlight.enabled) return;
+            if (_headlights[0] == null || !_headlights[0].enabled) return;
+            PositionHeadlights();
+            if (Time.unscaledTime < _nextStreetLightUpdate) return;
+            _nextStreetLightUpdate = Time.unscaledTime + .22f;
+            UpdateStreetLights();
+        }
+
+        private void PositionHeadlights()
+        {
             var car = _garage != null ? _garage.Current : null;
-            var width = car != null ? car.size.z : 4.65f;
             var height = car != null ? car.size.y : 1.3f;
-            _headlight.transform.localPosition = new Vector3(0f, Mathf.Clamp(height * .57f, .60f, 1.22f), width * .51f);
+            var left = new Vector3(car != null ? -car.size.x * .34f : -.68f,
+                Mathf.Clamp(height * .53f, .52f, 1.23f), car != null ? car.size.z * .49f : 2.28f);
+            var right = new Vector3(-left.x, left.y, left.z);
+            if (_garage != null && _garage.TryGetHeadlightLenses(out var fittedLeft, out var fittedRight))
+            {
+                left = fittedLeft;
+                right = fittedRight;
+            }
+            AimHeadlight(_headlights[0], left);
+            AimHeadlight(_headlights[1], right);
+        }
+
+        private void AimHeadlight(Light beam, Vector3 lens)
+        {
+            var angle = _garage != null ? _garage.HeadlightAngle : 56f;
+            beam.transform.localPosition = lens + Vector3.forward * .09f;
+            beam.transform.localRotation = Quaternion.Euler(Mathf.Clamp(lens.y * 4.6f, 2.8f, 6.1f), 0f, 0f);
+            beam.color = _garage != null ? _garage.HeadlightColor : new Color(.87f, .94f, 1f);
+            beam.range = _garage != null ? _garage.HeadlightRange : 48f;
+            beam.spotAngle = angle;
+            beam.innerSpotAngle = angle * .55f;
+            beam.intensity = (_garage != null ? _garage.HeadlightIntensityScale : 1f) * 1.92f;
+        }
+
+        private void UpdateStreetLights()
+        {
+            var position = _vehicle.transform.position;
+            var heading = _vehicle.transform.forward;
+            for (var index = 0; index < _nearbyLamps.Length; index++)
+            {
+                _nearbyLamps[index] = null;
+                _lampDistances[index] = float.PositiveInfinity;
+            }
+            foreach (var fixture in _streetFixtures)
+            {
+                if (fixture == null || fixture.Broken || !fixture.gameObject.activeInHierarchy) continue;
+                var delta = fixture.transform.position - position;
+                var distance = delta.sqrMagnitude;
+                if (distance > StreetLightReach * StreetLightReach) continue;
+                var priority = distance + Mathf.Max(0f, -Vector3.Dot(heading, delta)) * 9f;
+                for (var index = 0; index < _nearbyLamps.Length; index++)
+                {
+                    if (priority >= _lampDistances[index]) continue;
+                    for (var shift = _nearbyLamps.Length - 1; shift > index; shift--)
+                    {
+                        _nearbyLamps[shift] = _nearbyLamps[shift - 1];
+                        _lampDistances[shift] = _lampDistances[shift - 1];
+                    }
+                    _nearbyLamps[index] = fixture;
+                    _lampDistances[index] = priority;
+                    break;
+                }
+            }
+            for (var index = 0; index < _streetLights.Length; index++)
+            {
+                var light = _streetLights[index];
+                var lamp = _nearbyLamps[index];
+                if (light == null) continue;
+                light.enabled = lamp != null;
+                if (lamp == null) continue;
+                var foot = lamp.transform.position;
+                var avenue = CityRoadNetwork.Nearest(CityRoadNetwork.AvenueX, foot.x);
+                var inward = Mathf.Sign(avenue - foot.x);
+                light.transform.SetPositionAndRotation(foot + new Vector3(inward * 2.15f, 6.23f, 0f),
+                    Quaternion.LookRotation(new Vector3(inward * .35f, -1f, 0f), Vector3.forward));
+            }
         }
 
         private void Apply(bool night)
@@ -90,16 +186,28 @@ namespace CarCrash
             RenderSettings.ambientMode = AmbientMode.Custom;
             RenderSettings.ambientProbe = night ? _nightAmbient : _dayAmbient;
             RenderSettings.skybox = night && _nightSky != null ? _nightSky : _daySky;
-            RenderSettings.fogColor = night ? new Color(.090f, .131f, .206f) : _dayFog;
-            RenderSettings.fogDensity = night ? .0046f : _dayDensity;
-            RenderSettings.reflectionIntensity = night ? _dayReflection * .39f : _dayReflection;
+            RenderSettings.fogColor = night ? new Color(.128f, .174f, .252f) : _dayFog;
+            RenderSettings.fogDensity = night ? .0037f : _dayDensity;
+            RenderSettings.reflectionIntensity = night ? _dayReflection * .57f : _dayReflection;
             foreach (var state in _dayLights)
             {
                 if (state.light == null) continue;
-                state.light.color = night ? new Color(.58f, .70f, 1f) : state.color;
-                state.light.intensity = night ? state.intensity * .26f : state.intensity;
+                state.light.color = night ? new Color(.73f, .81f, 1f) : state.color;
+                state.light.intensity = night ? state.intensity * .44f : state.intensity;
             }
-            if (_headlight != null) _headlight.enabled = night;
+            SetNightLights(night);
+        }
+
+        private void SetNightLights(bool night)
+        {
+            foreach (var beam in _headlights) if (beam != null) beam.enabled = night;
+            if (_headlights[0] == null) return;
+            if (night)
+            {
+                PositionHeadlights();
+                UpdateStreetLights();
+            }
+            else foreach (var light in _streetLights) if (light != null) light.enabled = false;
         }
 
         private void OnDisable()
@@ -109,8 +217,12 @@ namespace CarCrash
                 Apply(false);
                 _active = null;
             }
+        }
+
+        private void OnDestroy()
+        {
             if (_nightSky != null) Destroy(_nightSky);
-            if (_headlight != null) Destroy(_headlight.gameObject);
+            foreach (var beam in _headlights) if (beam != null) Destroy(beam.gameObject);
         }
     }
 }

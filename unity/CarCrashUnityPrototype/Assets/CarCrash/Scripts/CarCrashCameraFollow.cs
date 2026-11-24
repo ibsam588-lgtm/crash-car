@@ -35,9 +35,10 @@ namespace CarCrash
 
         private readonly List<(Collider collider,Renderer[] renderers)> _trafficBodies=new();
         private readonly List<(Renderer renderer,bool forced)> _nearCameraHidden=new();
-        private void Awake()
+        private void Awake() => _camera=GetComponent<Camera>();
+
+        private void Start()
         {
-            _camera=GetComponent<Camera>();
             foreach(var traffic in FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
                 _trafficBodies.Add((traffic.GetComponent<Collider>(),traffic.GetComponentsInChildren<Renderer>(true)));
         }

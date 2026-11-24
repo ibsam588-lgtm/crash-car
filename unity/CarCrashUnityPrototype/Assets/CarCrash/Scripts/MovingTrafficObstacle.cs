@@ -38,6 +38,9 @@ namespace CarCrash
             _startRotation = transform.rotation;
             _phase = Random.value * Mathf.PI * 2f;
             _launchAt = Time.time + launchDelaySeconds;
+
+            if (GetComponent<TrafficCrashVisual>() != null)
+                VehicleCabinOccupant.InstallTraffic(transform, velocity, _body.mass);
         }
 
         private void FixedUpdate()
@@ -59,6 +62,7 @@ namespace CarCrash
             var box = GetComponent<BoxCollider>();
             var halfLength = box != null ? box.size.z * 0.5f : 2.4f;
             var halfWidth = box != null ? box.size.x * 0.4f : 0.85f;
+            targetSpeed = CityTrafficSignals.LimitAvenueSpeed(_body.position, heading, halfLength, CurrentCruiseSpeed, targetSpeed);
             var lookDistance = Mathf.Max(5f, targetSpeed * 1.4f);
             var origin = _body.position + Vector3.up * 0.7f + heading * (halfLength + 0.15f);
             foreach (var hit in Physics.BoxCastAll(origin, new Vector3(halfWidth, 0.4f, 0.1f), heading,

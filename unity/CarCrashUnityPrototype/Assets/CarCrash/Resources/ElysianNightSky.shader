@@ -24,7 +24,7 @@ Shader "CarCrash/ElysianNightSky"
             {
                 float3 direction = normalize(input.direction);
                 float above = saturate(direction.y);
-                float3 sky = lerp(float3(.057,.085,.148), float3(.004,.008,.025), smoothstep(0,.72,above));
+                float3 sky = lerp(float3(.075,.102,.168), float3(.011,.020,.050), smoothstep(0,.78,above));
                 float2 field = float2(atan2(direction.z,direction.x) * 39.0, above * 108.0);
                 float2 cell = floor(field);
                 float salt = frac(sin(dot(cell,float2(18.42,64.13))) * 4271.65);

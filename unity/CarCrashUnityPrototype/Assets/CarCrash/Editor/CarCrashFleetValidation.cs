@@ -26,6 +26,7 @@ namespace CarCrashEditor
         private static readonly List<string> Checks=new();
         private static readonly List<string> Failures=new();
         private static readonly List<DriveResult> Drives=new();
+        private static readonly Dictionary<string, (bool had, int value)> TuningPreferences = new();
         private static DriveResult _drive;
         [Serializable] private class DriveResult { public string vehicle; public int grounded; public float forwardMetres,reverseMetres,reverseHeading; }
         [Serializable] private class Report { public bool passed; public string[] checks,failures; public DriveResult[] drives; }
@@ -41,6 +42,7 @@ namespace CarCrashEditor
         {
             _stage=0; _index=0; _next=0; _deadline=EditorApplication.timeSinceStartup+180;
             Checks.Clear(); Failures.Clear(); Drives.Clear(); _runtimeError=null;
+            TuningPreferences.Clear();
             EditorApplication.update-=Tick; EditorApplication.update+=Tick;
             Application.logMessageReceived-=OnLog; Application.logMessageReceived+=OnLog;
         }
@@ -72,6 +74,7 @@ namespace CarCrashEditor
                             Check(wheels.Length==4 && _session.vehicle.frontLeftVisual!=null && _session.vehicle.rearRightVisual!=null,
                                 "All four physical wheels bind to the selected model: "+spec.id);
                         }
+                        CheckGarageUpgrades();
                         _session.SelectVehicle(0);
                         foreach(var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))traffic.gameObject.SetActive(false);
                         foreach(var person in Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None))person.gameObject.SetActive(false);
@@ -153,11 +156,79 @@ namespace CarCrashEditor
             if(down)ExecuteEvents.Execute(GameObject.Find(name),pointer,ExecuteEvents.pointerDownHandler);
             else ExecuteEvents.Execute(GameObject.Find(name),pointer,ExecuteEvents.pointerUpHandler);
         }
+
+        private static void CheckGarageUpgrades()
+        {
+            var garage = _session.Garage;
+            var pickup = Array.FindIndex(garage.vehicles, spec => spec.id == "pickup");
+            var monster = Array.FindIndex(garage.vehicles, spec => spec.id == "monster");
+            var hauler = Array.FindIndex(garage.vehicles, spec => spec.id == "hauler");
+            foreach (var index in new[] { pickup, monster, hauler })
+                foreach (GarageUpgrade option in Enum.GetValues(typeof(GarageUpgrade)))
+                {
+                    var key = GarageCustomization.UpgradeKey(garage.vehicles[index].id, option);
+                    TuningPreferences[key] = (PlayerPrefs.HasKey(key), PlayerPrefs.GetInt(key));
+                    PlayerPrefs.DeleteKey(key);
+                }
+
+            _session.SelectVehicle(pickup);
+            GameObject.Find("Customize ride").GetComponent<Button>().onClick.Invoke();
+            Check(_session.Hud.CustomizationVisible && GameObject.Find("Customize Wheels") != null,
+                "The live garage opens its wheel, light, and body options");
+            GameObject.Find("Next upgrade choice 1").GetComponent<Button>().onClick.Invoke();
+            Check(garage.GetUpgrade(GarageUpgrade.Wheels) == 1 && HasWheelFaces(garage, "Split spoke"),
+                "Pickup wheel selection replaces all four visible faces with split spokes");
+            GameObject.Find("Customize Lights").GetComponent<Button>().onClick.Invoke();
+            GameObject.Find("Next upgrade choice 1").GetComponent<Button>().onClick.Invoke();
+            Check(garage.GetUpgrade(GarageUpgrade.Headlights) == 1 && garage.HeadlightColor.r > garage.HeadlightColor.b &&
+                garage.TryGetHeadlightLenses(out var left, out var right) && left.x < -.1f && right.x > .1f,
+                "Warm headlight selection uses the vehicle's separate front lens positions");
+            GameObject.Find("Close ride customization").GetComponent<Button>().onClick.Invoke();
+
+            _session.SelectVehicle(monster);
+            Check(garage.GetUpgrade(GarageUpgrade.Wheels) == 0 && garage.GetUpgrade(GarageUpgrade.Headlights) == 0,
+                "Switching vehicles keeps the pickup's saved upgrades independent");
+            garage.SetUpgrade(GarageUpgrade.Wheels, 3);
+            garage.SetUpgrade(GarageUpgrade.Sidewalls, 1);
+            garage.SetUpgrade(GarageUpgrade.BodyKit, 2);
+            var tires = Array.FindAll(garage.visualRoot.GetComponentsInChildren<MeshFilter>(), filter => filter.name == "Custom tyre sidewall");
+            Check(HasWheelFaces(garage, "Beadlock") && tires.Length == 4 && GameObject.Find("Garage body kit") != null &&
+                Mathf.Approximately(_session.vehicle.frontLeftCollider.radius, garage.Current.wheelRadius),
+                "Monster beadlocks, whitewalls, and recovery fittings preserve the physical wheel radius");
+
+            _session.SelectVehicle(hauler);
+            garage.SetUpgrade(GarageUpgrade.AuxiliaryLights, 2);
+            garage.SetUpgrade(GarageUpgrade.Headlights, 3);
+            var ledBar = GameObject.Find("LED bar housing");
+            Check(ledBar != null && garage.HeadlightRange > 55f && garage.HeadlightIntensityScale > 1f,
+                "Atlas can fit an LED bar and a distinct rally beam profile");
+
+            _session.SelectVehicle(pickup);
+            Check(HasWheelFaces(garage, "Split spoke") && garage.GetUpgrade(GarageUpgrade.Headlights) == 1,
+                "Pickup options reload when the model is reinstantiated");
+            RestoreTuningPreferences();
+        }
+
+        private static bool HasWheelFaces(VehicleGarage garage, string name) =>
+            Array.FindAll(garage.visualRoot.GetComponentsInChildren<MeshFilter>(),
+                filter => filter.name == "Custom rim face" && filter.sharedMesh != null && filter.sharedMesh.name == name).Length == 4;
+
+        private static void RestoreTuningPreferences()
+        {
+            foreach (var (key, entry) in TuningPreferences)
+            {
+                if (entry.had) PlayerPrefs.SetInt(key, entry.value);
+                else PlayerPrefs.DeleteKey(key);
+            }
+            TuningPreferences.Clear();
+            PlayerPrefs.Save();
+        }
         private static void Check(bool condition,string message)
         { (condition?Checks:Failures).Add(message);Debug.Log("[Fleet QA] "+(condition?"PASS ":"FAIL ")+message); }
         private static void Complete()
         {
             EditorApplication.update-=Tick; Application.logMessageReceived-=OnLog; SessionState.SetBool(ActiveKey,false);
+            RestoreTuningPreferences();
             if(_hadVehicle)PlayerPrefs.SetInt("CarCrash.Vehicle",_oldVehicle);else PlayerPrefs.DeleteKey("CarCrash.Vehicle");
             PlayerPrefs.Save(); Directory.CreateDirectory("Builds/Validation");
             var report=new Report{passed=Failures.Count==0,checks=Checks.ToArray(),failures=Failures.ToArray(),drives=Drives.ToArray()};

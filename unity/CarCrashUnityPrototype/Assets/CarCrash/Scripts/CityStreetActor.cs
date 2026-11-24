@@ -12,34 +12,19 @@ namespace CarCrash
         public bool IsFleeing => _waypoint >= 0 && _waypoint < _escapeRoute.Length;
         public bool HasEvacuated => _waypoint >= 0 && _waypoint == _escapeRoute.Length;
 
-        private Transform _head;
-        private Quaternion _headRest;
         private Renderer[] _renderers;
-        private Animation _animation;
+        private PedestrianGait _gait;
         private Rigidbody _car;
         private Vector3[] _escapeRoute = System.Array.Empty<Vector3>();
         private int _waypoint = -1;
-        private float _next;
-        private bool _visible = true;
+        private float _next, _fleeSpeed;
         private bool IsPerformer => performanceProps != null && performanceProps.Length > 0;
 
         private void Start()
         {
             _car=player!=null ? player.GetComponent<Rigidbody>() : null;
-            _animation=GetComponentInChildren<Animation>();
-            if(_animation!=null&&poseClip!=null)
-            {
-                _animation.AddClip(poseClip,"Street movement");
-                _animation.Play("Street movement");
-                var state=_animation["Street movement"];
-                state.time=poseClip.length*.15f;
-                state.speed=0f;
-                state.wrapMode=WrapMode.Loop;
-                _animation.Sample();
-                _animation.enabled=false;
-            }
-            foreach(var bone in GetComponentsInChildren<Transform>())
-                if(bone.name.ToLowerInvariant()=="head"){_head=bone;_headRest=bone.localRotation;break;}
+            var animation = GetComponentInChildren<Animation>();
+            if (animation != null && poseClip != null) _gait = new PedestrianGait(animation, poseClip, 1.3f);
             _renderers=GetComponentsInChildren<Renderer>();
         }
 
@@ -53,27 +38,38 @@ namespace CarCrash
                     var door=shop.transform.TransformPoint(shop.egressLocalPosition);
                     var passage=new Vector3(transform.position.x,transform.position.y,door.z);
                     _escapeRoute=new[] {passage,door,escapePoint};
-                    BeginFleeing();
+                    _waypoint = 0;
                 }
                 else if(IsPerformer&&CityPedestrian.VehicleApproaching(_car,transform.position))
                 {
                     _escapeRoute=new[] {escapePoint};
                     foreach(var prop in performanceProps)if(prop!=null)prop.gameObject.SetActive(false);
-                    BeginFleeing();
+                    _waypoint = 0;
                 }
             }
             if(!IsFleeing)return;
-            var direction=_escapeRoute[_waypoint]-transform.position;
-            direction.y=0f;
-            if(direction.sqrMagnitude<.025f)
+            var step = Time.deltaTime;
+            var position = transform.position;
+            var direction = _escapeRoute[_waypoint] - position;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < .05f)
             {
                 _waypoint++;
-                if(HasEvacuated&&_animation!=null)_animation.enabled=false;
-                return;
+                if (HasEvacuated)
+                {
+                    _gait?.SetSpeed(0f);
+                    return;
+                }
+                direction = _escapeRoute[_waypoint] - position;
+                direction.y = 0f;
             }
-            var turn=Quaternion.LookRotation(direction);
-            transform.rotation=Quaternion.RotateTowards(transform.rotation,turn,620f*Time.deltaTime);
-            transform.position=Vector3.MoveTowards(transform.position,_escapeRoute[_waypoint],3.85f*Time.deltaTime);
+            var heading = transform.rotation;
+            var pace = PedestrianGait.FacingSpeed(ref heading, direction, 4.1f, 440f, step);
+            _fleeSpeed = Mathf.MoveTowards(_fleeSpeed, pace, 12f * step);
+            var travel = Mathf.Min(_fleeSpeed, pace) * step;
+            var next = Vector3.MoveTowards(position, position + direction, travel);
+            transform.SetPositionAndRotation(next, heading);
+            _gait?.SetSpeed(Vector3.Distance(position, next) / step);
         }
 
         private bool CarInShop()
@@ -86,20 +82,9 @@ namespace CarCrash
             return depth>.32f&&depth<7.55f&&Mathf.Abs(car.z-centerZ)<shop.size.z*.5f&&car.y<3f;
         }
 
-        private void BeginFleeing()
-        {
-            _waypoint=0;
-            if(_animation==null||poseClip==null)return;
-            _animation.enabled=_visible;
-            _animation["Street movement"].speed=2.5f;
-            _animation.Play("Street movement");
-        }
-
         private void LateUpdate()
         {
             var distance=player==null ? 0 : (transform.position-player.position).sqrMagnitude;
-            if(_head!=null&&_waypoint<0&&distance<45*45&&Time.timeScale>0)
-                _head.localRotation=_headRest*Quaternion.Euler(0,Mathf.Sin(Time.time*.5f+transform.position.z)*13f,Mathf.Sin(Time.time*.8f)*1.7f);
             if(IsPerformer&&_waypoint<0&&distance<60*60)
             {
                 for(var i=0;i<performanceProps.Length;i++)
@@ -112,19 +97,10 @@ namespace CarCrash
                 }
             }
             if(Time.unscaledTime<_next)return;_next=Time.unscaledTime+.4f;
-            _visible=distance<90*90;
+            var visible = distance < 90 * 90;
             foreach(var renderer in _renderers)
-            {renderer.enabled=_visible;renderer.shadowCastingMode=distance<38*38 ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;}
-            if(_animation!=null)
-            {
-                var animate=_visible&&IsFleeing;
-                if(animate&&!_animation.enabled)
-                {
-                    _animation.enabled=true;
-                    _animation.Play("Street movement");
-                }
-                else if(!animate)_animation.enabled=false;
-            }
+            {renderer.enabled=visible;renderer.shadowCastingMode=distance<38*38 ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;}
+            _gait?.SetVisible(visible && (IsFleeing || distance < 48 * 48));
         }
     }
 }

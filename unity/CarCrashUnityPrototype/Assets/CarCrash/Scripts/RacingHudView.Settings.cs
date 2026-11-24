@@ -103,13 +103,13 @@ namespace CarCrash
             _settingsHint = Label(panel.transform,"",pad,contentBottom+6f,width-2f*pad,footer-56f,14,Muted);
             var doneHeight = Mathf.Max(42f, Units(40f));
             ActionButton(panel.transform,"Close settings","Done",pad,height-doneHeight-12f,width-2f*pad,doneHeight,
-                ()=>ShowSettings(false),Accent,Ink);
+                ()=>ShowSettings(false),Primary,Ink);
         }
 
         private Button SettingsOption(Transform parent, string name, string title, float x, float y, float width, float height,
             UnityAction action, out Text state)
         {
-            var button = ActionButton(parent,name,title,x,y,width,height,action,new Color(.065f,.105f,.17f,.99f),White,16);
+            var button = ActionButton(parent,name,title,x,y,width,height,action,TileColor,White,16);
             var titleText = button.GetComponentInChildren<Text>();
             var stateWidth = Mathf.Max(58f, Units(47f));
             titleText.alignment = TextAnchor.MiddleLeft;

@@ -19,11 +19,12 @@ namespace CarCrash
 
         private Rigidbody _body;
         private Animation _animation;
+        private PedestrianGait _gait;
         private Renderer[] _renderers;
         private Rigidbody _carBody;
         private PedestrianRagdoll _ragdoll;
         private Vector3 _destination, _previous, _escape;
-        private float _stumbleUntil, _limpUntil, _nextVisibility, _runUntil;
+        private float _stumbleUntil, _limpUntil, _nextVisibility, _runUntil, _nextEscape, _nextRouteChange;
         private readonly RaycastHit[] _obstacles = new RaycastHit[12];
 
         private void Start()
@@ -35,12 +36,7 @@ namespace CarCrash
             _destination = Vector3.Dot(transform.forward, pointB - pointA) > 0 ? pointB : pointA;
             _previous = transform.position;
             if (_animation != null && walkClip != null)
-            {
-                // Legacy clip aliases are runtime state and do not survive prefab saving.
-                _animation.AddClip(walkClip, "Walk");
-                _animation["Walk"].wrapMode = WrapMode.Loop;
-                _animation.Play("Walk");
-            }
+                _gait = new PedestrianGait(_animation, walkClip, sourceWalkSpeed);
         }
 
         private void FixedUpdate()
@@ -59,50 +55,72 @@ namespace CarCrash
                 delta = _destination - position;
                 delta.y = 0;
             }
-            if (VehicleApproaching(_carBody,position))
+            if (VehicleApproaching(_carBody, position))
             {
-                if (Time.time >= _runUntil || (_escape-position).sqrMagnitude < .65f)
-                    _escape = EscapePoint(position,_carBody.position);
-                _runUntil = Time.time + 2.1f;
+                if (Time.time >= _runUntil || (Time.time >= _nextEscape && (_escape - position).sqrMagnitude < .65f))
+                {
+                    _escape = EscapePoint(position);
+                    _nextEscape = Time.time + .85f;
+                }
+                _runUntil = Time.time + 1.8f;
             }
             Yielding = Time.time < _runUntil;
-            if(Yielding)
+            if (Yielding)
             {
-                delta = _escape-position;
+                delta = _escape - position;
                 delta.y = 0;
             }
             LastObstacle = "";
-            var blocked = Blocked(position,delta);
-            if(blocked&&Yielding)
+            var blocked = Blocked(position, delta, Yielding ? .95f : .65f, out var obstacle);
+            if (blocked)
             {
-                var safer = new Vector3(avenueCenterX+Mathf.Sign(pointA.x-avenueCenterX)*11.78f,position.y,_escape.z);
-                var inside = safer-position;
-                if(!Blocked(position,inside))
+                LastObstacle = obstacle.name;
+                if (!Yielding && obstacle.attachedRigidbody == null && Time.time >= _nextRouteChange)
                 {
-                    _escape = safer;
-                    delta = inside;
-                    blocked = false;
+                    _destination = _destination == pointA ? pointB : pointA;
+                    _nextRouteChange = Time.time + .55f;
+                }
+                else if (Yielding && Time.time >= _nextEscape)
+                {
+                    _escape = EscapePoint(position);
+                    _nextEscape = Time.time + .55f;
                 }
             }
-            var desired = blocked || delta.sqrMagnitude<.06f ? Vector3.zero : delta.normalized*(Yielding?4.2f:walkSpeed)*(IsLimping?.46f:1f);
+            var heading = _body.rotation;
+            var pace = (Yielding ? 4.25f : walkSpeed) * (IsLimping ? .46f : 1f);
+            var speed = blocked ? 0f : PedestrianGait.FacingSpeed(ref heading, delta, pace, Yielding ? 330f : 250f, Time.fixedDeltaTime);
+            var desired = (heading * Vector3.forward) * speed;
             var velocity = _body.linearVelocity;
-            var planar = Vector3.MoveTowards(new Vector3(velocity.x, 0, velocity.z), desired, (Yielding?10f:4f)*Time.fixedDeltaTime);
+            var planar = Vector3.MoveTowards(new Vector3(velocity.x, 0, velocity.z), desired, (Yielding ? 9f : 4f) * Time.fixedDeltaTime);
             _body.linearVelocity = new Vector3(planar.x, velocity.y, planar.z);
-            if (planar.sqrMagnitude > 0.05f)
-                _body.MoveRotation(Quaternion.Slerp(_body.rotation, Quaternion.LookRotation(planar), Time.fixedDeltaTime * 7f));
-            if (_animation != null && _animation["Walk"] != null)
-                _animation["Walk"].speed = planar.magnitude / Mathf.Max(.1f,sourceWalkSpeed);
+            _body.MoveRotation(heading);
+            _gait?.SetSpeed(planar.magnitude);
         }
 
-        private Vector3 EscapePoint(Vector3 position,Vector3 car)
+        private Vector3 EscapePoint(Vector3 position)
         {
-            var start = Mathf.Min(pointA.z,pointB.z);
-            var end = Mathf.Max(pointA.z,pointB.z);
-            var z = Mathf.Clamp(position.z+Mathf.Sign(position.z-car.z)*10f,start,end);
-            if(Mathf.Abs(z-position.z)<.65f)z=Mathf.Abs(position.z-start)>Mathf.Abs(position.z-end)?start:end;
-            var sidewalkSide = Mathf.Sign(pointA.x-avenueCenterX);
-            var x = avenueCenterX+sidewalkSide*(Mathf.Abs(car.x-avenueCenterX)<11.05f?11.8f:9.6f);
-            return new Vector3(x,position.y,z);
+            if (_carBody == null) return position;
+            var start = Mathf.Min(pointA.z, pointB.z);
+            var end = Mathf.Max(pointA.z, pointB.z);
+            var threat = _carBody.position + Vector3.ProjectOnPlane(_carBody.linearVelocity, Vector3.up) * .38f;
+            var side = Mathf.Sign(pointA.x - avenueCenterX);
+            var away = Mathf.Sign(position.z - threat.z);
+            var lane = Mathf.Abs(threat.x - avenueCenterX) < 11.25f ? 11.8f : 10.9f;
+            var safest = position;
+            var best = float.NegativeInfinity;
+            for (var direction = -1; direction <= 1; direction += 2)
+            {
+                var z = Mathf.Clamp(position.z + direction * 7f, start, end);
+                var point = new Vector3(avenueCenterX + side * lane, position.y, z);
+                var delta = point - position;
+                if (delta.sqrMagnitude < .65f || Blocked(position, delta, .7f, out _)) continue;
+                var score = Vector3.Distance(threat, point) + (direction == away ? 1f : 0f)
+                    + Vector3.Dot(transform.forward, delta.normalized) * .7f;
+                if (score <= best) continue;
+                best = score;
+                safest = point;
+            }
+            return safest;
         }
 
         internal static bool VehicleApproaching(Rigidbody car,Vector3 position)
@@ -118,18 +136,18 @@ namespace CarCrash
             return (delta-movement*reach).sqrMagnitude<28f;
         }
 
-        private bool Blocked(Vector3 position,Vector3 delta)
+        private bool Blocked(Vector3 position, Vector3 delta, float distance, out Collider obstacle)
         {
-            if(delta.sqrMagnitude<.06f)return false;
+            obstacle = null;
+            if (delta.sqrMagnitude < .06f) return false;
             var count = Physics.SphereCastNonAlloc(position + Vector3.up * 0.85f, 0.23f, delta.normalized,
-                _obstacles, Yielding?.95f:.65f, ~0, QueryTriggerInteraction.Ignore);
+                _obstacles, Mathf.Min(distance, delta.magnitude), ~0, QueryTriggerInteraction.Ignore);
             for (var i = 0; i < count; i++)
             {
                 var collider = _obstacles[i].collider;
                 if (collider.attachedRigidbody == _body || collider.transform.IsChildOf(transform)) continue;
                 if (collider.bounds.max.y < position.y + 0.4f) continue;
-                LastObstacle = collider.name;
-                if (!Yielding && collider.attachedRigidbody == null) _destination = _destination == pointA ? pointB : pointA;
+                obstacle = collider;
                 return true;
             }
             return false;
@@ -146,7 +164,7 @@ namespace CarCrash
                 renderer.enabled = distance < 100f;
                 renderer.shadowCastingMode = distance < 38f ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
             }
-            if (_animation != null) _animation.enabled = !IsDown && distance < 100f;
+            _gait?.SetVisible(!IsDown && distance < 100f);
         }
 
         private void OnCollisionEnter(Collision collision)
@@ -158,7 +176,7 @@ namespace CarCrash
             {
                 _stumbleUntil = Time.time + .48f;
                 _limpUntil = Time.time + 5f;
-                if (_animation != null && _animation["Walk"] != null) _animation["Walk"].speed = .25f;
+                _gait?.SetSpeed(.2f);
                 return;
             }
 

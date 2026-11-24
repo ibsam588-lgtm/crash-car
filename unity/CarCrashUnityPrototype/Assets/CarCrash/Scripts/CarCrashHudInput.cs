@@ -75,8 +75,6 @@ namespace CarCrash
             _nextMenu = RunPhase.Home;
             _garageForMission = Phase == RunPhase.Showroom && IsMission;
             _freeDriveBest = PlayerPrefs.GetInt("CarCrash.BestImpactScore", 0);
-            PaintIndex = Mathf.Clamp(PlayerPrefs.GetInt("CarCrash.Paint", 0), 0, PaintColors.Length - 1);
-            if (!PaintUnlocked(PaintIndex)) PaintIndex = 0;
             Garage = vehicle.GetComponent<VehicleGarage>();
             if (Garage != null) Garage.Select(PlayerPrefs.GetInt("CarCrash.Vehicle", 0));
             Navigation=gameObject.AddComponent<CityNavigator>();Navigation.player=vehicle.transform;
@@ -84,7 +82,7 @@ namespace CarCrash
             PlayGames = gameObject.AddComponent<ElysianPlayGames>();
             Soundtrack = ElysianSoundtrack.GetOrCreate();
             _motionSteering = new MotionSteering();
-            ApplyPaint(PaintIndex);
+            RestoreVehiclePaint();
             scoring.SetSimulationPaused(true);
             CameraRig.SetShowcase(true);
             CameraRig.HomeScreen = Phase == RunPhase.Home;
@@ -113,6 +111,7 @@ namespace CarCrash
             {
                 if(MapVisible)CloseMap();
                 else if (Hud.HelpVisible) Hud.ShowHelp(false);
+                else if (Hud.CustomizationVisible) Hud.ShowCustomization(false);
                 else if (Phase == RunPhase.Showroom) ReturnFromGarage();
                 else if (Phase == RunPhase.Briefing) ReturnHome();
                 else if (Phase == RunPhase.Driving) PauseRun();
@@ -126,7 +125,7 @@ namespace CarCrash
             }
             if (Input.GetKeyDown(KeyCode.Return))
             {
-                if (Phase == RunPhase.Showroom) ConfirmGarage();
+                if (Phase == RunPhase.Showroom && !Hud.CustomizationVisible) ConfirmGarage();
                 else if (Phase == RunPhase.Briefing && !Hud.HelpVisible && !_openedBriefingThisFrame) BeginRun();
             }
             _openedBriefingThisFrame = false;
@@ -365,8 +364,12 @@ namespace CarCrash
         {
             if (Phase != RunPhase.Showroom || !PaintUnlocked(index)) return;
             ApplyPaint(index);
-            PlayerPrefs.SetInt("CarCrash.Paint", index);
-            PlayerPrefs.Save();
+            if (Garage != null) Garage.RememberPaint(index);
+            else
+            {
+                PlayerPrefs.SetInt("CarCrash.Paint", index);
+                PlayerPrefs.Save();
+            }
             Hud.RefreshPaint();
         }
 
@@ -378,15 +381,36 @@ namespace CarCrash
             if (Phase != RunPhase.Showroom || Garage == null || index < 0 || index >= Garage.vehicles.Length) return;
             ReleaseInput();
             Garage.Select(index);
-            ApplyPaint(PaintIndex);
+            RestoreVehiclePaint();
             CameraRig.SetShowcase(true);
             PlayerPrefs.SetInt("CarCrash.Vehicle", index);
             PlayerPrefs.Save();
+            Hud.RefreshPaint();
             Hud.RefreshVehicle();
+            Hud.RefreshCustomization();
         }
+
+        public void StepGarageUpgrade(GarageUpgrade upgrade, int direction)
+        {
+            if (Phase != RunPhase.Showroom || Garage?.Current == null) return;
+            var options = GarageCustomization.Options(Garage.Current.id, upgrade);
+            if (options.Count < 2) return;
+            var next = (Garage.GetUpgrade(upgrade) + (direction < 0 ? -1 : 1) + options.Count) % options.Count;
+            if (Garage.SetUpgrade(upgrade, next) && upgrade == GarageUpgrade.PaintFinish) ApplyPaint(PaintIndex);
+        }
+
+        private void RestoreVehiclePaint()
+        {
+            var legacy = PlayerPrefs.GetInt("CarCrash.Paint", 0);
+            var stored = Garage != null ? Garage.GetPaint(legacy) : legacy;
+            var index = Mathf.Clamp(stored, 0, PaintColors.Length - 1);
+            ApplyPaint(PaintUnlocked(index) ? index : 0);
+        }
+
         private void ApplyPaint(int index)
         {
             PaintIndex = index;
+            var finish = Garage?.GetUpgrade(GarageUpgrade.PaintFinish) ?? 0;
             // Per-material blocks preserve glass, lights, wheels and shared traffic materials.
             foreach (var renderer in vehicle.GetComponentsInChildren<Renderer>())
             {
@@ -404,8 +428,8 @@ namespace CarCrash
                     if (material.name.Contains("Shadow")) color *= 0.7f;
                     color.a = 1f;
                     _paintBlock.SetColor("_Color", color);
-                    _paintBlock.SetFloat("_Metallic", 0.38f);
-                    _paintBlock.SetFloat("_Glossiness", 0.76f);
+                    _paintBlock.SetFloat("_Metallic", GarageCustomization.BodyMetallic[finish]);
+                    _paintBlock.SetFloat("_Glossiness", GarageCustomization.BodyGloss[finish]);
                     if (material.HasProperty("_LiveryOrigin"))
                     {
                         var origin = renderer.transform.InverseTransformPoint(vehicle.transform.position);

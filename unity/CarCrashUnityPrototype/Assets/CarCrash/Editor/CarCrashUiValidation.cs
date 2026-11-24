@@ -27,8 +27,8 @@ namespace CarCrashEditor
         private static float _pausedTime;
         private static int _idleHitCount;
         private static string _runtimeError;
-        private static int _oldPaint, _oldBest, _oldVehicle, _oldExplored;
-        private static bool _hadPaint, _hadBest, _hadVehicle, _hadExplored;
+        private static int _oldPaint, _oldRoadbreakerPaint, _oldBest, _oldVehicle, _oldExplored;
+        private static bool _hadPaint, _hadRoadbreakerPaint, _hadBest, _hadVehicle, _hadExplored;
         private static bool _capturedPrefs;
         private static int? _oldMusic, _oldEffects, _oldNight;
         private static ElysianSoundtrack _soundtrack;
@@ -94,6 +94,8 @@ namespace CarCrashEditor
                         if (_session == null || _session.Hud == null) return;
                         AudioListener.volume = 0f;
                         _hadPaint = PlayerPrefs.HasKey("CarCrash.Paint");
+                        _hadRoadbreakerPaint = PlayerPrefs.HasKey(GarageCustomization.PaintKey("roadbreaker"));
+                        _oldRoadbreakerPaint = PlayerPrefs.GetInt(GarageCustomization.PaintKey("roadbreaker"));
                         _hadBest = PlayerPrefs.HasKey("CarCrash.BestImpactScore");
                         _oldPaint = PlayerPrefs.GetInt("CarCrash.Paint");
                         _oldBest = PlayerPrefs.GetInt("CarCrash.BestImpactScore");
@@ -109,6 +111,10 @@ namespace CarCrashEditor
                             "The game opens at a real home screen with the city safely paused");
                         Check(GameObject.Find("Free Drive") != null && GameObject.Find("Impact Run") != null && GameObject.Find("Open garage") != null,
                             "Home offers Free Drive, Impact Run, and the garage");
+                        var homeLogo = GameObject.Find("Coastal Circuit home logo")?.GetComponent<UnityEngine.UI.RawImage>();
+                        Check(homeLogo != null && homeLogo.texture != null && homeLogo.texture.name == "CoastalCircuit" &&
+                            homeLogo.uvRect.width > .8f && !homeLogo.raycastTarget,
+                            "Home loads the supplied wordmark with its original proportions and keeps menu input unobstructed");
                         _soundtrack = _session.Soundtrack;
                         var source = _soundtrack.GetComponent<AudioSource>();
                         Check(source.clip != null && source.clip.name == "ArcadeRush" && source.clip.length > 27f &&
@@ -873,6 +879,8 @@ namespace CarCrashEditor
             if (_capturedPrefs)
             {
                 if (_hadPaint) PlayerPrefs.SetInt("CarCrash.Paint", _oldPaint); else PlayerPrefs.DeleteKey("CarCrash.Paint");
+                if (_hadRoadbreakerPaint) PlayerPrefs.SetInt(GarageCustomization.PaintKey("roadbreaker"), _oldRoadbreakerPaint);
+                else PlayerPrefs.DeleteKey(GarageCustomization.PaintKey("roadbreaker"));
                 if (_hadBest) PlayerPrefs.SetInt("CarCrash.BestImpactScore", _oldBest); else PlayerPrefs.DeleteKey("CarCrash.BestImpactScore");
                 if (_hadVehicle) PlayerPrefs.SetInt("CarCrash.Vehicle", _oldVehicle); else PlayerPrefs.DeleteKey("CarCrash.Vehicle");
                 if(_hadExplored)PlayerPrefs.SetInt("CarCrash.ExploredPlaces",_oldExplored);else PlayerPrefs.DeleteKey("CarCrash.ExploredPlaces");

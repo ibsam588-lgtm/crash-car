@@ -22,6 +22,7 @@ namespace CarCrashEditor
         private static BoxCollider _wall;
         private static Collider[] _cityColliders;
         private static readonly List<Collider> _contactTargets = new();
+        private static readonly string[] Gaits = { "Idle", "Jog", "Run" };
         private static int _contactIndex;
         private static int _routeIndex;
         private static PhysicalQaContactProbe _probe;
@@ -77,12 +78,18 @@ namespace CarCrashEditor
                     case 0:
                         _session = Object.FindFirstObjectByType<CarCrashHudInput>();
                         if (_session == null || _session.Hud == null) return;
-                        foreach (var traffic in Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None))
+                        var trafficCars = Object.FindObjectsByType<MovingTrafficObstacle>(FindObjectsSortMode.None);
+                        foreach (var traffic in trafficCars)
+                        {
+                            if (traffic.GetComponent<TrafficCrashVisual>() != null) CheckDriver(traffic.transform);
                             traffic.gameObject.SetActive(false); // Isolate steering from traffic contacts.
+                        }
                         _people = Object.FindObjectsByType<CityPedestrian>(FindObjectsSortMode.None);
                         Result.pedestrians = _people.Length;
                         Check(_people.Length == 120, "The expanded city has 120 human pedestrians on sidewalk routes");
                         _session.Garage.Select(0);
+                        CheckDriver(_session.vehicle.transform);
+                        var verifiedGaits = new HashSet<(AnimationClip WalkSource, string Gait)>();
                         foreach (var person in _people)
                         {
                             var animation = person.GetComponentInChildren<Animation>();
@@ -90,7 +97,18 @@ namespace CarCrashEditor
                             Check(animation != null && person.walkClip != null && person.walkClip.length > 1.5f && renderers.Length > 0 &&
                                 person.GetComponent<CapsuleCollider>() != null && person.GetComponent<Rigidbody>() != null,
                                 "Pedestrian retains a skinned model, walk clip, and physical body: " + person.name);
+                            if (animation == null) continue;
+                            foreach (var gait in Gaits)
+                            {
+                                var clip = animation[gait]?.clip;
+                                var valid = clip != null && HasGaitBinding(animation, clip);
+                                // The legacy Animation component creates distinct aliased clips on every actor.
+                                if (!valid || verifiedGaits.Add((person.walkClip, gait)))
+                                    Check(valid, "Legacy motion binds to the existing human rig: " + person.name + " / " + gait);
+                            }
                         }
+                        Check(verifiedGaits.Count == 3 * Gaits.Length,
+                            "Each of the three human rigs has its own idle, jog and run motion. Verified pairs: " + verifiedGaits.Count);
                         _session.SendMessage("OnApplicationFocus", true);
                         _session.StartFreeDrive();
                         _stage = 1;
@@ -140,7 +158,11 @@ namespace CarCrashEditor
                                 "Pedestrian walks on the sidewalk rather than the road: " + person.name +
                                 " travel=" + person.DistanceWalked.ToString("F2") + " position=" + person.transform.position + " obstacle=" + person.LastObstacle);
                             if (Vector3.Distance(person.transform.position, _session.vehicle.transform.position) < 80f)
-                                Check(person.GetComponentInChildren<Animation>().IsPlaying("Walk"), "The nearby human plays a real walk cycle: " + person.name);
+                            {
+                                var animation = person.GetComponentInChildren<Animation>();
+                                Check(animation.IsPlaying("Walk") || animation.IsPlaying("Jog") || animation.IsPlaying("Run") ||
+                                    animation.IsPlaying("Idle"), "The nearby human plays a motion-capture cycle: " + person.name);
+                            }
                         }
                         _session.vehicle.RecoverAt(new Vector3(2.3f, 0.12f, -10f), Quaternion.identity);
                         _nextAt = EditorApplication.timeSinceStartup + 0.5;
@@ -221,6 +243,9 @@ namespace CarCrashEditor
                         Check(travelIntoStore>.25f,"The car crosses the former pane plane into the store; travel="+travelIntoStore.ToString("F2"));
                         Check(_occupant.shop.Evacuating && (_occupant.IsFleeing||_occupant.HasEvacuated),
                             "The storefront impact starts the occupant's evacuation");
+                        var occupantAnimation = _occupant.GetComponentInChildren<Animation>();
+                        Check(occupantAnimation.IsPlaying("Run") || occupantAnimation.IsPlaying("Jog"),
+                            "The evacuating attendant uses a running gait");
                         _stage=18;
                         break;
                     case 18:
@@ -292,6 +317,30 @@ namespace CarCrashEditor
             var count = 0;
             foreach (var wheel in _session.vehicle.GetComponentsInChildren<WheelCollider>()) if (wheel.isGrounded) count++;
             return count;
+        }
+
+        private static void CheckDriver(Transform chassis)
+        {
+            var driver = chassis.Find("Cabin driver");
+            var mesh = driver == null ? null : driver.GetComponent<MeshFilter>();
+            Check(mesh != null && mesh.sharedMesh != null && mesh.sharedMesh.vertexCount > 100 &&
+                driver.GetComponent<MeshRenderer>().enabled,
+                "A seated driver is drawn in the cabin: " + chassis.name);
+        }
+
+        private static bool HasGaitBinding(Animation animation, AnimationClip clip)
+        {
+            if (!clip.legacy || clip.length <= 1f) return false;
+            var matchingLegs = new HashSet<string>();
+            foreach (var binding in AnimationUtility.GetCurveBindings(clip))
+            {
+                if ((!binding.propertyName.Contains("Rotation", StringComparison.Ordinal) &&
+                     !binding.propertyName.Contains("Euler", StringComparison.OrdinalIgnoreCase)) ||
+                    !binding.path.Contains("/thigh_", StringComparison.Ordinal)) continue;
+                if (animation.transform.Find(binding.path) != null && matchingLegs.Add(binding.path) && matchingLegs.Count == 2)
+                    return true;
+            }
+            return false;
         }
 
         private static void CheckWorldShapes()
